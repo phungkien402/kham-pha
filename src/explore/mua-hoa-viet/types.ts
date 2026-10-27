@@ -2,6 +2,8 @@ import type { SeasonFlower } from './season';
 import type { ResponsiveImage } from './images';
 
 export type Region = 'bac' | 'trung' | 'nam';
+/** Bộ lọc miền / vùng bản đồ: một vùng hoặc cả nước. */
+export type Filter = 'all' | Region;
 
 /** Phần dữ liệu loài hoa mà trang chính cần (truyền vào island Svelte). */
 export interface FlowerLite extends SeasonFlower {

@@ -1,26 +1,42 @@
 <script lang="ts">
-  import type { MapSpot } from './types';
+  import type { Snippet } from 'svelte';
+  import { untrack } from 'svelte';
+  import RegionSeg from './RegionSeg.svelte';
+  import type { Filter, MapSpot } from './types';
+
+  type View = number[];
 
   interface Props {
     spots: MapSpot[];
     /** Trang chi tiết loài: không cần link sang chính loài đang xem. */
     currentSlug?: string;
     ratio: number;
-    src: string;
-    label: string;
+    /** Khung nhìn từng vùng, theo phần trăm khung bản đồ đầy đủ: [x, y, rộng, cao]. */
+    views: Record<Filter, View>;
+    /** Kích thước SVG đầy đủ [rộng, cao], để đổi phần trăm sang viewBox. */
+    size: [number, number];
+    region?: Filter;
+    /** Bản đồ nền (SVG vẽ lúc build, truyền qua slot). */
+    children?: Snippet;
   }
 
-  let { spots, currentSlug, ratio, src, label }: Props = $props();
+  let { spots, currentSlug, ratio, views, size, region = $bindable('all'), children }: Props = $props();
 
-  // Các điểm gần nhau hơn MIN_GAP (px, tính trên khung ~300px) được GỘP thành một nút đặt ở vị trí
+  // Các điểm gần nhau hơn MIN_GAP (px, tính trên khung ~300px SAU khi zoom) được GỘP thành một nút đặt ở vị trí
   // trung bình — không đẩy lệch chấm, vì đẩy lệch làm sai vị trí địa lý (vd Hồ Tây bị đẩy sang tận Thái Bình).
   const REF_W = 300;
   const MIN_GAP = 28;
   type Cluster = { key: string; spots: MapSpot[]; x: number; y: number };
+
+  const target = $derived(views[region]);
+
+  // Gộp theo khung nhìn ĐÍCH (không theo khung đang chạy chuyển động) để nút không nhảy giữa chừng.
   const clusters = $derived.by(() => {
-    const toPx = (s: MapSpot) => ({ x: (s.x / 100) * REF_W, y: (s.y / 100) * (REF_W / ratio) });
+    const [vx, vy, vw, vh] = target;
+    const inView = (s: MapSpot) => s.x >= vx - 3 && s.x <= vx + vw + 3 && s.y >= vy - 3 && s.y <= vy + vh + 3;
+    const toPx = (s: MapSpot) => ({ x: ((s.x - vx) / vw) * REF_W, y: ((s.y - vy) / vh) * (REF_W / ratio) });
     const groups: { spots: MapSpot[]; px: { x: number; y: number }[] }[] = [];
-    for (const s of spots) {
+    for (const s of spots.filter(inView)) {
       const p = toPx(s);
       const g = groups.find((g) => {
         const cx = g.px.reduce((a, q) => a + q.x, 0) / g.px.length;
@@ -36,10 +52,54 @@
       (g): Cluster => ({
         key: g.spots.map((s) => s.slug).join('+'),
         spots: g.spots,
-        x: (g.spots.reduce((a, s) => a + s.x, 0) / g.spots.length),
-        y: (g.spots.reduce((a, s) => a + s.y, 0) / g.spots.length),
+        x: g.spots.reduce((a, s) => a + s.x, 0) / g.spots.length,
+        y: g.spots.reduce((a, s) => a + s.y, 0) / g.spots.length,
       }),
     );
+  });
+
+  // Khung nhìn đang hiển thị (chạy chuyển động từ khung cũ sang khung đích).
+  let cur = $state<View>(untrack(() => [...views[region]]));
+  let wrap: HTMLElement | undefined = $state();
+  let raf = 0;
+
+  $effect(() => {
+    const to = target;
+    const from = untrack(() => [...cur]);
+    cancelAnimationFrame(raf);
+    let reduce = false;
+    try {
+      reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {}
+    if (reduce || from.every((v, i) => v === to[i])) {
+      cur = [...to];
+      return;
+    }
+    const t0 = performance.now();
+    const DURATION = 400;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - t0) / DURATION);
+      const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+      cur = from.map((v, i) => v + (to[i] - v) * e);
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  });
+
+  // SVG nền nằm trong slot (HTML tĩnh), nên đổi viewBox bằng DOM thay vì template.
+  $effect(() => {
+    const svg = wrap?.querySelector('svg');
+    if (!svg) return;
+    const [px, py, pw, ph] = cur;
+    const [aw, ah] = size;
+    svg.setAttribute('viewBox', `${(px / 100) * aw} ${(py / 100) * ah} ${(pw / 100) * aw} ${(ph / 100) * ah}`);
+    svg.dataset.region = region;
+  });
+
+  const place = (c: Cluster) => ({
+    left: ((c.x - cur[0]) / cur[2]) * 100,
+    top: ((c.y - cur[1]) / cur[3]) * 100,
   });
 
   let selectedKey = $state<string | null>(null);
@@ -60,14 +120,16 @@
   }
 </script>
 
+<div class="seg-wrap"><RegionSeg bind:region label="Chọn vùng bản đồ" /></div>
+
 <div class="frame" style:aspect-ratio={ratio} {onkeydown} role="group" aria-label="Bản đồ điểm ngắm hoa">
-  <img {src} alt={label} width="600" height={Math.round(600 / ratio)} decoding="async" />
+  <div class="base" bind:this={wrap}>{@render children?.()}</div>
   {#each clusters as c (c.key)}
     <button
       type="button"
       class="hit"
-      style:left="{c.x}%"
-      style:top="{c.y}%"
+      style:left="{place(c).left}%"
+      style:top="{place(c).top}%"
       aria-label={labelOf(c)}
       aria-expanded={c.key === selectedKey}
       onclick={() => (selectedKey = c.key === selectedKey ? null : c.key)}
@@ -113,10 +175,13 @@
     overflow: hidden;
     background: #e6eef0;
   }
-  img {
-    display: block;
-    width: 100%;
-    height: 100%;
+  .seg-wrap {
+    max-width: 420px;
+    margin: 0 auto var(--space-3);
+  }
+  .base {
+    position: absolute;
+    inset: 0;
   }
   .hit {
     position: absolute;

@@ -69,3 +69,33 @@ export const labels: { text: string; x: number; y: number; anchor: 'start' | 'mi
   { text: 'Quần đảo Trường Sa', x: num(tsCx), y: num(tsBottom + 26), anchor: 'middle' },
 ];
 export const islandBoxes = { hs, ts };
+
+// Khung nhìn (viewBox) từng vùng: hộp bao đất liền của vùng + lề 6%, nới ra cho đúng tỉ lệ khung "Cả nước"
+// để chiều cao bản đồ không đổi khi zoom.
+const REGION_PAD = 0.06;
+const viewOf = ([w, s, e, n]: number[]): number[] => {
+  const [x0, y0] = at(w, n);
+  const [x1, y1] = at(e, s);
+  let vw = (x1 - x0) * (1 + 2 * REGION_PAD);
+  let vh = (y1 - y0) * (1 + 2 * REGION_PAD);
+  const r = WIDTH / HEIGHT;
+  if (vw / vh < r) vw = vh * r;
+  else vh = vw / r;
+  return [(x0 + x1) / 2 - vw / 2, (y0 + y1) / 2 - vh / 2, vw, vh];
+};
+const regions = (data as { regions: Record<'bac' | 'trung' | 'nam', number[]> }).regions;
+export type ViewKey = 'all' | 'bac' | 'trung' | 'nam';
+/** viewBox theo đơn vị SVG (dùng khi vẽ lúc build). */
+export const VIEWS: Record<ViewKey, number[]> = {
+  all: [0, 0, WIDTH, HEIGHT],
+  bac: viewOf(regions.bac).map((v) => num(v)),
+  trung: viewOf(regions.trung).map((v) => num(v)),
+  nam: viewOf(regions.nam).map((v) => num(v)),
+};
+/** Cũng khung nhìn đó nhưng theo phần trăm khung bản đồ, cùng hệ với `toPercent`, cho island tính vị trí chấm. */
+export const VIEWS_PCT = Object.fromEntries(
+  Object.entries(VIEWS).map(([k, [x, y, w, h]]) => [
+    k,
+    [num((x / WIDTH) * 100), num((y / HEIGHT) * 100), num((w / WIDTH) * 100), num((h / HEIGHT) * 100)],
+  ]),
+) as Record<ViewKey, number[]>;

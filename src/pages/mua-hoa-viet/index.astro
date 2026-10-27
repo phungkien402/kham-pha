@@ -3,7 +3,8 @@ import { getCollection } from 'astro:content';
 import ExploreLayout from '../../layouts/ExploreLayout.astro';
 import MuaHoaViet from '../../explore/mua-hoa-viet/MuaHoaViet.svelte';
 import { responsive, SIZES } from '../../explore/mua-hoa-viet/images';
-import { HEIGHT, toPercent, WIDTH } from '../../explore/mua-hoa-viet/map/projection';
+import MapSvg from '../../explore/mua-hoa-viet/MapSvg.astro';
+import { HEIGHT, toPercent, VIEWS_PCT, WIDTH } from '../../explore/mua-hoa-viet/map/projection';
 import type { FlowerLite, PlaceLite } from '../../explore/mua-hoa-viet/types';
 
 const flowers: FlowerLite[] = await Promise.all(
@@ -40,5 +41,7 @@ const places: PlaceLite[] = (await getCollection('places')).map(({ data: p }) =>
   title="Mùa Hoa Việt"
   description="Hôm nay hoa gì đang nở? Xem mùa hoa cả năm trên bánh xe 12 tháng và chỗ ngắm hoa khắp Việt Nam."
 >
-  <MuaHoaViet client:load {flowers} {places} mapRatio={WIDTH / HEIGHT} />
+  <MuaHoaViet client:load {flowers} {places} mapRatio={WIDTH / HEIGHT} mapViews={VIEWS_PCT} mapSize={[WIDTH, HEIGHT]}>
+    <MapSvg label="Bản đồ Việt Nam, gồm quần đảo Hoàng Sa và Trường Sa, với các điểm ngắm hoa đang nở. Danh sách điểm ngắm ở bên cạnh." />
+  </MuaHoaViet>
 </ExploreLayout>

@@ -5,23 +5,24 @@
   import { monthRangeLabel } from './detail';
   import MapView from './MapView.svelte';
   import MapCredit from './MapCredit.svelte';
-  import type { FlowerLite, MapSpot, PlaceLite, Region } from './types';
+  import RegionSeg from './RegionSeg.svelte';
+  import type { Snippet } from 'svelte';
+  import type { Filter, FlowerLite, MapSpot, PlaceLite } from './types';
 
   interface Props {
     flowers: FlowerLite[];
     places: PlaceLite[];
     mapRatio: number;
+    /** Khung nhìn từng vùng của bản đồ, theo phần trăm khung đầy đủ. */
+    mapViews: Record<Filter, number[]>;
+    /** Kích thước SVG bản đồ [rộng, cao]. */
+    mapSize: [number, number];
+    /** Bản đồ nền SVG (vẽ lúc build). */
+    children?: Snippet;
   }
 
-  let { flowers, places, mapRatio }: Props = $props();
+  let { flowers, places, mapRatio, mapViews, mapSize, children }: Props = $props();
 
-  type Filter = 'all' | Region;
-  const FILTERS: { value: Filter; label: string }[] = [
-    { value: 'all', label: 'Cả nước' },
-    { value: 'bac', label: 'Bắc' },
-    { value: 'trung', label: 'Trung' },
-    { value: 'nam', label: 'Nam' },
-  ];
   const WEEKDAYS = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
   const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -119,13 +120,7 @@
     {/each}
   </div>
 
-  <div class="seg" role="group" aria-label="Lọc theo miền">
-    {#each FILTERS as opt}
-      <button type="button" aria-pressed={region === opt.value} onclick={() => (region = opt.value)}>
-        {opt.label}
-      </button>
-    {/each}
-  </div>
+  <div class="filter"><RegionSeg bind:region label="Lọc theo miền" /></div>
 </div>
 
 <section class="block" aria-labelledby="dang-no">
@@ -194,12 +189,9 @@
   <h2 id="ngam">Ngắm ở đâu</h2>
   <div class="where-wrap">
     <div class="map">
-      <MapView
-        spots={mapSpots}
-        ratio={mapRatio}
-        src="/mua-hoa-viet/ban-do.svg"
-        label="Bản đồ Việt Nam, gồm quần đảo Hoàng Sa và Trường Sa, với các điểm ngắm hoa đang nở. Danh sách điểm ngắm ở bên cạnh."
-      />
+      <MapView spots={mapSpots} ratio={mapRatio} views={mapViews} size={mapSize} bind:region>
+        {@render children?.()}
+      </MapView>
       <MapCredit />
     </div>
     <div class="spots">
@@ -306,29 +298,8 @@
     color: #faf8f5;
   }
 
-  .seg {
+  .filter {
     grid-area: filter;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 4px;
-    padding: 4px;
-    background: #efeae1;
-    border-radius: 14px;
-    max-width: 28rem;
-  }
-  .seg button {
-    min-height: 44px;
-    border: 0;
-    border-radius: 10px;
-    background: transparent;
-    font-weight: 600;
-    font-size: 0.875rem;
-    cursor: pointer;
-    color: #4a453e;
-  }
-  .seg button[aria-pressed='true'] {
-    background: #fff;
-    color: var(--color-text);
   }
   button:focus-visible,
   a:focus-visible {

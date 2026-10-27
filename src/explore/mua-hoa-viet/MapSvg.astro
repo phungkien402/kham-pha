@@ -1,0 +1,68 @@
+---
+import { bordersPath, HEIGHT, labels, outlinePath, VIEWS, WIDTH } from './map/projection';
+import type { ViewKey } from './map/projection';
+
+// Bản đồ nền vẽ lúc build, đưa vào MapView làm slot; MapView đổi viewBox khi người xem chọn vùng.
+interface Props {
+  label: string;
+  region?: ViewKey;
+}
+const { label, region = 'all' } = Astro.props;
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox={VIEWS[region].join(' ')}
+  width={WIDTH}
+  height={HEIGHT}
+  role="img"
+  aria-label={label}
+  data-region={region}
+>
+  <path d={outlinePath} class="land" vector-effect="non-scaling-stroke"></path>
+  <path d={bordersPath} class="inner" vector-effect="non-scaling-stroke"></path>
+  <g class="labels">
+    {
+      labels.map((l) => (
+        <text x={l.x} y={l.y} text-anchor={l.anchor}>
+          {l.text}
+        </text>
+      ))
+    }
+  </g>
+</svg>
+
+<style>
+  svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .land {
+    fill: #faf8f5;
+    stroke: #8d8678;
+    stroke-width: 1px;
+    stroke-linejoin: round;
+  }
+  .inner {
+    fill: none;
+    stroke: #cfc8ba;
+    stroke-width: 0.7px;
+    stroke-linejoin: round;
+  }
+  .labels {
+    font-size: 19px;
+    font-style: italic;
+    fill: #6b655b;
+    font-family: 'Be Vietnam Pro', 'Segoe UI', Arial, sans-serif;
+    transition: opacity 0.3s;
+  }
+  svg:not([data-region='all']) .labels {
+    opacity: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .labels {
+      transition: none;
+    }
+  }
+</style>
