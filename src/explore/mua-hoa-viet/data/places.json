@@ -146,5 +146,19 @@
     ],
     "lat": 10.55,
     "lng": 105.83
+  },
+  {
+    "slug": "nghia-lam",
+    "name": "Cánh đồng hướng dương TH, Nghĩa Lâm",
+    "province": "Nghệ An",
+    "region": "trung",
+    "lat": 19.4,
+    "lng": 105.33,
+    "flowers": [
+      {
+        "slug": "huong-duong",
+        "best": "Giữa T10; đợt sau quanh đầu năm"
+      }
+    ]
   }
 ]

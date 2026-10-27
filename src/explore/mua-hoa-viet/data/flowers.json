@@ -515,5 +515,39 @@
       }
     ],
     "summary": "Cúc hoạ mi là loài cúc nhỏ cánh trắng nhuỵ vàng, chỉ nở chừng hai tuần vào cuối tháng 11. Những xe hoa chở cúc hoạ mi trên phố là tín hiệu quen thuộc báo mùa đông về với Hà Nội."
+  },
+  {
+    "slug": "huong-duong",
+    "name": "Hướng dương",
+    "scientificName": "Helianthus annuus",
+    "color": "#9A7B00",
+    "verified": true,
+    "season": {
+      "start": {
+        "month": 10,
+        "day": 10
+      },
+      "peak": {
+        "month": 10,
+        "day": 17
+      },
+      "end": {
+        "month": 1,
+        "day": 10
+      }
+    },
+    "regions": [
+      "trung"
+    ],
+    "regionLabel": "Nghĩa Lâm (Nghệ An)",
+    "summary": "Những cánh đồng hướng dương rộng hàng trăm hecta của nông trại TH ở vùng Phủ Quỳ, Nghệ An được trồng thành nhiều đợt nên hoa nở nối tiếp nhau. Năm 2026, đợt đầu mở cửa đón khách miễn phí từ 14 đến 20/10; các năm trước hoa cũng nở rộ quanh dịp đầu năm mới.",
+    "photos": [
+      {
+        "alt": "Hoa hướng dương (ảnh giữ chỗ)",
+        "author": "Chưa có",
+        "license": "Chưa có",
+        "status": "pending"
+      }
+    ]
   }
 ]

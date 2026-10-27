@@ -74,6 +74,20 @@ Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đú
   - Nhãn "Quần đảo Hoàng Sa", "Quần đảo Trường Sa" trên điện thoại hơi nhỏ (~9px) → tăng cỡ chữ trong SVG để ra ~11px khi hiển thị ở khung 343px.
   - Xong khi: Lighthouse mobile cả `/mua-hoa-viet` và `/mua-hoa-viet/da-quy` ≥ 90 mọi mục (đo trên `astro preview`, tắt dev server khi đo).
 
+- [ ] **20. Bản đồ chọn vùng và zoom** (Kiên yêu cầu 2026-10-27; commit riêng, không push)
+  - Ngay trên bản đồ (trong khung "Ngắm ở đâu") thêm nút chọn **Cả nước / Bắc / Trung / Nam** (dạng segmented như bộ lọc miền hiện có). Trên trang chính, dùng CHUNG một state với bộ lọc miền đã có (chọn ở chỗ nào thì chỗ kia cũng đổi, danh sách và chấm cũng lọc theo).
+  - Chọn một vùng → bản đồ **zoom vào khung của vùng đó** (chuyển động mượt ~400 ms, tắt khi `prefers-reduced-motion`). "Cả nước" → về khung đầy đủ có Hoàng Sa, Trường Sa.
+  - Cách làm khuyến nghị: đưa bản đồ thành `<svg>` inline (thay vì `<img src=ban-do.svg>`) và đổi `viewBox` theo vùng (nội suy bằng `requestAnimationFrame`); đường viền/ranh giới dùng `vector-effect="non-scaling-stroke"` để không dày lên khi zoom; chấm vẫn là nút HTML, vị trí tính lại theo viewBox hiện tại; chấm giữ nguyên kích thước khi zoom. Nhãn hai quần đảo chỉ cần đúng ở chế độ "Cả nước". (Nếu inline làm HTML nặng thêm quá ~25 KB gzip thì cân nhắc cách khác, ghi lý do vào Nhật ký.)
+  - Khung từng vùng tính từ hộp bao các tỉnh trong `vietnam.json` (cần giữ tên tỉnh khi xuất ở `scripts/build-map.mjs`) + chừa lề ~6%:
+    - Bắc (15): Hà Nội, Hải Phòng, Quảng Ninh, Tuyên Quang, Lào Cai, Thái Nguyên, Phú Thọ, Bắc Ninh, Hưng Yên, Ninh Bình, Cao Bằng, Lạng Sơn, Lai Châu, Điện Biên, Sơn La.
+    - Trung (11): Thanh Hóa, Nghệ An, Hà Tĩnh, Quảng Trị, Huế, Đà Nẵng, Quảng Ngãi, Gia Lai, Khánh Hòa, Đắk Lắk, Lâm Đồng. Khung zoom Trung chỉ lấy phần đất liền (không cần kéo tới Hoàng Sa, Trường Sa vì sẽ làm khung quá rộng).
+    - Nam (8): TP. Hồ Chí Minh, Đồng Nai, Tây Ninh, Cần Thơ, Vĩnh Long, Đồng Tháp, Cà Mau, An Giang.
+    - Kiểm tra lại tên trong file GeoJSON thật; tỉnh nào không khớp thì ghi vào Nhật ký.
+  - Khi zoom vào một vùng, các điểm gần nhau tách ra được thì không gộp nữa (ngưỡng gộp tính theo khoảng cách hiển thị sau zoom).
+  - Trang chi tiết loài: có cùng nút chọn vùng; mặc định tự chọn vùng chứa các điểm ngắm của loài đó nếu tất cả nằm trong một vùng (vd hướng dương → Trung), ngược lại "Cả nước".
+  - Tỉ lệ khung bản đồ giữ cố định khi zoom (không nhảy chiều cao trang).
+  - Lighthouse 2 trang vẫn ≥ 90 mọi mục.
+
 ## Giai đoạn 1 — Nền (đã xong 2026-10-27)
 
 - [x] **1. Khởi tạo dự án**
@@ -185,3 +199,4 @@ Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đú
 - 2026-10-27: Claude (claude.ai) kiểm tra bước 19 trên bản build: chấm Ba Vì / Hồ Tây tách 32px, nhãn hai quần đảo đọc rõ; trang loài lúc mở chỉ tải ảnh đầu, vuốt sang thì slide 2 được gắn src (khung trình duyệt của Claude bị ẩn nên không tự tải ảnh lazy, ép eager thì tải bình thường — cần Kiên thử vuốt trên điện thoại thật). Lighthouse mobile: /mua-hoa-viet 98/100/100/100, /da-quy 95/100/100/100 (293 KiB), /hoa-ban 94/100/100/100. Đạt, push bản đồ + bước 19.
 - 2026-10-27: Kiên phát hiện bản đồ chưa ổn. Claude (claude.ai) sửa `map/projection.ts`: khung bản đồ trước đặt cứng kinh độ đông 117,2° nên vài đảo phía đông Trường Sa bị cắt mép → nay tính khung từ chính dữ liệu (min/max kinh vĩ độ của mọi đa giác) + chừa lề, lề nam rộng hơn cho nhãn. Nhãn "Quần đảo Hoàng Sa" chuyển sang bên phải quần đảo (trước nằm dưới, lấn về bờ miền Trung); nhãn Trường Sa giữ bên dưới. `ban-do.svg.ts` nhận `anchor` cho từng nhãn. Khung SVG giờ 600×646, mọi đảo trong khung (hộp bao 20..576). Chấm điểm ngắm vẫn khớp. Push.
 - 2026-10-27: Kiên phát hiện chấm Hồ Tây bị đẩy sang tận Thái Bình (cách tách chấm ở bước 19 đẩy lệch vị trí địa lý). Claude (claude.ai) sửa `MapView.svelte`: các điểm gần nhau < 28px (khung 300px) GỘP thành một nút đặt ở vị trí trung bình, chấm chia màu theo các loài, có số đếm; hộp chi tiết liệt kê từng điểm (tên, tỉnh, loài, thời điểm đẹp, link). Ba Vì + Hồ Tây giờ là một nút ở Hà Nội. Không bao giờ đẩy lệch chấm khỏi toạ độ thật. Push.
+- 2026-10-27: Kiên báo có hướng dương Nghệ An 14–20/10. Claude (claude.ai) xác minh qua báo (Dân trí, Doanh nghiệp & Kinh tế xanh: 150 ha của TH ở xã Nghĩa Lâm mở cửa 14–20/10/2026; Báo Văn hoá: cũng nở rộ đầu năm 2026) và thêm loài thứ 13 `huong-duong` (mùa 10/10 → đỉnh 17/10 → 10/1 vì trồng nhiều đợt; summary ghi rõ) + điểm `nghia-lam` (Nghệ An, miền Trung). Nguồn ghi vào `docs/nguon-du-lieu.md`. Bánh xe 13 vòng, bản đồ thêm chấm Nghệ An. Lưu ý: dữ liệu chỉ có 1 khoảng mùa/loài; nếu cần thể hiện nhiều đợt rời nhau thì phải mở rộng schema (`seasons` là mảng) — để sau. Thêm bước 20 (chọn vùng + zoom bản đồ). Push.
