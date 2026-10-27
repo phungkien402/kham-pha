@@ -1,0 +1,478 @@
+---
+import { getCollection } from 'astro:content';
+import ExploreLayout from '../../layouts/ExploreLayout.astro';
+import Carousel from '../../explore/mua-hoa-viet/Carousel.svelte';
+import FlowerNow from '../../explore/mua-hoa-viet/FlowerNow.svelte';
+import DayMoments from '../../explore/mua-hoa-viet/DayMoments.svelte';
+import BloomingWith from '../../explore/mua-hoa-viet/BloomingWith.svelte';
+import { bloomingWith } from '../../explore/mua-hoa-viet/season';
+import { monthRangeLabel } from '../../explore/mua-hoa-viet/detail';
+
+export async function getStaticPaths() {
+  const flowers = await getCollection('flowers');
+  return flowers.map((entry) => ({ params: { slug: entry.data.slug }, props: { slug: entry.data.slug } }));
+}
+
+const { slug } = Astro.props;
+const allFlowers = (await getCollection('flowers')).map((e) => e.data);
+const places = (await getCollection('places')).map((e) => e.data);
+const f = allFlowers.find((x) => x.slug === slug)!;
+
+const photos = f.photos.map((p) => ({ src: p.src, alt: p.alt, author: p.author, color: f.color }));
+const realPhoto = f.photos.find((p) => p.src);
+const spots = places
+  .filter((p) => p.flowers.some((pf) => pf.slug === f.slug))
+  .map((p) => {
+    const best = p.flowers.find((pf) => pf.slug === f.slug)!.best;
+    return {
+      name: p.name,
+      province: p.province,
+      best: typeof best === 'string' ? best : `T${best.start.month} – T${best.end.month}`,
+    };
+  });
+const related = bloomingWith(f, allFlowers).map((o) => ({
+  slug: o.slug,
+  name: o.name,
+  color: o.color,
+  regionLabel: o.regionLabel,
+  season: o.season,
+  photo: o.photos.find((p) => p.src)?.src,
+}));
+// Bỏ tiền tố "Tên loài: " vì tiêu đề cột đã ghi tên.
+const stripName = (s: string) => s.replace(/^[^:]{1,40}:\s*/, '');
+
+const seasonText = monthRangeLabel(f);
+const title = `${f.name} nở tháng mấy, ngắm ở đâu — Mùa Hoa Việt`;
+const description =
+  f.summary ?? `${f.name} (${f.scientificName}) nở ${seasonText}. Xem mùa nở, nơi ngắm đẹp và mẹo chụp.`;
+const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
+---
+
+<ExploreLayout slug="mua-hoa-viet" title={title} description={description} ogImage={realPhoto?.src}>
+  <nav class="crumbs" aria-label="Đường dẫn">
+    <a class="back" href="/mua-hoa-viet/">← Mùa Hoa Việt</a>
+    <ol>
+      <li><a href="/">Trang chủ</a></li>
+      <li><a href="/mua-hoa-viet/">Mùa Hoa Việt</a></li>
+      <li aria-current="page">{f.name}</li>
+    </ol>
+  </nav>
+
+  <div class="top">
+    <div class="gallery">
+      <Carousel client:idle photos={photos} />
+    </div>
+    <div class="info">
+      <h1>{f.name}</h1>
+      <p class="sci"><i>{f.scientificName}</i>{f.aka && <span> · {f.aka}</span>}</p>
+      <p class="chips"><span class="chip">{f.regionLabel}</span></p>
+      <FlowerNow client:load color={f.color} season={f.season} facts={f.facts} />
+    </div>
+  </div>
+
+  {
+    f.dayMoments && f.dayMoments.length > 0 && (
+      <section class="block">
+        <h2>Một ngày trên đồi {f.name.toLowerCase()}</h2>
+        <DayMoments client:visible flowerName={f.name} moments={f.dayMoments} />
+      </section>
+    )
+  }
+
+  <div class="cols">
+    {
+      spots.length > 0 && (
+        <section class="block">
+          <h2>Ngắm ở đâu</h2>
+          <div class="map" role="note">Bản đồ sẽ có ở bản sau, thể hiện đầy đủ quần đảo Hoàng Sa và Trường Sa.</div>
+          <ul class="spots">
+            {spots.map((s) => (
+              <li>
+                <span>
+                  <strong>{s.name}</strong>, {s.province}
+                </span>
+                <span class="best">{s.best}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+    {
+      photos.length > 1 && (
+        <section class="block">
+          <h2>Ảnh</h2>
+          <ul class="grid-photos">
+            {f.photos.map((p) => (
+              <li>
+                <div class="ph" style={`background:${placeholder}`}>
+                  {p.src && <img src={p.src} alt={p.alt} loading="lazy" width="320" height="240" />}
+                </div>
+                <small>{p.author === 'Chưa có' ? 'Ảnh giữ chỗ' : `Ảnh: ${p.author}`}</small>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+  </div>
+
+  <div class="cols">
+    {
+      f.identify && f.identify.length > 0 && (
+        <section class="block">
+          <h2>Cách nhận ra</h2>
+          <ol class="steps">
+            {f.identify.map((t) => (
+              <li>{t}</li>
+            ))}
+          </ol>
+        </section>
+      )
+    }
+    {
+      f.confusedWith && (
+        <section class="block">
+          <h2>Dễ nhầm với {f.confusedWith.name.toLowerCase()}</h2>
+          <div class="vs">
+            <div>
+              <div class="ph" style={`background:${placeholder}`}></div>
+              <strong>{f.name}</strong>
+              <p>{stripName(f.confusedWith.ours)}</p>
+            </div>
+            <div>
+              <div class="ph" style="background:#e9e4da"></div>
+              <strong>{f.confusedWith.name}</strong>
+              <p>{stripName(f.confusedWith.theirs)}</p>
+            </div>
+          </div>
+        </section>
+      )
+    }
+  </div>
+
+  {
+    f.didYouKnow && f.didYouKnow.length > 0 && (
+      <section class="block">
+        <h2>Bạn có biết?</h2>
+        <ul class="facts">
+          {f.didYouKnow.map((d) => (
+            <li>
+              <strong>{d.title}</strong>
+              <p>{d.text}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  {
+    f.quote && (
+      <section class="block">
+        <figure class="quote" style={`background:color-mix(in srgb, ${f.color} 12%, white)`}>
+          <div class="avatar" style={`background:${placeholder}`} aria-hidden="true" />
+          <blockquote>{f.quote.text}</blockquote>
+          <figcaption>
+            {f.quote.author} · {f.quote.place} · {f.quote.year}
+          </figcaption>
+        </figure>
+      </section>
+    )
+  }
+
+  <div class="cols">
+    {
+      f.summary && (
+        <section class="block">
+          <h2>Về loài hoa này</h2>
+          <p>{f.summary}</p>
+        </section>
+      )
+    }
+    {
+      f.tips && f.tips.length > 0 && (
+        <section class="block">
+          <h2>Mẹo đi và chụp</h2>
+          <ul class="tips">
+            {f.tips.map((t) => (
+              <li>{t}</li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+  </div>
+
+  {
+    related.length > 0 && (
+      <section class="block">
+        <h2>Nở cùng thời điểm</h2>
+        <BloomingWith client:visible items={related} />
+      </section>
+    )
+  }
+
+  {
+    !f.verified && (
+      <p class="draft-note">
+        Mùa nở và nội dung trên trang này là dữ liệu mẫu, chưa được kiểm chứng.
+      </p>
+    )
+  }
+</ExploreLayout>
+
+<style>
+  .crumbs {
+    margin-bottom: var(--space-4);
+    font-size: 0.875rem;
+  }
+  .back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .crumbs ol {
+    display: none;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: var(--space-2);
+    color: var(--color-text-muted);
+  }
+  .crumbs ol li + li::before {
+    content: '/';
+    margin-right: var(--space-2);
+  }
+  .crumbs ol li[aria-current] {
+    color: var(--color-text);
+    font-weight: 600;
+  }
+  .crumbs a:focus-visible,
+  .back:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
+  }
+
+  .top {
+    display: grid;
+    gap: var(--space-4);
+  }
+  h1 {
+    font-size: 2.125rem;
+  }
+  .sci {
+    margin-top: var(--space-1);
+    color: #4a453e;
+  }
+  .chips {
+    margin-top: var(--space-2);
+  }
+  .chip {
+    display: inline-block;
+    padding: 2px 12px;
+    border-radius: 999px;
+    background: #efeae1;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .block {
+    margin-top: var(--space-8);
+  }
+  .block :global(h2),
+  h2 {
+    font-size: 1.25rem;
+    margin-bottom: var(--space-3);
+  }
+  ul,
+  ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .cols {
+    display: grid;
+    gap: 0 var(--space-8);
+  }
+
+  .map {
+    display: grid;
+    place-items: center;
+    min-height: 140px;
+    padding: var(--space-4);
+    text-align: center;
+    font-size: 0.875rem;
+    color: #4a453e;
+    background: #efeae1;
+    border: 1px dashed #b9b2a5;
+    border-radius: 16px;
+  }
+  .spots li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid #e7e2d9;
+  }
+  .best {
+    flex: none;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #4a453e;
+  }
+
+  .grid-photos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+  .ph {
+    aspect-ratio: 4 / 3;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .ph img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  small {
+    color: var(--color-text-muted);
+  }
+
+  .steps {
+    counter-reset: step;
+    display: grid;
+    gap: var(--space-3);
+  }
+  .steps li {
+    counter-increment: step;
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-start;
+  }
+  .steps li::before {
+    content: counter(step);
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--color-text);
+    color: #faf8f5;
+    font-weight: 700;
+    font-size: 0.875rem;
+  }
+
+  .vs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+  .vs p {
+    font-size: 0.875rem;
+    color: #4a453e;
+  }
+  .vs strong {
+    display: block;
+    margin-top: var(--space-2);
+  }
+
+  .facts {
+    display: flex;
+    gap: var(--space-3);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: var(--space-1);
+  }
+  .facts li {
+    flex: 0 0 min(80%, 280px);
+    scroll-snap-align: start;
+    padding: var(--space-4);
+    background: #fff;
+    border: 1px solid #e7e2d9;
+    border-radius: 16px;
+  }
+  .facts p {
+    margin-top: var(--space-1);
+    font-size: 0.9375rem;
+    color: #4a453e;
+  }
+
+  .quote {
+    margin: 0;
+    padding: var(--space-6) var(--space-4);
+    border-radius: 20px;
+  }
+  .avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+  }
+  blockquote {
+    margin: var(--space-3) 0 0;
+    font-size: 1.25rem;
+    line-height: 1.45;
+    font-weight: 600;
+  }
+  figcaption {
+    margin-top: var(--space-3);
+    font-size: 0.875rem;
+    color: #4a453e;
+  }
+
+  .tips {
+    display: grid;
+    gap: var(--space-2);
+    list-style: disc;
+    padding-left: var(--space-4);
+  }
+  .tips li {
+    display: list-item;
+  }
+  .draft-note {
+    margin-top: var(--space-8);
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+  }
+
+  @media (min-width: 1024px) {
+    .crumbs .back {
+      display: none;
+    }
+    .crumbs ol {
+      display: flex;
+    }
+    .top {
+      grid-template-columns: 480px 1fr;
+      gap: var(--space-12);
+      align-items: start;
+    }
+    h1 {
+      font-size: 3rem;
+    }
+    .cols {
+      grid-template-columns: 1fr 1fr;
+      align-items: start;
+    }
+    .facts {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      overflow: visible;
+    }
+    .facts li {
+      flex: none;
+    }
+    .quote {
+      padding: var(--space-8);
+    }
+    blockquote {
+      font-size: 1.625rem;
+      max-width: 48rem;
+    }
+  }
+</style>

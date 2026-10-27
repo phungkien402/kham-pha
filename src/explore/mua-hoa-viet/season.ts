@@ -134,3 +134,18 @@ export function showEndingTag(
   const { start, end } = flower.season;
   return end.month === viewMonth && start.month !== end.month;
 }
+
+/** Số ngày tới đầu mùa nở; 0 nếu đang trong mùa. */
+export function daysUntilStart(flower: SeasonFlower, date: Date): number {
+  const t = today(date);
+  const occs = occurrencesAround(flower, date);
+  if (occs.some((o) => t >= o.start && t <= o.end)) return 0;
+  return occs.find((o) => o.start > t)!.start - t;
+}
+
+/** Số ngày còn lại tới cuối mùa; null nếu đang ngoài mùa. */
+export function daysUntilEnd(flower: SeasonFlower, date: Date): number | null {
+  const t = today(date);
+  const current = occurrencesAround(flower, date).find((o) => t >= o.start && t <= o.end);
+  return current ? current.end - t : null;
+}
