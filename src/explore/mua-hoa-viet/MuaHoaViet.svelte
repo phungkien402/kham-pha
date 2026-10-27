@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Wheel from './Wheel.svelte';
-  import { inSeason, showEndingTag, vnParts } from './season';
+  import { inSeason, isBloomingIn, showEndingTag, vnParts } from './season';
+  import { monthRangeLabel } from './detail';
   import type { FlowerLite, PlaceLite, Region } from './types';
 
   interface Props {
@@ -44,7 +45,7 @@
 
   const nextMonth = $derived((month % 12) + 1);
   const visible = $derived(flowers.filter((f) => region === 'all' || f.regions.includes(region)));
-  const blooming = $derived(visible.filter((f) => inSeason(f, month)));
+  const blooming = $derived(visible.filter((f) => isBloomingIn(f, month, today)));
   const upcoming = $derived(visible.filter((f) => f.season.start.month === nextMonth));
   const bloomingSlugs = $derived(new Set(blooming.map((f) => f.slug)));
   const isThisMonth = $derived(month === today.month);
@@ -62,12 +63,6 @@
       .filter((p) => p.now.length > 0),
   );
 
-  const seasonLabel = (f: FlowerLite) => {
-    const { start, end } = f.season;
-    return start.month === end.month
-      ? `tháng ${start.month}`
-      : `tháng ${start.month} – tháng ${end.month}`;
-  };
   const placeholder = (color: string) => `color-mix(in srgb, ${color} 72%, white)`;
 </script>
 
@@ -133,7 +128,7 @@
                   ></span>
                 {/each}
               </div>
-              <p class="when">Mùa nở: {seasonLabel(f)}</p>
+              <p class="when">Mùa nở: {monthRangeLabel(f)}</p>
             </div>
           </a>
         </li>

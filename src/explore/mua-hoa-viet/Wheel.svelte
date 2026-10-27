@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import type { FlowerLite } from './types';
+  import { monthRangeLabel } from './detail';
   import {
     CX,
     CY,
@@ -31,10 +32,7 @@
   );
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
   const labelPos = (m: number) => pt(R_LABEL, (m - 1) * 30 - 90 + 15);
-  const range = (f: FlowerLite) =>
-    f.season.start.month === f.season.end.month
-      ? `tháng ${f.season.start.month}`
-      : `tháng ${f.season.start.month} – tháng ${f.season.end.month}`;
+  const range = (f: FlowerLite) => monthRangeLabel(f);
 
   // Góc kim hiển thị: cộng dồn theo đường ngắn nhất để chuyển động không quay vòng dài (T12 → T1).
   let shown = $state(needleAngle(month, today));

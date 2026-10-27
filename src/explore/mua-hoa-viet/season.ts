@@ -135,6 +135,21 @@ export function showEndingTag(
   return end.month === viewMonth && start.month !== end.month;
 }
 
+/**
+ * Loài có đang nở khi xem tháng `viewMonth` không.
+ * Tháng hiện tại: theo `statusOn` của hôm nay (đang nở, đỉnh mùa, sắp tàn); tháng khác: theo tháng.
+ */
+export function isBloomingIn(
+  flower: SeasonFlower,
+  viewMonth: number,
+  todayParts: { year: number; month: number; day: number },
+): boolean {
+  if (viewMonth !== todayParts.month) return inSeason(flower, viewMonth);
+  const noon = new Date(Date.UTC(todayParts.year, todayParts.month - 1, todayParts.day, 5));
+  const status = statusOn(flower, noon);
+  return status === 'dang-no' || status === 'dinh-mua' || status === 'sap-tan';
+}
+
 /** Số ngày tới đầu mùa nở; 0 nếu đang trong mùa. */
 export function daysUntilStart(flower: SeasonFlower, date: Date): number {
   const t = today(date);

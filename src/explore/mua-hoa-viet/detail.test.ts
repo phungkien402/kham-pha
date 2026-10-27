@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countdown, peakLabel, peakMonth, sortByStatus, statusHeadline } from './detail';
+import { countdown, monthRangeLabel, peakLabel, seasonPhrase, peakMonth, sortByStatus, statusHeadline } from './detail';
 
 const daQuy = {
   season: { start: { month: 10, day: 15 }, peak: { month: 11, day: 15 }, end: { month: 12, day: 31 } },
@@ -34,5 +34,14 @@ describe('detail', () => {
   it('ngoài mùa: đếm tới mùa nở', () => {
     expect(countdown(daQuy, d('2026-10-01')).label).toBe('nữa tới mùa nở');
     expect(countdown(daQuy, d('2026-10-01')).value).toBe('~14 ngày');
+  });
+  it('câu chữ mùa nở theo ngày', () => {
+    const tgm = { season: { start: { month: 10, day: 15 }, end: { month: 12, day: 5 } } };
+    expect(seasonPhrase(tgm)).toBe('từ giữa tháng 10 đến đầu tháng 12');
+    expect(monthRangeLabel(tgm)).toBe('giữa tháng 10 – đầu tháng 12');
+    expect(monthRangeLabel(daQuy)).toBe('giữa tháng 10 – cuối tháng 12');
+    const khongNgay = { season: { start: { month: 3 }, end: { month: 5 } } };
+    expect(seasonPhrase(khongNgay)).toBe('từ tháng 3 đến tháng 5');
+    expect(seasonPhrase({ season: { start: { month: 3 }, end: { month: 3 } } })).toBe('tháng 3');
   });
 });

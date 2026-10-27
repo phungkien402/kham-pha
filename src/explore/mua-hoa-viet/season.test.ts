@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bloomingWith, daysUntilPeak, inSeason, showEndingTag, statusOn, vnParts, type SeasonFlower } from './season';
+import { bloomingWith, daysUntilPeak, inSeason, isBloomingIn, showEndingTag, statusOn, vnParts, type SeasonFlower } from './season';
 
 // Giữa trưa giờ Việt Nam (05:00Z) của y-m-d, tránh sát ranh giới ngày.
 const vn = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d, 5));
@@ -126,5 +126,25 @@ describe('showEndingTag', () => {
     expect(showEndingTag(single, 4, t(2026, 4, 25))).toBe(true);
     expect(showEndingTag(multi, 12, t(2026, 12, 5))).toBe(false);
     expect(showEndingTag(multi, 12, t(2026, 12, 25))).toBe(true);
+  });
+});
+
+describe('isBloomingIn', () => {
+  const luaChin: SeasonFlower = {
+    slug: 'lua-chin',
+    season: { start: { month: 9, day: 15 }, end: { month: 10, day: 15 } },
+  };
+  const t = { year: 2026, month: 10, day: 27 };
+  it('tháng hiện tại: lúa chín hết mùa 15/10 thì không còn đang nở', () => {
+    expect(inSeason(luaChin, 10)).toBe(true);
+    expect(isBloomingIn(luaChin, 10, t)).toBe(false);
+  });
+  it('tháng hiện tại: dã quỳ đang nở', () => {
+    expect(isBloomingIn(daQuy, 10, t)).toBe(true);
+  });
+  it('tháng khác vẫn tính theo tháng', () => {
+    expect(isBloomingIn(luaChin, 9, t)).toBe(true);
+    expect(isBloomingIn(daQuy, 11, t)).toBe(true);
+    expect(isBloomingIn(daQuy, 9, t)).toBe(false);
   });
 });

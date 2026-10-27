@@ -6,6 +6,7 @@ import {
   daysUntilStart,
   statusOn,
   type BloomStatus,
+  type MonthDay,
   type SeasonFlower,
 } from './season';
 
@@ -24,9 +25,26 @@ export function peakLabel(flower: SeasonFlower): string {
   return `${part} tháng ${peakMonth(flower)}`;
 }
 
+/** "đầu / giữa / cuối tháng M" theo ngày; không có ngày thì chỉ "tháng M". */
+function dayLabel(md: MonthDay): string {
+  if (md.day === undefined) return `tháng ${md.month}`;
+  const part = md.day <= 10 ? 'đầu' : md.day <= 20 ? 'giữa' : 'cuối';
+  return `${part} tháng ${md.month}`;
+}
+
 export function monthRangeLabel(flower: SeasonFlower): string {
   const { start, end } = flower.season;
-  return start.month === end.month ? `tháng ${start.month}` : `tháng ${start.month} – tháng ${end.month}`;
+  const a = dayLabel(start);
+  const b = dayLabel(end);
+  return a === b ? a : `${a} – ${b}`;
+}
+
+/** Cụm đặt sau "nở": "từ giữa tháng 10 đến đầu tháng 12", hoặc "tháng 3" nếu chỉ một mốc. */
+export function seasonPhrase(flower: SeasonFlower): string {
+  const { start, end } = flower.season;
+  const a = dayLabel(start);
+  const b = dayLabel(end);
+  return a === b ? a : `từ ${a} đến ${b}`;
 }
 
 export const STATUS_SHORT: Record<BloomStatus, string> = {
@@ -68,9 +86,9 @@ export function statusHeadline(flower: SeasonFlower, date: Date): string {
 }
 
 export function statusSubline(flower: SeasonFlower): string {
-  const { start, end } = flower.season;
-  if (start.month === end.month) return `Đẹp nhất khoảng ${peakLabel(flower)}.`;
-  return `Đẹp nhất khoảng ${peakLabel(flower)}, nở từ tháng ${start.month} đến hết tháng ${end.month}.`;
+  const phrase = seasonPhrase(flower);
+  if (!phrase.startsWith('từ')) return `Đẹp nhất khoảng ${peakLabel(flower)}.`;
+  return `Đẹp nhất khoảng ${peakLabel(flower)}, nở ${phrase}.`;
 }
 
 /** Ô số liệu đầu tiên: đếm ngược theo ngày hôm nay. */

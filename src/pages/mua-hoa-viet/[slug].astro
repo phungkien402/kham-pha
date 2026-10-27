@@ -6,7 +6,7 @@ import FlowerNow from '../../explore/mua-hoa-viet/FlowerNow.svelte';
 import DayMoments from '../../explore/mua-hoa-viet/DayMoments.svelte';
 import BloomingWith from '../../explore/mua-hoa-viet/BloomingWith.svelte';
 import { bloomingWith } from '../../explore/mua-hoa-viet/season';
-import { monthRangeLabel } from '../../explore/mua-hoa-viet/detail';
+import { seasonPhrase } from '../../explore/mua-hoa-viet/detail';
 
 export async function getStaticPaths() {
   const flowers = await getCollection('flowers');
@@ -41,7 +41,7 @@ const related = bloomingWith(f, allFlowers).map((o) => ({
 // Bỏ tiền tố "Tên loài: " vì tiêu đề cột đã ghi tên.
 const stripName = (s: string) => s.replace(/^[^:]{1,40}:\s*/, '');
 
-const seasonText = monthRangeLabel(f);
+const seasonText = seasonPhrase(f);
 const title = `${f.name} nở tháng mấy, ngắm ở đâu — Mùa Hoa Việt`;
 const description =
   f.summary ?? `${f.name} (${f.scientificName}) nở ${seasonText}. Xem mùa nở, nơi ngắm đẹp và mẹo chụp.`;
