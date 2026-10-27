@@ -1,17 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { inSeason, vnParts } from './season';
-  import type { SeasonFlower } from './season';
-  import { countdown, monthRangeLabel, peakMonth, statusHeadline, statusSubline } from './detail';
+  import type { Season } from './season';
+  import { countdown, monthRangeLabel, peakMonths, statusHeadline, statusSubline } from './detail';
 
   interface Props {
     color: string;
-    season: SeasonFlower['season'];
+    seasons: Season[];
     facts?: { value: string; label: string }[];
   }
 
-  let { color, season, facts = [] }: Props = $props();
-  const flower = $derived({ season });
+  let { color, seasons, facts = [] }: Props = $props();
+  const flower = $derived({ seasons });
 
   // HTML build theo ngày build; onMount tính lại theo ngày thật (spec mục 4).
   let now = $state(new Date());
@@ -22,7 +22,7 @@
   const month = $derived(vnParts(now).month);
   const headline = $derived(statusHeadline(flower, now));
   const count = $derived(countdown(flower, now));
-  const peak = $derived(peakMonth(flower));
+  const peaks = $derived(peakMonths(flower));
   const light = $derived(`color-mix(in srgb, ${color} 40%, white)`);
   const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 </script>
@@ -56,7 +56,7 @@
         <span
           class="cell"
           class:cur={m === month}
-          style:background={m === peak && inSeason(flower, m) ? color : inSeason(flower, m) ? light : undefined}
+          style:background={peaks.includes(m) && inSeason(flower, m) ? color : inSeason(flower, m) ? light : undefined}
         ></span>
         <span class="num" class:strong={m === month}>{m}</span>
       </li>

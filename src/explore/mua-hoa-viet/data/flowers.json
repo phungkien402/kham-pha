@@ -522,25 +522,28 @@
     "scientificName": "Helianthus annuus",
     "color": "#9A7B00",
     "verified": true,
-    "season": {
-      "start": {
-        "month": 10,
-        "day": 10
-      },
-      "peak": {
-        "month": 10,
-        "day": 17
-      },
-      "end": {
-        "month": 1,
-        "day": 10
+    "seasons": [
+      {
+        "start": {
+          "month": 10,
+          "day": 5
+        },
+        "peak": {
+          "month": 10,
+          "day": 17
+        },
+        "end": {
+          "month": 10,
+          "day": 28
+        },
+        "note": "Đợt tháng 10"
       }
-    },
+    ],
     "regions": [
       "trung"
     ],
     "regionLabel": "Nghĩa Lâm (Nghệ An)",
-    "summary": "Những cánh đồng hướng dương rộng hàng trăm hecta của nông trại TH ở vùng Phủ Quỳ, Nghệ An được trồng thành nhiều đợt nên hoa nở nối tiếp nhau. Năm 2026, đợt đầu mở cửa đón khách miễn phí từ 14 đến 20/10; các năm trước hoa cũng nở rộ quanh dịp đầu năm mới.",
+    "summary": "Những cánh đồng hướng dương rộng hàng trăm hecta của nông trại TH ở vùng Phủ Quỳ, Nghệ An được trồng thành nhiều đợt nên hoa nở nối tiếp nhau. Năm 2026, đợt đầu mở cửa đón khách miễn phí từ 14 đến 20/10; đầu năm 2026 báo chí cũng ghi nhận hoa nở ở đây, nhưng chưa có mốc đợt cụ thể nên trang chỉ ghi đợt tháng 10.",
     "photos": [
       {
         "alt": "Hoa hướng dương (ảnh giữ chỗ)",

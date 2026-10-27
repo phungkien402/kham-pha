@@ -27,7 +27,7 @@
   // Sắp theo tháng bắt đầu; mỗi loài một vòng đồng tâm.
   const rings = $derived(
     [...flowers]
-      .sort((a, b) => a.season.start.month - b.season.start.month)
+      .sort((a, b) => a.seasons[0].start.month - b.seasons[0].start.month)
       .map((flower, i) => ({ flower, r: 58 + i * 7 })),
   );
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -103,8 +103,9 @@
   <path d={sectorPath(month)} fill="#f3eee5" />
   {#each rings as { flower, r } (flower.slug)}
     <circle cx={CX} cy={CY} {r} fill="none" stroke="#f1ece3" stroke-width="5.5" />
+    {#each flower.seasons as s}
     <path
-      d={arcPath(r, flower.season.start.month, flower.season.end.month)}
+      d={arcPath(r, s.start.month, s.end.month)}
       fill="none"
       stroke={flower.color}
       stroke-width="5.5"
@@ -114,7 +115,7 @@
     />
     <path
       class="hit"
-      d={arcPath(r, flower.season.start.month, flower.season.end.month)}
+      d={arcPath(r, s.start.month, s.end.month)}
       fill="none"
       stroke="transparent"
       stroke-width="7"
@@ -123,6 +124,7 @@
       onpointerdown={(e) => showTip(e, flower)}
       onpointerleave={hideTip}
     />
+    {/each}
   {/each}
 
   {#each months as m}

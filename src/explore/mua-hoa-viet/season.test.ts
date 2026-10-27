@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import flowersJson from './data/flowers.json';
 import { bloomingWith, daysUntilPeak, inSeason, isBloomingIn, showEndingTag, statusOn, vnParts, type SeasonFlower } from './season';
 
 // Giữa trưa giờ Việt Nam (05:00Z) của y-m-d, tránh sát ranh giới ngày.
@@ -6,13 +7,13 @@ const vn = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d, 5
 
 const daQuy: SeasonFlower = {
   slug: 'da-quy',
-  season: { start: { month: 10, day: 15 }, peak: { month: 11, day: 15 }, end: { month: 12, day: 31 } },
+  seasons: [{ start: { month: 10, day: 15 }, peak: { month: 11, day: 15 }, end: { month: 12, day: 31 } }],
 };
 const maiAnhDao: SeasonFlower = {
   slug: 'mai-anh-dao',
-  season: { start: { month: 12 }, peak: { month: 1 }, end: { month: 2 } },
+  seasons: [{ start: { month: 12 }, peak: { month: 1 }, end: { month: 2 } }],
 };
-const hoaGao: SeasonFlower = { slug: 'hoa-gao', season: { start: { month: 3 }, end: { month: 3 } } };
+const hoaGao: SeasonFlower = { slug: 'hoa-gao', seasons: [{ start: { month: 3 }, end: { month: 3 } }] };
 
 describe('inSeason', () => {
   it('mùa trong năm', () => {
@@ -109,9 +110,9 @@ describe('bloomingWith', () => {
 
 describe('showEndingTag', () => {
   const t = (year: number, month: number, day: number) => ({ year, month, day });
-  const single = { season: { start: { month: 4 }, end: { month: 4 } } };
-  const multi = { season: { start: { month: 10 }, end: { month: 12 } } };
-  const wrap = { season: { start: { month: 12 }, end: { month: 2 } } };
+  const single = { seasons: [{ start: { month: 4 }, end: { month: 4 } }] };
+  const multi = { seasons: [{ start: { month: 10 }, end: { month: 12 } }] };
+  const wrap = { seasons: [{ start: { month: 12 }, end: { month: 2 } }] };
 
   it('loài nở đúng một tháng, xem tháng khác: không gắn', () => {
     expect(showEndingTag(single, 4, t(2026, 10, 27))).toBe(false);
@@ -132,7 +133,7 @@ describe('showEndingTag', () => {
 describe('isBloomingIn', () => {
   const luaChin: SeasonFlower = {
     slug: 'lua-chin',
-    season: { start: { month: 9, day: 15 }, end: { month: 10, day: 15 } },
+    seasons: [{ start: { month: 9, day: 15 }, end: { month: 10, day: 15 } }],
   };
   const t = { year: 2026, month: 10, day: 27 };
   it('tháng hiện tại: lúa chín hết mùa 15/10 thì không còn đang nở', () => {
@@ -146,5 +147,54 @@ describe('isBloomingIn', () => {
     expect(isBloomingIn(luaChin, 9, t)).toBe(true);
     expect(isBloomingIn(daQuy, 11, t)).toBe(true);
     expect(isBloomingIn(daQuy, 9, t)).toBe(false);
+  });
+});
+
+describe('nhiều đợt nở', () => {
+  // Dữ liệu thử, không phải dữ liệu thật: đợt 1 tháng 10, đợt 2 vắt năm 25/12 → 15/1.
+  const hd: SeasonFlower = {
+    slug: 'hd',
+    seasons: [
+      { start: { month: 10, day: 5 }, peak: { month: 10, day: 17 }, end: { month: 10, day: 28 } },
+      { start: { month: 12, day: 25 }, peak: { month: 1, day: 5 }, end: { month: 1, day: 15 } },
+    ],
+  };
+  const d = (y: number, m: number, day: number) => new Date(Date.UTC(y, m - 1, day, 5));
+
+  it('trong đợt 1: đang nở / đỉnh mùa', () => {
+    expect(statusOn(hd, d(2026, 10, 15))).toBe('dinh-mua');
+    expect(statusOn(hd, d(2026, 10, 8))).toBe('dang-no');
+  });
+  it('giữa hai đợt (1/11) không phải đang nở; kế tiếp là đợt 2 nên chưa nở', () => {
+    expect(statusOn(hd, d(2026, 11, 1))).toBe('het-mua');
+    expect(statusOn(hd, d(2026, 12, 1))).toBe('chua-no');
+    expect(isBloomingIn(hd, 11, { year: 2026, month: 11, day: 1 })).toBe(false);
+  });
+  it('sắp nở theo đợt kế tiếp', () => {
+    expect(statusOn(hd, d(2026, 12, 15))).toBe('sap-no');
+    expect(daysUntilPeak(hd, d(2026, 11, 1))).toBe(Date.UTC(2027, 0, 5) / 86_400_000 - 7 - Date.UTC(2026, 10, 1) / 86_400_000);
+  });
+  it('trong đợt 2 vắt năm: 26/12 đang nở, 31/12 và 1/1 vào đỉnh', () => {
+    expect(statusOn(hd, d(2026, 12, 26))).toBe('dang-no');
+    expect(statusOn(hd, d(2026, 12, 31))).toBe('dinh-mua');
+    expect(statusOn(hd, d(2027, 1, 1))).toBe('dinh-mua');
+    expect(statusOn(hd, d(2027, 1, 14))).toBe('sap-tan');
+    expect(statusOn(hd, d(2027, 1, 25))).toBe('het-mua');
+  });
+  it('inSeason và showEndingTag theo mọi đợt', () => {
+    expect(inSeason(hd, 10)).toBe(true);
+    expect(inSeason(hd, 11)).toBe(false);
+    expect(inSeason(hd, 1)).toBe(true);
+    expect(showEndingTag(hd, 1, { year: 2026, month: 10, day: 27 })).toBe(true);
+  });
+});
+
+describe('hướng dương (dữ liệu thật)', () => {
+  const hd = (flowersJson as { slug: string; seasons?: SeasonFlower['seasons'] }[]).find((f) => f.slug === 'huong-duong') as SeasonFlower;
+  const d = (m: number, day: number) => new Date(Date.UTC(2026, m - 1, day, 5));
+  it('15/10 đang nở / đỉnh mùa, 1/11 không còn đang nở', () => {
+    expect(['dang-no', 'dinh-mua']).toContain(statusOn(hd, d(10, 15)));
+    expect(['dang-no', 'dinh-mua', 'sap-tan']).not.toContain(statusOn(hd, d(11, 1)));
+    expect(isBloomingIn(hd, 11, { year: 2026, month: 11, day: 1 })).toBe(false);
   });
 });

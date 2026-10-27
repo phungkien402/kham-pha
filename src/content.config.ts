@@ -7,6 +7,13 @@ const monthDay = z.object({
   day: z.number().int().min(1).max(31).optional(),
 });
 
+const season = z.object({
+  start: monthDay,
+  peak: monthDay.optional(),
+  end: monthDay,
+  note: z.string().optional(),
+});
+
 const photo = z.object({
   src: z.string().optional(),
   alt: z.string(),
@@ -29,11 +36,9 @@ const flowers = defineCollection({
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
     // false = mùa nở và các chuyện thú vị là dữ liệu mẫu, chưa kiểm chứng
     verified: z.boolean().default(false),
-    season: z.object({
-      start: monthDay,
-      peak: monthDay.optional(),
-      end: monthDay,
-    }),
+    // Một mùa (`season`) hoặc nhiều đợt (`seasons`); sau khi đọc luôn là `seasons`.
+    season: season.optional(),
+    seasons: z.array(season).min(1).optional(),
     regions: z.array(z.enum(['bac', 'trung', 'nam'])).min(1),
     regionLabel: z.string(),
     summary: z.string().optional(),
@@ -59,6 +64,13 @@ const flowers = defineCollection({
       .optional(),
     photos: z.array(photo),
     tips: z.array(z.string()).optional(),
+  }).transform(({ season: single, seasons, ...rest }, ctx) => {
+    const list = seasons ?? (single ? [single] : undefined);
+    if (!list || (seasons && single)) {
+      ctx.addIssue({ code: 'custom', message: 'Cần đúng một trong `season` hoặc `seasons`' });
+      return z.NEVER;
+    }
+    return { ...rest, seasons: list };
   }),
 });
 

@@ -7,22 +7,36 @@ import {
   statusOn,
   type BloomStatus,
   type MonthDay,
+  type Season,
   type SeasonFlower,
 } from './season';
 
-/** Tháng chứa đỉnh mùa (không ghi đỉnh thì lấy tháng giữa mùa). */
-export function peakMonth(flower: SeasonFlower): number {
-  const { start, peak, end } = flower.season;
+/** Tháng chứa đỉnh của một đợt (không ghi đỉnh thì lấy tháng giữa đợt). */
+function seasonPeakMonth({ start, peak, end }: Season): number {
   if (peak) return peak.month;
   const len = ((end.month - start.month + 12) % 12) + 1;
   return ((start.month - 1 + Math.floor((len - 1) / 2)) % 12) + 1;
 }
 
-/** "đầu / giữa / cuối tháng M" của đỉnh mùa. */
+/** Tháng chứa đỉnh mùa của đợt đầu tiên. */
+export function peakMonth(flower: SeasonFlower): number {
+  return seasonPeakMonth(flower.seasons[0]);
+}
+
+/** Tháng chứa đỉnh của từng đợt. */
+export function peakMonths(flower: SeasonFlower): number[] {
+  return flower.seasons.map(seasonPeakMonth);
+}
+
+/** "đầu / giữa / cuối tháng M" của đỉnh mùa; nhiều đợt thì nối bằng " và ". */
 export function peakLabel(flower: SeasonFlower): string {
-  const day = flower.season.peak?.day ?? 15;
-  const part = day <= 10 ? 'đầu' : day <= 20 ? 'giữa' : 'cuối';
-  return `${part} tháng ${peakMonth(flower)}`;
+  return flower.seasons
+    .map((s) => {
+      const day = s.peak?.day ?? 15;
+      const part = day <= 10 ? 'đầu' : day <= 20 ? 'giữa' : 'cuối';
+      return `${part} tháng ${seasonPeakMonth(s)}`;
+    })
+    .join(' và ');
 }
 
 /** "đầu / giữa / cuối tháng M" theo ngày; không có ngày thì chỉ "tháng M". */
@@ -33,18 +47,24 @@ function dayLabel(md: MonthDay): string {
 }
 
 export function monthRangeLabel(flower: SeasonFlower): string {
-  const { start, end } = flower.season;
-  const a = dayLabel(start);
-  const b = dayLabel(end);
-  return a === b ? a : `${a} – ${b}`;
+  return flower.seasons
+    .map(({ start, end }) => {
+      const a = dayLabel(start);
+      const b = dayLabel(end);
+      return a === b ? a : `${a} – ${b}`;
+    })
+    .join(' · ');
 }
 
 /** Cụm đặt sau "nở": "từ giữa tháng 10 đến đầu tháng 12", hoặc "tháng 3" nếu chỉ một mốc. */
 export function seasonPhrase(flower: SeasonFlower): string {
-  const { start, end } = flower.season;
-  const a = dayLabel(start);
-  const b = dayLabel(end);
-  return a === b ? a : `từ ${a} đến ${b}`;
+  return flower.seasons
+    .map(({ start, end }) => {
+      const a = dayLabel(start);
+      const b = dayLabel(end);
+      return a === b ? a : `từ ${a} đến ${b}`;
+    })
+    .join(' và ');
 }
 
 export const STATUS_SHORT: Record<BloomStatus, string> = {

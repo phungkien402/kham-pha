@@ -6,9 +6,18 @@ export interface MonthDay {
   day?: number;
 }
 
+/** Một đợt nở; `note` là ghi chú ngắn của đợt (vd "Đợt Tết"). */
+export interface Season {
+  start: MonthDay;
+  peak?: MonthDay;
+  end: MonthDay;
+  note?: string;
+}
+
 export interface SeasonFlower {
   slug?: string;
-  season: { start: MonthDay; peak?: MonthDay; end: MonthDay };
+  /** Các đợt nở, ít nhất một; loài có một mùa thì mảng một phần tử. */
+  seasons: Season[];
 }
 
 export type BloomStatus = 'chua-no' | 'sap-no' | 'dang-no' | 'dinh-mua' | 'sap-tan' | 'het-mua';
@@ -36,12 +45,15 @@ export function vnParts(date: Date): { year: number; month: number; day: number 
 const dayNumber = (year: number, month: number, day: number) => Date.UTC(year, month - 1, day) / DAY_MS;
 const daysInMonth = (year: number, month: number) => new Date(Date.UTC(year, month, 0)).getUTCDate();
 
-/** Mùa có phủ tháng này không (chính xác theo tháng; mùa vắt năm như 12 → 2 được xử lý). */
-export function inSeason(flower: SeasonFlower, month: number): boolean {
-  const { start, end } = flower.season;
+function seasonCoversMonth({ start, end }: Season, month: number): boolean {
   return start.month <= end.month
     ? month >= start.month && month <= end.month
     : month >= start.month || month <= end.month;
+}
+
+/** Có đợt nở nào phủ tháng này không (chính xác theo tháng; đợt vắt năm như 12 → 2 được xử lý). */
+export function inSeason(flower: SeasonFlower, month: number): boolean {
+  return flower.seasons.some((s) => seasonCoversMonth(s, month));
 }
 
 interface Occurrence {
@@ -51,9 +63,9 @@ interface Occurrence {
   peakEnd: number;
 }
 
-// Một lần nở bắt đầu vào năm `year` (kết thúc cùng năm, hoặc năm sau nếu vắt năm).
-function occurrence(flower: SeasonFlower, year: number): Occurrence {
-  const { start, peak, end } = flower.season;
+// Một lần nở của đợt `season` bắt đầu vào năm `year` (kết thúc cùng năm, hoặc năm sau nếu vắt năm).
+function occurrence(season: Season, year: number): Occurrence {
+  const { start, peak, end } = season;
   const endYear = end.month < start.month ? year + 1 : year;
   const s = dayNumber(year, start.month, start.day ?? 1);
   const e = dayNumber(endYear, end.month, end.day ?? daysInMonth(endYear, end.month));
@@ -72,10 +84,12 @@ function today(date: Date): number {
   return dayNumber(year, month, day);
 }
 
-// Các lần nở quanh hôm nay (năm trước, năm nay, năm sau), theo thứ tự thời gian.
+// Mọi lần nở của mọi đợt quanh hôm nay (năm trước, năm nay, năm sau), theo thứ tự thời gian.
 function occurrencesAround(flower: SeasonFlower, date: Date): Occurrence[] {
   const { year } = vnParts(date);
-  return [year - 1, year, year + 1].map((y) => occurrence(flower, y));
+  return [year - 1, year, year + 1]
+    .flatMap((y) => flower.seasons.map((s) => occurrence(s, y)))
+    .sort((a, b) => a.start - b.start);
 }
 
 /** Trạng thái của loài vào một ngày (theo giờ Việt Nam). */
@@ -131,8 +145,7 @@ export function showEndingTag(
     const noon = new Date(Date.UTC(todayParts.year, todayParts.month - 1, todayParts.day, 5));
     return statusOn(flower, noon) === 'sap-tan';
   }
-  const { start, end } = flower.season;
-  return end.month === viewMonth && start.month !== end.month;
+  return flower.seasons.some((s) => s.end.month === viewMonth && s.start.month !== s.end.month);
 }
 
 /**

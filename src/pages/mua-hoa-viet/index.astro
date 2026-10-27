@@ -14,7 +14,7 @@ const flowers: FlowerLite[] = await Promise.all(
     slug: f.slug,
     name: f.name,
     color: f.color,
-    season: f.season,
+    seasons: f.seasons,
     regions: f.regions,
     regionLabel: f.regionLabel,
     photo: photo?.src ? await responsive(photo.src, SIZES.card) : undefined,

@@ -55,7 +55,7 @@ const related = await Promise.all(
   name: o.name,
   color: o.color,
   regionLabel: o.regionLabel,
-  season: o.season,
+  seasons: o.seasons,
   photo: src ? await responsive(src, SIZES.mini) : undefined,
     };
   }),
@@ -96,7 +96,7 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
       <h1>{f.name}</h1>
       <p class="sci"><i>{f.scientificName}</i>{f.aka && <span> · {f.aka}</span>}</p>
       <p class="chips"><span class="chip">{f.regionLabel}</span></p>
-      <FlowerNow client:load color={f.color} season={f.season} facts={f.facts} />
+      <FlowerNow client:load color={f.color} seasons={f.seasons} facts={f.facts} />
     </div>
   </div>
 

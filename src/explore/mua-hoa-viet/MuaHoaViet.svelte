@@ -50,7 +50,7 @@
   const nextMonth = $derived((month % 12) + 1);
   const visible = $derived(flowers.filter((f) => region === 'all' || f.regions.includes(region)));
   const blooming = $derived(visible.filter((f) => isBloomingIn(f, month, today)));
-  const upcoming = $derived(visible.filter((f) => f.season.start.month === nextMonth));
+  const upcoming = $derived(visible.filter((f) => f.seasons.some((s) => s.start.month === nextMonth)));
   const bloomingSlugs = $derived(new Set(blooming.map((f) => f.slug)));
   const isThisMonth = $derived(month === today.month);
 
