@@ -6,6 +6,7 @@ import FlowerNow from '../../explore/mua-hoa-viet/FlowerNow.svelte';
 import DayMoments from '../../explore/mua-hoa-viet/DayMoments.svelte';
 import BloomingWith from '../../explore/mua-hoa-viet/BloomingWith.svelte';
 import { bloomingWith } from '../../explore/mua-hoa-viet/season';
+import { ogImage, responsive, SIZES } from '../../explore/mua-hoa-viet/images';
 import { seasonPhrase } from '../../explore/mua-hoa-viet/detail';
 
 export async function getStaticPaths() {
@@ -18,8 +19,17 @@ const allFlowers = (await getCollection('flowers')).map((e) => e.data);
 const places = (await getCollection('places')).map((e) => e.data);
 const f = allFlowers.find((x) => x.slug === slug)!;
 
-const photos = f.photos.map((p) => ({ src: p.src, alt: p.alt, author: p.author, color: f.color }));
+const photos = await Promise.all(
+  f.photos.map(async (p) => ({
+    img: p.src ? await responsive(p.src, SIZES.hero) : undefined,
+    alt: p.alt,
+    author: p.author,
+    color: f.color,
+  })),
+);
+const gridPhotos = await Promise.all(f.photos.map(async (p) => (p.src ? await responsive(p.src, SIZES.grid) : undefined)));
 const realPhoto = f.photos.find((p) => p.src);
+const og = realPhoto?.src ? await ogImage(realPhoto.src) : undefined;
 const spots = places
   .filter((p) => p.flowers.some((pf) => pf.slug === f.slug))
   .map((p) => {
@@ -30,14 +40,19 @@ const spots = places
       best: typeof best === 'string' ? best : `T${best.start.month} – T${best.end.month}`,
     };
   });
-const related = bloomingWith(f, allFlowers).map((o) => ({
+const related = await Promise.all(
+  bloomingWith(f, allFlowers).map(async (o) => {
+    const src = o.photos.find((p) => p.src)?.src;
+    return {
   slug: o.slug,
   name: o.name,
   color: o.color,
   regionLabel: o.regionLabel,
   season: o.season,
-  photo: o.photos.find((p) => p.src)?.src,
-}));
+  photo: src ? await responsive(src, SIZES.mini) : undefined,
+    };
+  }),
+);
 // Bỏ tiền tố "Tên loài: " vì tiêu đề cột đã ghi tên.
 const stripName = (s: string) => s.replace(/^[^:]{1,40}:\s*/, '');
 
@@ -52,7 +67,7 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
   slug="mua-hoa-viet"
   title={title}
   description={description}
-  ogImage={realPhoto?.src}
+  ogImage={og}
   back={{ href: '/mua-hoa-viet/', label: 'Mùa Hoa Việt' }}
 >
   <nav class="crumbs" aria-label="Đường dẫn">
@@ -108,10 +123,20 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
         <section class="block">
           <h2>Ảnh</h2>
           <ul class="grid-photos">
-            {f.photos.map((p) => (
+            {f.photos.map((p, i) => (
               <li>
                 <div class="ph" style={`background:${placeholder}`}>
-                  {p.src && <img src={p.src} alt={p.alt} loading="lazy" width="320" height="240" />}
+                  {gridPhotos[i] && (
+                    <img
+                      src={gridPhotos[i].src}
+                      srcset={gridPhotos[i].srcset}
+                      sizes="(min-width: 1024px) 280px, 50vw"
+                      alt={p.alt}
+                      loading="lazy"
+                      width={gridPhotos[i].width}
+                      height={gridPhotos[i].height}
+                    />
+                  )}
                 </div>
                 <small>{p.author === 'Chưa có' ? 'Ảnh giữ chỗ' : `Ảnh: ${p.author}`}</small>
               </li>

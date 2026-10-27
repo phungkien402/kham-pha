@@ -111,7 +111,15 @@
         <li>
           <a class="card" href="/mua-hoa-viet/{f.slug}/">
             <div class="thumb" style:background={placeholder(f.color)}>
-              {#if f.photo}<img src={f.photo} alt={f.photoAlt ?? f.name} loading="lazy" width="88" height="88" />{/if}
+              {#if f.photo}<img
+                  src={f.photo.src}
+                  srcset={f.photo.srcset}
+                  sizes="(min-width: 1024px) 360px, 88px"
+                  alt={f.photoAlt ?? f.name}
+                  loading="lazy"
+                  width="88"
+                  height="88"
+                />{/if}
             </div>
             <div class="body">
               <div class="name-row">

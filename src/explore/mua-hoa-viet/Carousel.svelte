@@ -1,6 +1,7 @@
 <script lang="ts">
+  import type { ResponsiveImage } from './images';
   interface Photo {
-    src?: string;
+    img?: ResponsiveImage;
     alt: string;
     author: string;
     color: string;
@@ -18,7 +19,18 @@
   <div class="track" bind:this={track} onscroll={onScroll} tabindex="0" role="region" aria-label="Ảnh, vuốt ngang để xem thêm">
     {#each photos as p, i}
       <figure style:background="color-mix(in srgb, {p.color} 72%, white)">
-        {#if p.src}<img src={p.src} alt={p.alt} loading={i === 0 ? 'eager' : 'lazy'} />{/if}
+        {#if p.img}
+          <img
+            src={p.img.src}
+            srcset={p.img.srcset}
+            sizes="(min-width: 1024px) 560px, 100vw"
+            width={p.img.width}
+            height={p.img.height}
+            alt={p.alt}
+            loading={i === 0 ? 'eager' : 'lazy'}
+            fetchpriority={i === 0 ? 'high' : undefined}
+          />
+        {/if}
         <figcaption>{p.author === 'Chưa có' ? 'Ảnh giữ chỗ' : `Ảnh: ${p.author}`}</figcaption>
       </figure>
     {/each}

@@ -2,9 +2,11 @@
 import { getCollection } from 'astro:content';
 import ExploreLayout from '../../layouts/ExploreLayout.astro';
 import MuaHoaViet from '../../explore/mua-hoa-viet/MuaHoaViet.svelte';
+import { responsive, SIZES } from '../../explore/mua-hoa-viet/images';
 import type { FlowerLite, PlaceLite } from '../../explore/mua-hoa-viet/types';
 
-const flowers: FlowerLite[] = (await getCollection('flowers')).map(({ data: f }) => {
+const flowers: FlowerLite[] = await Promise.all(
+  (await getCollection('flowers')).map(async ({ data: f }) => {
   const photo = f.photos.find((p) => p.src);
   return {
     slug: f.slug,
@@ -13,10 +15,11 @@ const flowers: FlowerLite[] = (await getCollection('flowers')).map(({ data: f })
     season: f.season,
     regions: f.regions,
     regionLabel: f.regionLabel,
-    photo: photo?.src,
+    photo: photo?.src ? await responsive(photo.src, SIZES.card) : undefined,
     photoAlt: photo?.alt,
   };
-});
+  }),
+);
 
 const places: PlaceLite[] = (await getCollection('places')).map(({ data: p }) => ({
   slug: p.slug,

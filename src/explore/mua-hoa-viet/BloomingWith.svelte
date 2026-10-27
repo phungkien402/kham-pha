@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import type { ResponsiveImage } from './images';
   import { statusOn, type SeasonFlower } from './season';
   import { STATUS_SHORT, sortByStatus } from './detail';
 
@@ -8,7 +9,7 @@
     name: string;
     color: string;
     regionLabel: string;
-    photo?: string;
+    photo?: ResponsiveImage;
   }
   let { items }: { items: Item[] } = $props();
 
@@ -24,7 +25,7 @@
     <li>
       <a href="/mua-hoa-viet/{f.slug}/">
         <span class="thumb" style:background="color-mix(in srgb, {f.color} 72%, white)">
-          {#if f.photo}<img src={f.photo} alt="" loading="lazy" width="64" height="64" />{/if}
+          {#if f.photo}<img src={f.photo.src} srcset={f.photo.srcset} sizes="64px" alt="" loading="lazy" width="64" height="64" />{/if}
         </span>
         <span class="text">
           <strong>{f.name}</strong>

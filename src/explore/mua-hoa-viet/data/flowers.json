@@ -59,7 +59,7 @@
     "regionLabel": "Tây Bắc: Điện Biên, Sơn La",
     "photos": [
       {
-        "src": "/hoa/hoa-ban-1.webp",
+        "src": "hoa-ban-1.webp",
         "alt": "Hàng cây hoa ban nở trên đường Bắc Sơn, Hà Nội",
         "author": "Bdanh",
         "license": "CC BY-SA 3.0",
@@ -67,7 +67,7 @@
         "status": "approved"
       },
       {
-        "src": "/hoa/hoa-ban-2.webp",
+        "src": "hoa-ban-2.webp",
         "alt": "Cận cảnh bông hoa ban giữa lá hình móng bò",
         "author": "Delince",
         "license": "CC BY-SA 3.0",
@@ -380,7 +380,7 @@
     "regionLabel": "Đà Lạt, Gia Lai, Ba Vì",
     "photos": [
       {
-        "src": "/hoa/da-quy-1.webp",
+        "src": "da-quy-1.webp",
         "alt": "Bụi dã quỳ nở vàng rực ở Đà Lạt",
         "author": "Bùi Thụy Đào Nguyên",
         "license": "CC BY-SA 3.0",
@@ -388,7 +388,7 @@
         "status": "approved"
       },
       {
-        "src": "/hoa/da-quy-2.webp",
+        "src": "da-quy-2.webp",
         "alt": "Dã quỳ nở dọc con đường ở Tây Nguyên",
         "author": "Đỗ Tuấn Hưng",
         "license": "CC BY-SA 3.0",
@@ -396,7 +396,7 @@
         "status": "approved"
       },
       {
-        "src": "/hoa/da-quy-3.webp",
+        "src": "da-quy-3.webp",
         "alt": "Bụi dã quỳ cao với nhiều bông và nụ",
         "author": "DXLINH",
         "license": "Public domain",

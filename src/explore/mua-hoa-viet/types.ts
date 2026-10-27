@@ -1,4 +1,5 @@
 import type { SeasonFlower } from './season';
+import type { ResponsiveImage } from './images';
 
 export type Region = 'bac' | 'trung' | 'nam';
 
@@ -9,7 +10,7 @@ export interface FlowerLite extends SeasonFlower {
   color: string;
   regions: Region[];
   regionLabel: string;
-  photo?: string;
+  photo?: ResponsiveImage;
   photoAlt?: string;
 }
 
