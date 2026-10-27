@@ -84,7 +84,7 @@
   </div>
 
   <div class="wheel-card">
-    <Wheel flowers={flowers} {month} {today} activeSlugs={bloomingSlugs} />
+    <Wheel {flowers} bind:month {today} activeSlugs={bloomingSlugs} />
   </div>
 
   <ul class="legend" aria-label="Các loài đang nở">
