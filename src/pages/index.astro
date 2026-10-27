@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PageCard from '../components/PageCard.astro';
+import SiteFooter from '../components/SiteFooter.astro';
 import { site } from '../config/site';
 import pages from '../data/pages.json';
 
@@ -37,6 +38,7 @@ const isNew = (p: (typeof pages)[number]) => {
       }
     </ul>
   </main>
+  <SiteFooter />
 </BaseLayout>
 
 <style>

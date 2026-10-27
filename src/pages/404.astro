@@ -1,0 +1,59 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import { site } from '../config/site';
+---
+
+<BaseLayout title={`Không tìm thấy trang · ${site.name}`} noindex>
+  <main class="wrap">
+    <p class="code" aria-hidden="true">404</p>
+    <h1>Không tìm thấy trang này</h1>
+    <p>Đường dẫn có thể đã đổi hoặc chưa từng có. Quay về trang chủ để xem các trang khám phá nhé.</p>
+    <a class="btn" href="/">Về trang chủ</a>
+  </main>
+  <SiteFooter />
+</BaseLayout>
+
+<style>
+  .wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+    max-width: 44rem;
+    margin-inline: auto;
+    padding: var(--space-12) var(--space-4);
+  }
+  .code {
+    font-size: 4rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--color-text-muted);
+  }
+  h1 {
+    font-size: 1.75rem;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0 var(--space-6);
+    border-radius: 0.5rem;
+    background: var(--color-text);
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .btn:hover {
+    opacity: 0.85;
+  }
+  .btn:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
+  }
+  @media (min-width: 768px) {
+    .wrap {
+      padding-inline: var(--space-6);
+    }
+  }
+</style>

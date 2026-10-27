@@ -1,0 +1,60 @@
+---
+import { site } from '../config/site';
+
+const year = new Date().getFullYear();
+---
+
+<footer class="footer">
+  <div class="inner">
+    <p class="name">{site.name}</p>
+    <nav aria-label="Chân trang">
+      <a href="/">Trang chủ</a>
+      <a href="/gioi-thieu/">Giới thiệu</a>
+    </nav>
+    <p class="note">© {year} {site.name}. Không cookie, không thu dữ liệu cá nhân.</p>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--color-border);
+  }
+  .inner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-width: 1200px;
+    margin-inline: auto;
+    padding: var(--space-6) var(--space-4) var(--space-8);
+    font-size: 0.875rem;
+  }
+  .name {
+    font-weight: 700;
+  }
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+  }
+  a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+  }
+  a:hover {
+    text-decoration: none;
+  }
+  a:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+  .note {
+    color: var(--color-text-muted);
+  }
+  @media (min-width: 768px) {
+    .inner {
+      padding-inline: var(--space-6);
+    }
+  }
+</style>
