@@ -49,14 +49,15 @@ Quy ước: làm theo thứ tự, xong thì tick `[x]` và ghi Nhật ký. Mỗi
   - `SiteFooter.astro` dùng ở trang chủ và trang phụ.
   - `public/robots.txt` trỏ tới sitemap.
 
-- [ ] **7. Kiểm tra chất lượng**
+- [x] **7. Kiểm tra chất lượng**
   - `npm run build` không lỗi, không cảnh báo.
   - Lighthouse (mobile) trang chủ và trang thử nghiệm: mỗi mục từ 90 trở lên. Ghi điểm vào Nhật ký.
   - Kiểm tra ở 380px, 768px, 1280px. Bật `prefers-reduced-motion` xem hoạt ảnh có tắt không.
 
 - [ ] **8. Lên mạng**
   - Tạo repo GitHub (Kiên tự làm hoặc hướng dẫn Kiên), push code.
-  - Hướng dẫn Kiên kết nối Cloudflare Pages: framework preset Astro, build `npm run build`, output `dist`, biến môi trường `NODE_VERSION=20`.
+  - Hướng dẫn Kiên kết nối Cloudflare Pages: framework preset Astro, build `npm run build`, output `dist`, biến môi trường `NODE_VERSION=24` (Astro 7 cần Node >= 22.23.4; để 20 sẽ build lỗi). Thêm `"engines": { "node": ">=22.23.4" }` và file `.nvmrc` ghi `24` để khớp.
+  - Trước khi lên mạng: `public/robots.txt` đang ghi cứng `https://example.com`. Nên chuyển thành `src/pages/robots.txt.ts` sinh từ `site` trong `site.ts`, để đổi tên miền chỉ cần sửa một chỗ.
   - Xong khi: có link `*.pages.dev` mở được trên điện thoại.
 
 ## Câu hỏi cho Kiên
@@ -77,3 +78,5 @@ Quy ước: làm theo thứ tự, xong thì tick `[x]` và ghi Nhật ký. Mỗi
 - 2026-10-27: Xong bước 5 — `ExploreLayout.astro` (nút Trang chủ trái, `ShareButton.svelte` phải với `client:idle`, `NextPage` cuối trang), `ShareButton` (Web Share API → dự phòng copy link, hiện "Đã sao chép" 2 giây, cuối cùng là hộp thoại prompt), `NextPage.astro` (trang `live` kế tiếp, quay vòng; hiện chỉ có 1 trang live nên hiện khung "Xem tất cả trang" về trang chủ), `/thu-nghiem/` với nút đếm Svelte `client:visible` (`src/explore/thu-nghiem/Counter.svelte`). Build sạch, `/thu-nghiem/` trả 200. Chưa thử Web Share/clipboard trên trình duyệt thật.
 - 2026-10-27: Claude (claude.ai) kiểm tra bước 5 trên trình duyệt (375px): thẻ "Sắp ra mắt" giờ đọc rõ, vẫn không bấm được; `/og/default.png` trả 200 (PNG 45 KB). Bấm thẻ vào `/thu-nghiem/` → nút đếm chạy (bấm 2 lần ra "Đã bấm 2 lần"); nút Chia sẻ gọi Web Share với đủ title/text/url; khi không có Web Share thì copy link và báo "Đã sao chép liên kết" qua aria-live; nút Trang chủ quay về `/`. Không cuộn ngang. Bước 5 đạt.
 - 2026-10-27: Xong bước 6 — `SiteFooter.astro` (dùng ở trang chủ, giới thiệu, 404), `gioi-thieu.astro` (vài câu giới thiệu + ô đăng ký email chỉ giao diện, đang `disabled`), `404.astro` (noindex, nút về trang chủ), `public/robots.txt` trỏ `https://example.com/sitemap-index.xml` (nhớ đổi khi có tên miền thật). Kiểm tra draft: tạm tạo `src/pages/ban-nhap/` để build thử — trang vẫn build ra nhưng không có trong `sitemap-0.xml`. Vì chưa có cơ chế lọc, thêm `filter` vào `sitemap()` trong `astro.config.mjs` đọc `pages.json` để loại mọi slug `draft`; đã xoá trang thử sau khi kiểm. Build sạch, không cảnh báo.
+- 2026-10-27: Claude (claude.ai) kiểm tra bước 6: build lại sạch (4 trang); `sitemap-0.xml` chỉ có `/`, `/gioi-thieu/`, `/thu-nghiem/` (không có 404, không có draft). Trên trình duyệt 375px: `/gioi-thieu/` không cuộn ngang, ô email và nút Đăng ký đang tắt đúng như dự định; đường dẫn lạ ra trang 404 tiếng Việt có `noindex` và nút về trang chủ; footer có ở trang chủ, giới thiệu, 404. Bước 6 đạt. Ghi chú thêm vào bước 8: robots.txt nên sinh từ `site.ts`.
+- 2026-10-27: Xong bước 7 (Claude claude.ai chạy) — build sạch không cảnh báo. Lighthouse 12, chế độ mobile, trên bản build (`astro preview`): trang chủ Hiệu năng 98 / Trợ năng 100 / Thực hành tốt 100 / SEO 100 (FCP 1.9s, LCP 1.9s, TBT 0ms, CLS 0, 118 KiB); `/thu-nghiem/` 100 / 100 / 100 / 100 (FCP 0.8s, LCP 1.1s, CLS 0, 149 KiB). Bố cục: 375px 2 cột, 768px 3 cột, 1280px 4 cột, không cuộn ngang ở cả ba. Có quy tắc `prefers-reduced-motion` tắt animation/transition toàn trang. Báo cáo JSON để ở `%TEMP%\lh-neal`.
