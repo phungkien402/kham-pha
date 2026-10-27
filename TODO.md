@@ -52,6 +52,11 @@ Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đú
   - Câu chữ mùa nở (trang chi tiết, thẻ): dùng phần ngày. Ngày 1–10 = "đầu tháng", 11–20 = "giữa tháng", 21–cuối = "cuối tháng"; không có ngày thì chỉ "tháng M". Ví dụ tam giác mạch (15/10 → 5/12): "nở từ giữa tháng 10 đến đầu tháng 12", không phải "đến hết tháng 12".
   - Thêm test cho cả hai.
 
+- [ ] **17. Tối ưu ảnh** (sau khi thêm ảnh thật đầu tiên; commit riêng, không push)
+  - Ảnh đang ở `public/hoa/*.webp` 1000–1200px, 65–307 KB, và thẻ 88px trên trang chính cũng tải nguyên ảnh 1200px. Chuyển sang Astro Image (`src/explore/mua-hoa-viet/images/` + `<Image>`/`getImage`) để sinh nhiều cỡ: thẻ (~176px cho màn 2x), ảnh lớn (`srcset` 600/900/1200), `width`/`height` đúng tỉ lệ để không xô trang. Dữ liệu `photos[].src` có thể đổi sang tên file; giữ `author`, `license`, `source`.
+  - `og:image` đang là `.webp`; Facebook/Zalo đọc ổn định hơn với JPG/PNG → sinh thêm bản JPG 1200×630 cắt giữa cho OG.
+  - Giữ phần "Nguồn ảnh" cuối trang chi tiết (bắt buộc với ảnh CC BY-SA: tác giả + giấy phép + link ảnh gốc). Chú thích trên ảnh có thể thêm giấy phép nếu gọn.
+
 ## Giai đoạn 1 — Nền (đã xong 2026-10-27)
 
 - [x] **1. Khởi tạo dự án**
@@ -153,3 +158,4 @@ Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đú
 - 2026-10-27: Xong bước 16 — thêm `isBloomingIn(flower, viewMonth, today)` trong `season.ts` (tháng hiện tại dựa `statusOn`: đang nở / đỉnh mùa / sắp tàn; tháng khác vẫn theo `inSeason`); `MuaHoaViet.svelte` dùng hàm này nên số loài ở hero, danh sách, vòng cung sáng trên bánh xe và điểm ngắm đều theo ngày (27/10 lúa chín hết mùa 15/10 không còn "đang nở"; chưa làm mục "Vừa hết mùa"). Câu chữ mùa nở theo ngày: `monthRangeLabel`/`seasonPhrase` trong `detail.ts` (1–10 đầu, 11–20 giữa, 21–cuối tháng; không ngày thì "tháng M"), dùng ở thẻ, tooltip bánh xe, trang chi tiết và meta description. Thêm 4 test (36/36 pass), build sạch 17 trang.
 - 2026-10-27: Claude (claude.ai) kiểm tra bước 16 trên bản build: 27/10 trang chính còn "3 loài hoa đang nở" (dã quỳ, hoa sữa, tam giác mạch), lúa chín không còn; bánh xe sáng đúng 3 vòng; câu chữ dạng "giữa tháng 10 – đầu tháng 12"; meta description tam giác mạch đúng. Test 36/36, build sạch. Đạt, push.
 - 2026-10-27: Claude (claude.ai) viết mục "Về loài hoa này" (`summary`, 2 câu) cho 11 loài còn lại dựa trên các nguồn trong `docs/nguon-du-lieu.md`; summary cũng thành meta description của trang loài. Kiểm tra trang sen: hiện đúng, không còn ghi chú dữ liệu mẫu. Test 36/36, build sạch. Push.
+- 2026-10-27: Claude (claude.ai) thêm ảnh thật đầu tiên từ Wikimedia Commons (giấy phép tự do): dã quỳ 3 ảnh (Bùi Thụy Đào Nguyên CC BY-SA 3.0, Đỗ Tuấn Hưng CC BY-SA 3.0, DXLINH public domain), hoa ban 2 ảnh (Bdanh CC BY-SA 3.0, Delince CC BY-SA 3.0); WebP ở `public/hoa/`, ghi `author`/`license`/`source` trong `flowers.json`. Bỏ qua ảnh tam giác mạch duy nhất trên Commons vì có người mẫu chiếm khung và biển quảng cáo. Thêm phần "Nguồn ảnh" cuối trang chi tiết (tác giả, giấy phép, link ảnh gốc — bắt buộc với CC BY-SA). Kiểm tra: carousel 3 ảnh, thẻ trang chính hiện ảnh, og:image lấy ảnh đầu. Thêm bước 17 (tối ưu cỡ ảnh, OG JPG). Push.

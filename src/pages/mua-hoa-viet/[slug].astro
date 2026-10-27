@@ -219,6 +219,30 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
   }
 
   {
+    f.photos.some((p) => p.src) && (
+      <section class="photo-credits" aria-labelledby="photo-credits-title">
+        <h2 id="photo-credits-title">Nguồn ảnh</h2>
+        <ul>
+          {f.photos
+            .filter((p) => p.src)
+            .map((p, i) => (
+              <li>
+                Ảnh {i + 1}: {p.author}
+                {p.license && <>, {p.license}</>}
+                {p.source && (
+                  <>
+                    {' '}
+                    — <a href={p.source} rel="noopener" target="_blank">xem ảnh gốc</a>
+                  </>
+                )}
+              </li>
+            ))}
+        </ul>
+      </section>
+    )
+  }
+
+  {
     !f.verified && (
       <p class="draft-note">
         Mùa nở và nội dung trên trang này là dữ liệu mẫu, chưa được kiểm chứng.
@@ -228,6 +252,24 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
 </ExploreLayout>
 
 <style>
+  .photo-credits {
+    margin-top: 2rem;
+    font-size: 0.8125rem;
+    color: #6b655c;
+  }
+  .photo-credits h2 {
+    font-size: 0.875rem;
+    margin: 0 0 0.25rem;
+    color: #4a453e;
+  }
+  .photo-credits ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    line-height: 1.6;
+  }
+  .photo-credits a {
+    color: inherit;
+  }
   .crumbs {
     font-size: 0.875rem;
   }

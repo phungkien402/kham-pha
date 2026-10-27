@@ -59,10 +59,20 @@
     "regionLabel": "Tây Bắc: Điện Biên, Sơn La",
     "photos": [
       {
-        "alt": "Hoa hoa ban (ảnh giữ chỗ)",
-        "author": "Chưa có",
-        "license": "Chưa có",
-        "status": "pending"
+        "src": "/hoa/hoa-ban-1.webp",
+        "alt": "Hàng cây hoa ban nở trên đường Bắc Sơn, Hà Nội",
+        "author": "Bdanh",
+        "license": "CC BY-SA 3.0",
+        "source": "https://commons.wikimedia.org/wiki/File:Hoa_ban_%C4%91%C6%B0%E1%BB%9Dng_B%E1%BA%AFc_S%C6%A1n_-_H%C3%A0_N%E1%BB%99i.jpg",
+        "status": "approved"
+      },
+      {
+        "src": "/hoa/hoa-ban-2.webp",
+        "alt": "Cận cảnh bông hoa ban giữa lá hình móng bò",
+        "author": "Delince",
+        "license": "CC BY-SA 3.0",
+        "source": "https://commons.wikimedia.org/wiki/File:Bauhinia_variegata_(2).JPG",
+        "status": "approved"
       }
     ],
     "summary": "Hoa ban là loài hoa đặc trưng của núi rừng Tây Bắc, nở trắng các sườn đồi Điện Biên, Sơn La khi mùa xuân về. Mùa hoa đẹp nhất thường rơi vào tháng 3, gắn với nhiều câu chuyện và lễ hội của đồng bào nơi đây."
@@ -370,10 +380,28 @@
     "regionLabel": "Đà Lạt, Gia Lai, Ba Vì",
     "photos": [
       {
-        "alt": "Hoa dã quỳ (ảnh giữ chỗ)",
-        "author": "Chưa có",
-        "license": "Chưa có",
-        "status": "pending"
+        "src": "/hoa/da-quy-1.webp",
+        "alt": "Bụi dã quỳ nở vàng rực ở Đà Lạt",
+        "author": "Bùi Thụy Đào Nguyên",
+        "license": "CC BY-SA 3.0",
+        "source": "https://commons.wikimedia.org/wiki/File:D%C3%A3_qu%E1%BB%B3.jpg",
+        "status": "approved"
+      },
+      {
+        "src": "/hoa/da-quy-2.webp",
+        "alt": "Dã quỳ nở dọc con đường ở Tây Nguyên",
+        "author": "Đỗ Tuấn Hưng",
+        "license": "CC BY-SA 3.0",
+        "source": "https://commons.wikimedia.org/wiki/File:Daquy.JPG",
+        "status": "approved"
+      },
+      {
+        "src": "/hoa/da-quy-3.webp",
+        "alt": "Bụi dã quỳ cao với nhiều bông và nụ",
+        "author": "DXLINH",
+        "license": "Public domain",
+        "source": "https://commons.wikimedia.org/wiki/File:Hoaquy.jpg",
+        "status": "approved"
       }
     ],
     "aka": "Hướng dương dại, quỳ núi",
