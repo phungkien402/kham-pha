@@ -1,14 +1,8 @@
 ---
-import '../styles/global.css';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { site } from '../config/site';
 ---
 
-<html lang="vi">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Khám Phá</title>
-  </head>
-  <body>
-    <h1>Mùa Hoa Việt — Hôm nay hoa gì đang nở?</h1>
-  </body>
-</html>
+<BaseLayout title={site.name}>
+  <h1>Mùa Hoa Việt — Hôm nay hoa gì đang nở?</h1>
+</BaseLayout>

@@ -1,9 +1,9 @@
-@import '@fontsource/be-vietnam-pro/vietnamese-400.css';
-@import '@fontsource/be-vietnam-pro/vietnamese-600.css';
-@import '@fontsource/be-vietnam-pro/vietnamese-700.css';
-@import '@fontsource/be-vietnam-pro/latin-400.css';
-@import '@fontsource/be-vietnam-pro/latin-600.css';
-@import '@fontsource/be-vietnam-pro/latin-700.css';
+/* Các file 400/600/700 đã có sẵn unicode-range theo subset (vietnamese, latin-ext, latin),
+   trình duyệt chỉ tải subset nào trang thực sự dùng. Các file vietnamese-*.css / latin-*.css
+   riêng lẻ KHÔNG có unicode-range nên không dùng. */
+@import '@fontsource/be-vietnam-pro/400.css';
+@import '@fontsource/be-vietnam-pro/600.css';
+@import '@fontsource/be-vietnam-pro/700.css';
 
 :root {
   --color-bg: #faf8f5;
