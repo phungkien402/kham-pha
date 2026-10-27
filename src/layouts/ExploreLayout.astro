@@ -9,18 +9,20 @@ interface Props {
   title: string;
   description?: string;
   ogImage?: string;
+  /** Nút quay lại ở góc trên trái; mặc định về trang chủ. */
+  back?: { href: string; label: string };
 }
 
-const { slug, title, description, ogImage } = Astro.props;
+const { slug, title, description, ogImage, back = { href: '/', label: 'Trang chủ' } } = Astro.props;
 ---
 
 <BaseLayout title={`${title} · ${site.name}`} description={description} ogImage={ogImage}>
   <header class="bar">
-    <a class="back" href="/">
+    <a class="back" href={back.href}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M15 18l-6-6 6-6" />
       </svg>
-      <span>Trang chủ</span>
+      <span>{back.label}</span>
     </a>
     <ShareButton client:idle title={title} text={description} />
   </header>

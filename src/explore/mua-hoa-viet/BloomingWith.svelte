@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { statusOn, type SeasonFlower } from './season';
-  import { STATUS_SHORT } from './detail';
+  import { STATUS_SHORT, sortByStatus } from './detail';
 
   interface Item extends SeasonFlower {
     slug: string;
@@ -16,10 +16,11 @@
   onMount(() => {
     now = new Date();
   });
+  let sorted = $derived(sortByStatus(items, now));
 </script>
 
 <ul>
-  {#each items as f (f.slug)}
+  {#each sorted as f (f.slug)}
     <li>
       <a href="/mua-hoa-viet/{f.slug}/">
         <span class="thumb" style:background="color-mix(in srgb, {f.color} 72%, white)">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countdown, peakLabel, peakMonth, statusHeadline } from './detail';
+import { countdown, peakLabel, peakMonth, sortByStatus, statusHeadline } from './detail';
 
 const daQuy = {
   season: { start: { month: 10, day: 15 }, peak: { month: 11, day: 15 }, end: { month: 12, day: 31 } },
@@ -21,6 +21,15 @@ describe('detail', () => {
   });
   it('sau đỉnh: đếm tới hết mùa', () => {
     expect(countdown(daQuy, d('2026-12-10'))).toEqual({ value: '~21 ngày', label: 'nữa hết mùa' });
+  });
+  it('sortByStatus: đang nở trước, rồi sắp nở, rồi chưa đến mùa / hết mùa', () => {
+    const mk = (id: string, s: number, e: number) => ({ id, season: { start: { month: s }, end: { month: e } } });
+    const hetMua = mk('het', 3, 4);
+    const sapNo = mk('sapno', 11, 12);
+    const dangNo = mk('dang', 10, 11);
+    const chuaNo = mk('chua', 7, 8);
+    const sorted = sortByStatus([hetMua, sapNo, chuaNo, dangNo], d('2026-10-27'));
+    expect(sorted.map((x) => x.id)).toEqual(['dang', 'sapno', 'het', 'chua']);
   });
   it('ngoài mùa: đếm tới mùa nở', () => {
     expect(countdown(daQuy, d('2026-10-01')).label).toBe('nữa tới mùa nở');

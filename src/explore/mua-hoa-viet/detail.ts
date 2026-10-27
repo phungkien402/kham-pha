@@ -38,6 +38,24 @@ export const STATUS_SHORT: Record<BloomStatus, string> = {
   'het-mua': 'Hết mùa',
 };
 
+// Thứ tự hiện "Nở cùng thời điểm": đang nở / đỉnh mùa / sắp tàn, rồi sắp nở, rồi chưa đến mùa / hết mùa.
+const STATUS_RANK: Record<BloomStatus, number> = {
+  'dang-no': 0,
+  'dinh-mua': 0,
+  'sap-tan': 0,
+  'sap-no': 1,
+  'chua-no': 2,
+  'het-mua': 2,
+};
+
+/** Sắp theo trạng thái ngày `date`; cùng nhóm giữ nguyên thứ tự ban đầu. */
+export function sortByStatus<T extends SeasonFlower>(flowers: T[], date: Date): T[] {
+  return flowers
+    .map((f, i) => ({ f, i, rank: STATUS_RANK[statusOn(f, date)] }))
+    .sort((a, b) => a.rank - b.rank || a.i - b.i)
+    .map((x) => x.f);
+}
+
 export function statusHeadline(flower: SeasonFlower, date: Date): string {
   const status = statusOn(flower, date);
   if (status === 'dang-no') {
