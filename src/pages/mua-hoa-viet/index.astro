@@ -1,0 +1,39 @@
+---
+import { getCollection } from 'astro:content';
+import ExploreLayout from '../../layouts/ExploreLayout.astro';
+import MuaHoaViet from '../../explore/mua-hoa-viet/MuaHoaViet.svelte';
+import type { FlowerLite, PlaceLite } from '../../explore/mua-hoa-viet/types';
+
+const flowers: FlowerLite[] = (await getCollection('flowers')).map(({ data: f }) => {
+  const photo = f.photos.find((p) => p.src);
+  return {
+    slug: f.slug,
+    name: f.name,
+    color: f.color,
+    season: f.season,
+    regions: f.regions,
+    regionLabel: f.regionLabel,
+    photo: photo?.src,
+    photoAlt: photo?.alt,
+  };
+});
+
+const places: PlaceLite[] = (await getCollection('places')).map(({ data: p }) => ({
+  slug: p.slug,
+  name: p.name,
+  province: p.province,
+  region: p.region,
+  flowers: p.flowers.map((pf) => ({
+    slug: pf.slug,
+    best: typeof pf.best === 'string' ? pf.best : `T${pf.best.start.month} – T${pf.best.end.month}`,
+  })),
+}));
+---
+
+<ExploreLayout
+  slug="mua-hoa-viet"
+  title="Mùa Hoa Việt"
+  description="Hôm nay hoa gì đang nở? Xem mùa hoa cả năm trên bánh xe 12 tháng và chỗ ngắm hoa khắp Việt Nam."
+>
+  <MuaHoaViet client:load {flowers} {places} />
+</ExploreLayout>
