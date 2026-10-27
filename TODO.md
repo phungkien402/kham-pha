@@ -6,7 +6,7 @@ Quy ước: làm theo thứ tự, xong thì tick `[x]` và ghi Nhật ký. Mỗi
 
 Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đúng theo mockup đã chốt. **Đọc `docs/mua-hoa-viet-spec.md` trước khi làm** — đó là mô tả đầy đủ bố cục, bánh xe 12 tháng và quy tắc "hôm nay". Chưa làm phần quản trị/đăng ảnh. Bản đồ thật để giai đoạn sau (giờ dùng khung giữ chỗ).
 
-- [ ] **9. Dữ liệu và kiểu dữ liệu**
+- [x] **9. Dữ liệu và kiểu dữ liệu**
   - Dùng Astro content collections (file loader, schema bằng zod) cho `src/explore/mua-hoa-viet/data/flowers.json` và `places.json`; build phải báo lỗi nếu dữ liệu sai kiểu.
   - `flowers`: `slug`, `name`, `scientificName`, `aka?`, `color`, `season` { `start`: {month, day?}, `peak?`: {month, day?}, `end`: {month, day?} }, `regions` (mảng: `bac`/`trung`/`nam`), `regionLabel` (vd "Đà Lạt, Gia Lai, Ba Vì"), `summary?`, `facts?` [{value, label}], `identify?` [chuỗi], `confusedWith?` {name, ours, theirs}, `didYouKnow?` [{title, text}], `dayMoments?` [{label, color, headline, scene, tip}], `quote?` {text, author, place, year}, `photos` [{src?, alt, author, license, source?, status: "approved"|"pending"}], `tips?` [chuỗi].
   - `places`: `slug`, `name`, `province`, `region`, `lat?`, `lng?`, `flowers` [{slug, best: "T10 – T11" hoặc cấu trúc tháng}].
@@ -97,6 +97,8 @@ Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đú
 ## Câu hỏi cho Kiên
 
 - Tên web và tên miền chính thức?
+- Màu từng loài trong 12 loài mẫu: spec không liệt kê cụ thể nên Claude Code tự chọn (xem `flowers.json`). Có mã màu từ mockup thì sửa lại.
+- Dữ liệu mẫu (mùa nở, chuyện thú vị, lời người chụp, điểm ngắm trong `places.json`) đều CHƯA kiểm chứng; mọi loài có `verified: false`. Chỉ dã quỳ điền đủ trường, nội dung do Claude Code viết theo tinh thần mockup.
 
 ## Nhật ký
 
@@ -119,3 +121,4 @@ Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đú
 - 2026-10-27: Claude (claude.ai) chuyển hướng deploy sang Cloudflare Workers (static assets) theo khuyến nghị hiện tại của Cloudflare/Astro: thêm `wrangler.jsonc` (name `kham-pha`, assets `./dist`, `not_found_handling: 404-page`), cài `wrangler` devDependency. `npm run build` sạch, `npx wrangler deploy --dry-run` đọc được 38 file từ `dist`. Link sẽ có dạng `kham-pha.<tài-khoản>.workers.dev` thay vì `*.pages.dev`.
 - 2026-10-27: Xong bước 8 — web chạy tại https://kham-pha.phungkien4002.workers.dev (Cloudflare Workers, tự build khi push `main`). Claude (claude.ai) kiểm tra bản trên mạng: trang chủ, `/thu-nghiem/`, `/gioi-thieu/`, `og/default.png`, `sitemap-index.xml` trả 200; đường dẫn lạ trả 404 kèm trang 404 tiếng Việt; font tải đúng 7 file subset. Đổi `site.url` trong `site.ts` từ example.com sang URL workers.dev để canonical, sitemap, robots trỏ đúng. Giai đoạn nền hoàn tất.
 - 2026-10-27: Claude (claude.ai) mở giai đoạn 2 (Mùa Hoa Việt): thêm bước 9–14 vào TODO.md, viết `docs/mua-hoa-viet-spec.md` mô tả mockup Kiên đã chốt (trang chính có bánh xe 12 tháng, trang chi tiết loài), cập nhật dòng giai đoạn hiện tại trong CLAUDE.md. Thêm quy ước: không push trừ khi Kiên bảo.
+- 2026-10-27: Xong bước 9 — `src/content.config.ts` (collection `flowers` và `places`, file loader + zod từ `astro/zod`, id lấy từ `slug`), dữ liệu mẫu 12 loài + 8 điểm ngắm trong `src/explore/mua-hoa-viet/data/`. Ảnh để trống (`src` bỏ qua, `status: pending`). Đã thử cố ý đặt tháng 13 → build báo `InvalidContentEntryDataError`, sửa lại thì build sạch.

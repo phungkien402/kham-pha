@@ -1,0 +1,450 @@
+[
+  {
+    "slug": "mai-anh-dao",
+    "name": "Mai anh đào",
+    "scientificName": "Prunus cerasoides",
+    "color": "#F2A7C3",
+    "verified": false,
+    "season": {
+      "start": {
+        "month": 12
+      },
+      "peak": {
+        "month": 1
+      },
+      "end": {
+        "month": 2
+      }
+    },
+    "regions": [
+      "bac",
+      "nam"
+    ],
+    "regionLabel": "Đà Lạt, Sa Pa",
+    "photos": [
+      {
+        "alt": "Hoa mai anh đào (ảnh giữ chỗ)",
+        "author": "Chưa có",
+        "license": "Chưa có",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "slug": "hoa-ban",
+    "name": "Hoa ban",
+    "scientificName": "Bauhinia variegata",
+    "color": "#F4F0EA",
+    "verified": false,
+    "season": {
+      "start": {
+        "month": 2
+      },
+      "peak": {
+        "month": 3
+      },
+      "end": {
+        "month": 4
+      }
+    },
+    "regions": [
+      "bac"
+    ],
+    "regionLabel": "Tây Bắc: Điện Biên, Sơn La",
+    "photos": [
+      {
+        "alt": "Hoa hoa ban (ảnh giữ chỗ)",
+        "author": "Chưa có",
+        "license": "Chưa có",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "slug": "hoa-gao",
+    "name": "Hoa gạo",
+    "scientificName": "Bombax ceiba",
+    "color": "#E4572E",
+    "verified": false,
+    "season": {
+      "start": {
+        "month": 3
+      },
+      "peak": {
+        "month": 3
+      },
+      "end": {
+        "month": 3
+      }
+    },
+    "regions": [
+      "bac",
+      "trung"
+    ],
+    "regionLabel": "Hà Nội, Phú Thọ",
+    "photos": [
+      {
+        "alt": "Hoa hoa gạo (ảnh giữ chỗ)",
+        "author": "Chưa có",
+        "license": "Chưa có",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "slug": "loa-ken",
+    "name": "Loa kèn",
+    "scientificName": "Lilium longiflorum",
+    "color": "#F7F3E8",
+    "verified": false,
+    "season": {
+      "start": {
+        "month": 4
+      },
+      "peak": {
+        "month": 4
+      },
+      "end": {
+        "month": 4
+      }
+    },
+    "regions": [
+      "bac"
+    ],
+    "regionLabel": "Hà Nội",
+    "photos": [
+      {
+        "alt": "Hoa loa kèn (ảnh giữ chỗ)",
+        "author": "Chưa có",
+        "license": "Chưa có",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "slug": "phuong",
+    "name": "Hoa phượng",
+    "scientificName": "Delonix regia",
+    "color": "#D8412F",
+    "verified": false,
+    "season": {
+      "start": {
+        "month": 5
+      },
+      "peak": {
+        "month": 6
+      },
+      "end": {
+        "month": 7
+      }
+    },
+    "regions": [
+      "bac",
+      "trung",
+      "nam"
+    ],
+    "regionLabel": "Hải Phòng, Huế",
+    "photos": [
+      {
+        "alt": "Hoa hoa phượng (ảnh giữ chỗ)",
+        "author": "Chưa có",
+        "license": "Chưa có",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "slug": "bang-lang",
+    "name": "Bằng lăng",
+    "scientificName": "Lagerstroemia speciosa",
+    "color": "#9B72C9",
+    "verified": false,
+    "season": {
+      "start": {
+        "month": 5
+      },
+      "peak": {
+        "month": 6
+      },
+      "end": {
+        "month": 6
+      }
+    },
+    "regions": [
+      "bac",
+      "nam"
+    ],
+    "regionLabel": "Hà Nội, TP. Hồ Chí Minh",
+    "photos": [
+      {
+        "alt": "Hoa bằng lăng (ảnh giữ chỗ)",
+        "author": "Chưa có",
+        "license": "Chưa có",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "slug": "sen",
+    "name": "Sen",
+    "scientificName": "Nelumbo nucifera",
+    "color": "#E98BB0",
+    "verified": false,
+    "season": {
+      "start": {
+        "month": 6
+      },
+      "peak": {
+        "month": 6
+      },
+      "end": {
+        "month": 7
+      }
+    },
+    "regions": [
+      "bac",
+      "trung",
+      "nam"
+    ],
+    "regionLabel": "Đồng Tháp, Huế, Hà Nội",
+    "photos": [
+      {
+        "alt": "Hoa sen (ảnh giữ chỗ)",
+        "author": "Chưa có",
+        "license": "Chưa có",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "slug": "lua-chin",
+    "name": "Lúa chín",
+    "scientificName": "Oryza sativa",
+    "color": "#E0B53A",
+    "verified": false,
+    "season": {
+      "start": {
+        "month": 9
+      },
+      "peak": {
+        "month": 9
+      },
+      "end": {
+        "month": 10
+      }
+    },
+    "regions": [
+      "bac"
+    ],
+    "regionLabel": "Mù Cang Chải, Hoàng Su Phì",
+    "photos": [
+      {
+        "alt": "Hoa lúa chín (ảnh giữ chỗ)",
+        "author": "Chưa có",
+        "license": "Chưa có",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "slug": "hoa-sua",
+    "name": "Hoa sữa",
+    "scientificName": "Alstonia scholaris",
+    "color": "#EDE6C8",
+    "verified": false,
+    "season": {
+      "start": {
+        "month": 10
+      },
+      "peak": {
+        "month": 11
+      },
+      "end": {
+        "month": 11
+      }
+    },
+    "regions": [
+      "bac"
+    ],
+    "regionLabel": "Hà Nội",
+    "photos": [
+      {
+        "alt": "Hoa hoa sữa (ảnh giữ chỗ)",
+        "author": "Chưa có",
+        "license": "Chưa có",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "slug": "tam-giac-mach",
+    "name": "Tam giác mạch",
+    "scientificName": "Fagopyrum tataricum",
+    "color": "#E8B6C9",
+    "verified": false,
+    "season": {
+      "start": {
+        "month": 10
+      },
+      "peak": {
+        "month": 11
+      },
+      "end": {
+        "month": 12
+      }
+    },
+    "regions": [
+      "bac"
+    ],
+    "regionLabel": "Hà Giang",
+    "photos": [
+      {
+        "alt": "Hoa tam giác mạch (ảnh giữ chỗ)",
+        "author": "Chưa có",
+        "license": "Chưa có",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "slug": "da-quy",
+    "name": "Dã quỳ",
+    "scientificName": "Tithonia diversifolia",
+    "color": "#F0B323",
+    "verified": false,
+    "season": {
+      "start": {
+        "month": 10,
+        "day": 15
+      },
+      "peak": {
+        "month": 11,
+        "day": 15
+      },
+      "end": {
+        "month": 12,
+        "day": 31
+      }
+    },
+    "regions": [
+      "bac",
+      "nam"
+    ],
+    "regionLabel": "Đà Lạt, Gia Lai, Ba Vì",
+    "photos": [
+      {
+        "alt": "Hoa dã quỳ (ảnh giữ chỗ)",
+        "author": "Chưa có",
+        "license": "Chưa có",
+        "status": "pending"
+      }
+    ],
+    "aka": "Hướng dương dại, quỳ núi",
+    "summary": "Loài hoa dại màu vàng rực nở dọc sườn đồi khi mùa mưa vừa dứt, báo hiệu đầu mùa khô.",
+    "facts": [
+      {
+        "value": "~1,5 – 3 m",
+        "label": "Chiều cao cây"
+      },
+      {
+        "value": "Tháng 10 – 12",
+        "label": "Mùa nở"
+      }
+    ],
+    "identify": [
+      "Hoa vàng cam to bằng lòng bàn tay, cánh dài xếp quanh nhuỵ.",
+      "Thân cao, lá xẻ thuỳ như lá khoai mì.",
+      "Mọc thành rặng dọc sườn đồi, ven đường."
+    ],
+    "confusedWith": {
+      "name": "Cúc hoạ mi",
+      "ours": "Dã quỳ: hoa lớn, vàng cam, cây cao.",
+      "theirs": "Cúc hoạ mi: hoa nhỏ, cánh trắng, nhuỵ vàng, cây thấp."
+    },
+    "didYouKnow": [
+      {
+        "title": "Anh em với hướng dương",
+        "text": "Dã quỳ cùng họ Cúc với hướng dương, gốc từ Trung Mỹ."
+      },
+      {
+        "title": "Nở theo mùa khô",
+        "text": "Hoa bung rộ khi hết mưa, nắng vàng bắt đầu dịu."
+      },
+      {
+        "title": "Cây phân xanh",
+        "text": "Lá dã quỳ có thể ủ làm phân xanh cho đất."
+      }
+    ],
+    "dayMoments": [
+      {
+        "label": "Bình minh",
+        "color": "#F6C9A0",
+        "headline": "Sương còn đọng trên cánh hoa",
+        "scene": "Sương mỏng phủ sườn đồi, cánh hoa ánh cam nhạt.",
+        "tip": "Mang áo ấm; đến sớm để vắng người."
+      },
+      {
+        "label": "Sáng",
+        "color": "#F7DC7A",
+        "headline": "Nắng lên, vàng rực cả đồi",
+        "scene": "Nắng xiên làm hoa vàng đậm, ong bướm bắt đầu bay.",
+        "tip": "Giờ vàng để chụp ngược sáng."
+      },
+      {
+        "label": "Trưa",
+        "color": "#FBEFB0",
+        "headline": "Nắng gắt, màu hoa hơi nhạt",
+        "scene": "Nắng đứng bóng, màu hoa bị cháy sáng.",
+        "tip": "Đội mũ, nghỉ bóng râm; chụp cận cảnh thay vì toàn cảnh."
+      },
+      {
+        "label": "Chiều",
+        "color": "#F3B27A",
+        "headline": "Hoàng hôn nhuộm đồi màu cam",
+        "scene": "Nắng nghiêng, hoa và cỏ phủ ánh hổ phách.",
+        "tip": "Chụp bóng đổ dài; về trước khi trời tối."
+      }
+    ],
+    "quote": {
+      "text": "Mùa dã quỳ đến lặng lẽ, rồi một sớm cả triền đồi vàng lên như ai vừa thắp đèn.",
+      "author": "Tên người chụp (mẫu)",
+      "place": "Đà Lạt",
+      "year": 2025
+    },
+    "tips": [
+      "Đi sáng sớm hoặc chiều muộn.",
+      "Mang áo khoác mỏng vì đồi gió.",
+      "Không hái hoa, không giẫm lên luống."
+    ]
+  },
+  {
+    "slug": "cuc-hoa-mi",
+    "name": "Cúc hoạ mi",
+    "scientificName": "Chrysanthemum paludosum",
+    "color": "#F8F8F4",
+    "verified": false,
+    "season": {
+      "start": {
+        "month": 11
+      },
+      "peak": {
+        "month": 12
+      },
+      "end": {
+        "month": 12
+      }
+    },
+    "regions": [
+      "bac"
+    ],
+    "regionLabel": "Hà Nội, Sa Pa",
+    "photos": [
+      {
+        "alt": "Hoa cúc hoạ mi (ảnh giữ chỗ)",
+        "author": "Chưa có",
+        "license": "Chưa có",
+        "status": "pending"
+      }
+    ]
+  }
+]

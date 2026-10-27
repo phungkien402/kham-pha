@@ -1,0 +1,110 @@
+[
+  {
+    "slug": "da-lat",
+    "name": "Đà Lạt",
+    "province": "Lâm Đồng",
+    "region": "nam",
+    "flowers": [
+      {
+        "slug": "da-quy",
+        "best": "T10 – T11"
+      },
+      {
+        "slug": "mai-anh-dao",
+        "best": "T1 – T2"
+      }
+    ]
+  },
+  {
+    "slug": "ba-vi",
+    "name": "Vườn quốc gia Ba Vì",
+    "province": "Hà Nội",
+    "region": "bac",
+    "flowers": [
+      {
+        "slug": "da-quy",
+        "best": "T11 – T12"
+      }
+    ]
+  },
+  {
+    "slug": "chu-prong",
+    "name": "Núi lửa Chư Đăng Ya",
+    "province": "Gia Lai",
+    "region": "nam",
+    "flowers": [
+      {
+        "slug": "da-quy",
+        "best": "T10 – T11"
+      }
+    ]
+  },
+  {
+    "slug": "mu-cang-chai",
+    "name": "Mù Cang Chải",
+    "province": "Yên Bái",
+    "region": "bac",
+    "flowers": [
+      {
+        "slug": "lua-chin",
+        "best": "T9 – T10"
+      }
+    ]
+  },
+  {
+    "slug": "ha-giang",
+    "name": "Cao nguyên đá Đồng Văn",
+    "province": "Hà Giang",
+    "region": "bac",
+    "flowers": [
+      {
+        "slug": "tam-giac-mach",
+        "best": "T10 – T11"
+      }
+    ]
+  },
+  {
+    "slug": "dien-bien",
+    "name": "Điện Biên",
+    "province": "Điện Biên",
+    "region": "bac",
+    "flowers": [
+      {
+        "slug": "hoa-ban",
+        "best": "T2 – T3"
+      }
+    ]
+  },
+  {
+    "slug": "ho-tay",
+    "name": "Hồ Tây",
+    "province": "Hà Nội",
+    "region": "bac",
+    "flowers": [
+      {
+        "slug": "sen",
+        "best": "T6 – T7"
+      },
+      {
+        "slug": "hoa-sua",
+        "best": "T10 – T11"
+      },
+      {
+        "slug": "cuc-hoa-mi",
+        "best": "T11 – T12"
+      }
+    ]
+  },
+  {
+    "slug": "dong-thap",
+    "name": "Đồng Tháp Mười",
+    "province": "Đồng Tháp",
+    "region": "nam",
+    "flowers": [
+      {
+        "slug": "sen",
+        "best": "T6 – T7"
+      }
+    ]
+  }
+]
