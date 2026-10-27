@@ -4,7 +4,7 @@
 
 Kế hoạch đầy đủ nằm ở tài liệu "Kế hoạch web khám phá kiểu neal.fun" (Claude trên claude.ai giữ). File này là bản tóm tắt để code theo.
 
-**Giai đoạn hiện tại: dựng NỀN (web chính).** Chưa làm nội dung Mùa Hoa Việt. Việc cụ thể nằm trong `TODO.md`.
+**Giai đoạn hiện tại: giai đoạn 2 — trang Mùa Hoa Việt** (giai đoạn 1 dựng nền đã xong, web chạy tại https://kham-pha.phungkien4002.workers.dev). Việc cụ thể nằm trong `TODO.md`; bố cục chi tiết theo mockup nằm trong `docs/mua-hoa-viet-spec.md`.
 
 ## Cách phối hợp
 
@@ -106,3 +106,4 @@ Trang chủ chỉ hiện các trang `live` và `coming-soon`. Trang `draft` vẫ
 
 - 2026-10-27: Dùng Astro + Svelte, host trên Cloudflare Pages, bắt đầu bằng phần nền trước khi làm Mùa Hoa Việt.
 - 2026-10-27: Tên web chưa chốt. Tạm dùng "Khám Phá" trong `src/config/site.ts`, đổi sau.
+- 2026-10-27: Giai đoạn 2 làm trang Mùa Hoa Việt theo mockup (đặc tả ở `docs/mua-hoa-viet-spec.md`). Phần quản trị/đăng ảnh và bản đồ thật để giai đoạn sau. Ngày "hôm nay" luôn tính ở trình duyệt theo giờ Việt Nam vì web là web tĩnh.

@@ -1,10 +1,43 @@
-# TODO — Giai đoạn nền (web chính)
+# TODO
 
-Mục tiêu: trang chủ dạng lưới thẻ và khung chung cho trang khám phá chạy được trên điện thoại, đã lên mạng qua Cloudflare Pages. Chưa làm nội dung Mùa Hoa Việt.
+Quy ước: làm theo thứ tự, xong thì tick `[x]` và ghi Nhật ký. Mỗi bước xong phải `npm run build` không lỗi, rồi commit riêng (message tiếng Việt, `git -c user.name=Kien -c user.email=phungkien4002@gmail.com`). Không push trừ khi Kiên bảo (push lên `main` = web tự cập nhật trên mạng).
 
-Quy ước: làm theo thứ tự, xong thì tick `[x]` và ghi Nhật ký. Mỗi bước xong phải `npm run build` không lỗi.
+## Giai đoạn 2 — Trang Mùa Hoa Việt (đang làm)
 
-## Việc cần làm
+Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đúng theo mockup đã chốt. **Đọc `docs/mua-hoa-viet-spec.md` trước khi làm** — đó là mô tả đầy đủ bố cục, bánh xe 12 tháng và quy tắc "hôm nay". Chưa làm phần quản trị/đăng ảnh. Bản đồ thật để giai đoạn sau (giờ dùng khung giữ chỗ).
+
+- [ ] **9. Dữ liệu và kiểu dữ liệu**
+  - Dùng Astro content collections (file loader, schema bằng zod) cho `src/explore/mua-hoa-viet/data/flowers.json` và `places.json`; build phải báo lỗi nếu dữ liệu sai kiểu.
+  - `flowers`: `slug`, `name`, `scientificName`, `aka?`, `color`, `season` { `start`: {month, day?}, `peak?`: {month, day?}, `end`: {month, day?} }, `regions` (mảng: `bac`/`trung`/`nam`), `regionLabel` (vd "Đà Lạt, Gia Lai, Ba Vì"), `summary?`, `facts?` [{value, label}], `identify?` [chuỗi], `confusedWith?` {name, ours, theirs}, `didYouKnow?` [{title, text}], `dayMoments?` [{label, color, headline, scene, tip}], `quote?` {text, author, place, year}, `photos` [{src?, alt, author, license, source?, status: "approved"|"pending"}], `tips?` [chuỗi].
+  - `places`: `slug`, `name`, `province`, `region`, `lat?`, `lng?`, `flowers` [{slug, best: "T10 – T11" hoặc cấu trúc tháng}].
+  - Dữ liệu mẫu: 12 loài trong bánh xe của mockup (mai anh đào 12–2, hoa ban 2–4, hoa gạo 3, loa kèn 4, phượng 5–7, bằng lăng 5–6, sen 6–7, lúa chín 9–10, hoa sữa 10–11, tam giác mạch 10–12, dã quỳ 10–12 đỉnh giữa T11, cúc hoạ mi 11–12) với màu như spec; riêng **dã quỳ** điền đủ mọi trường như mockup. Ghi chú trong file (hoặc trường `verified: false`) rằng mùa nở và các chuyện thú vị là dữ liệu mẫu, CHƯA kiểm chứng.
+  - Ảnh: chưa có ảnh thật → mọi `photos[].src` để trống, giao diện tự hiện khối màu giữ chỗ.
+
+- [ ] **10. Logic mùa nở (thuần TypeScript, có test)**
+  - `src/explore/mua-hoa-viet/season.ts`: `inSeason(flower, month)`, `statusOn(flower, date)` → `chua-no` / `sap-no` (≤14 ngày) / `dang-no` / `dinh-mua` / `sap-tan` (≤14 ngày) / `het-mua`, `daysUntilPeak(flower, date)`, `bloomingWith(flower)`; xử lý mùa vắt qua năm (12 → 2) và ngày theo giờ `Asia/Ho_Chi_Minh`.
+  - Thêm `vitest` + script `npm test`; test các ca: mùa trong năm, mùa vắt năm, ngày đầu/cuối mùa, 31/12 → 1/1.
+
+- [ ] **11. Trang chính `/mua-hoa-viet`**
+  - Theo spec mục 1, điện thoại trước rồi máy tính. Phần chọn tháng + lọc miền + danh sách là một island Svelte (`client:load` cho phần đầu trang); danh sách điểm ngắm, "Sắp nở" cập nhật theo tháng và miền.
+  - Bánh xe tạm thời có thể là SVG tĩnh không kéo được (bước 12 làm phần kéo).
+  - HTML build sẵn theo ngày build; island tính lại theo ngày thật ở trình duyệt (spec mục 4).
+  - Đổi `pages.json`: Mùa Hoa Việt vẫn `coming-soon` trên trang chủ, nhưng route phải truy cập được bằng URL để thử.
+
+- [ ] **12. Bánh xe 12 tháng**
+  - Component Svelte theo spec mục 3: vòng cung từng loài, quạt tháng đang xem, nhãn T1–T12, kim theo ngày hôm nay; kéo kim (pointer events) và phím mũi tên đổi tháng; `role="slider"`; tooltip tên loài khi rê/chạm vòng cung; tôn trọng `prefers-reduced-motion`.
+  - Đồng bộ với hàng nút tháng (một nguồn state).
+
+- [ ] **13. Trang chi tiết `/mua-hoa-viet/[slug]`**
+  - `getStaticPaths` từ `flowers`; bố cục theo spec mục 2; phần nào thiếu dữ liệu thì ẩn.
+  - "Một ngày trên đồi…" là island nhỏ (`client:visible`); dải 12 tháng, trạng thái, đếm ngược tính lại ở trình duyệt.
+  - Mỗi trang có title/description/OG riêng (vd "Dã quỳ nở tháng mấy, ngắm ở đâu — Mùa Hoa Việt").
+  - Thêm các trang loài vào sitemap.
+
+- [ ] **14. Kiểm tra**
+  - `npm test`, `npm run build` sạch.
+  - Báo Claude (claude.ai) kiểm tra trên trình duyệt ở 375 / 768 / 1280px và chạy Lighthouse (mục tiêu ≥90 cả 4 mục cho `/mua-hoa-viet` và `/mua-hoa-viet/da-quy`).
+
+## Giai đoạn 1 — Nền (đã xong 2026-10-27)
 
 - [x] **1. Khởi tạo dự án**
   - `npm create astro@latest . -- --template minimal --typescript strict --install --git`
@@ -85,3 +118,4 @@ Quy ước: làm theo thứ tự, xong thì tick `[x]` và ghi Nhật ký. Mỗi
 - 2026-10-27: Claude (claude.ai) push code lên GitHub `phungkien402/kham-pha`, nhánh `main` (đổi nhánh local `master` → `main`, theo dõi `origin/main`). Máy chưa có `gh` nhưng git push qua HTTPS chạy được. Còn lại của bước 8: Kiên nối Cloudflare Pages với repo.
 - 2026-10-27: Claude (claude.ai) chuyển hướng deploy sang Cloudflare Workers (static assets) theo khuyến nghị hiện tại của Cloudflare/Astro: thêm `wrangler.jsonc` (name `kham-pha`, assets `./dist`, `not_found_handling: 404-page`), cài `wrangler` devDependency. `npm run build` sạch, `npx wrangler deploy --dry-run` đọc được 38 file từ `dist`. Link sẽ có dạng `kham-pha.<tài-khoản>.workers.dev` thay vì `*.pages.dev`.
 - 2026-10-27: Xong bước 8 — web chạy tại https://kham-pha.phungkien4002.workers.dev (Cloudflare Workers, tự build khi push `main`). Claude (claude.ai) kiểm tra bản trên mạng: trang chủ, `/thu-nghiem/`, `/gioi-thieu/`, `og/default.png`, `sitemap-index.xml` trả 200; đường dẫn lạ trả 404 kèm trang 404 tiếng Việt; font tải đúng 7 file subset. Đổi `site.url` trong `site.ts` từ example.com sang URL workers.dev để canonical, sitemap, robots trỏ đúng. Giai đoạn nền hoàn tất.
+- 2026-10-27: Claude (claude.ai) mở giai đoạn 2 (Mùa Hoa Việt): thêm bước 9–14 vào TODO.md, viết `docs/mua-hoa-viet-spec.md` mô tả mockup Kiên đã chốt (trang chính có bánh xe 12 tháng, trang chi tiết loài), cập nhật dòng giai đoạn hiện tại trong CLAUDE.md. Thêm quy ước: không push trừ khi Kiên bảo.
