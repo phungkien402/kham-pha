@@ -134,7 +134,7 @@
       y={ly}
       text-anchor="middle"
       dominant-baseline="central"
-      font-size="10"
+      font-size="12"
       font-weight={m === month ? 700 : 400}
       fill={m === month ? '#1f1d1a' : '#6b655c'}
       aria-hidden="true">T{m}</text
@@ -142,7 +142,7 @@
   {/each}
 
   <circle cx={CX} cy={CY} r="44" fill="#fff" />
-  <text x={CX} y={CY - 12} text-anchor="middle" font-size="10" fill="#6b655c" aria-hidden="true">Tháng</text>
+  <text x={CX} y={CY - 12} text-anchor="middle" font-size="12" fill="#6b655c" aria-hidden="true">Tháng</text>
   <text x={CX} y={CY + 14} text-anchor="middle" font-size="32" font-weight="700" fill="#1f1d1a" aria-hidden="true">{month}</text>
 
   <g

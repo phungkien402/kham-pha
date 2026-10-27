@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Wheel from './Wheel.svelte';
-  import { inSeason, vnParts } from './season';
+  import { inSeason, showEndingTag, vnParts } from './season';
   import type { FlowerLite, PlaceLite, Region } from './types';
 
   interface Props {
@@ -121,7 +121,7 @@
             <div class="body">
               <div class="name-row">
                 <h3>{f.name}</h3>
-                {#if f.season.end.month === month}<span class="tag">Sắp tàn</span>{/if}
+                {#if showEndingTag(f, month, today)}<span class="tag">Sắp tàn</span>{/if}
               </div>
               <p class="where">{f.regionLabel}</p>
               <div class="strip" aria-hidden="true">

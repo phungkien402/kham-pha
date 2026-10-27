@@ -115,3 +115,22 @@ export function bloomingWith<T extends SeasonFlower>(flower: T, all: T[]): T[] {
       Array.from({ length: 12 }, (_, i) => i + 1).some((m) => inSeason(flower, m) && inSeason(other, m)),
   );
 }
+
+/**
+ * Có gắn nhãn "Sắp tàn" cho loài khi đang xem tháng `viewMonth` không.
+ * Tháng hiện tại: theo `statusOn` của hôm nay. Tháng khác: tháng đó là tháng cuối mùa
+ * và mùa dài hơn một tháng (loài chỉ nở đúng một tháng thì không gắn).
+ */
+export function showEndingTag(
+  flower: SeasonFlower,
+  viewMonth: number,
+  todayParts: { year: number; month: number; day: number },
+): boolean {
+  if (viewMonth === todayParts.month) {
+    // 12:00 trưa giờ Việt Nam (UTC+7) của hôm nay.
+    const noon = new Date(Date.UTC(todayParts.year, todayParts.month - 1, todayParts.day, 5));
+    return statusOn(flower, noon) === 'sap-tan';
+  }
+  const { start, end } = flower.season;
+  return end.month === viewMonth && start.month !== end.month;
+}

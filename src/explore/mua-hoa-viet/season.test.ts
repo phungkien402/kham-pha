@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bloomingWith, daysUntilPeak, inSeason, statusOn, vnParts, type SeasonFlower } from './season';
+import { bloomingWith, daysUntilPeak, inSeason, showEndingTag, statusOn, vnParts, type SeasonFlower } from './season';
 
 // Giữa trưa giờ Việt Nam (05:00Z) của y-m-d, tránh sát ranh giới ngày.
 const vn = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d, 5));
@@ -104,5 +104,27 @@ describe('bloomingWith', () => {
     expect(bloomingWith(daQuy, all)).toEqual([maiAnhDao]);
     expect(bloomingWith(maiAnhDao, all)).toEqual([daQuy]);
     expect(bloomingWith(hoaGao, all)).toEqual([]);
+  });
+});
+
+describe('showEndingTag', () => {
+  const t = (year: number, month: number, day: number) => ({ year, month, day });
+  const single = { season: { start: { month: 4 }, end: { month: 4 } } };
+  const multi = { season: { start: { month: 10 }, end: { month: 12 } } };
+  const wrap = { season: { start: { month: 12 }, end: { month: 2 } } };
+
+  it('loài nở đúng một tháng, xem tháng khác: không gắn', () => {
+    expect(showEndingTag(single, 4, t(2026, 10, 27))).toBe(false);
+  });
+  it('tháng khác: gắn khi là tháng cuối của mùa dài hơn một tháng', () => {
+    expect(showEndingTag(multi, 12, t(2026, 10, 27))).toBe(true);
+    expect(showEndingTag(multi, 11, t(2026, 10, 27))).toBe(false);
+    expect(showEndingTag(wrap, 2, t(2026, 10, 27))).toBe(true);
+  });
+  it('tháng hiện tại: theo statusOn của hôm nay', () => {
+    expect(showEndingTag(single, 4, t(2026, 4, 10))).toBe(false);
+    expect(showEndingTag(single, 4, t(2026, 4, 25))).toBe(true);
+    expect(showEndingTag(multi, 12, t(2026, 12, 5))).toBe(false);
+    expect(showEndingTag(multi, 12, t(2026, 12, 25))).toBe(true);
   });
 });
