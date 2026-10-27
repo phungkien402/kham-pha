@@ -14,6 +14,30 @@
 
   let selectedSlug = $state<string | null>(null);
   const selected = $derived(spots.find((s) => s.slug === selectedSlug));
+
+  // Hai chấm gần nhau hơn MIN_GAP (px, tính trên khung ~300px) thì đẩy nhẹ ra hai phía để cả hai đủ vùng chạm.
+  const REF_W = 300;
+  const MIN_GAP = 28;
+  const placed = $derived.by(() => {
+    const px = spots.map((s) => ({ s, x: (s.x / 100) * REF_W, y: (s.y / 100) * (REF_W / ratio) }));
+    for (let pass = 0; pass < 4; pass++) {
+      for (let i = 0; i < px.length; i++) {
+        for (let j = i + 1; j < px.length; j++) {
+          const dx = px[j].x - px[i].x;
+          const dy = px[j].y - px[i].y;
+          const d = Math.hypot(dx, dy);
+          if (d >= MIN_GAP) continue;
+          const [ux, uy] = d === 0 ? [1, 0] : [dx / d, dy / d];
+          const push = (MIN_GAP - d) / 2;
+          px[i].x -= ux * push;
+          px[i].y -= uy * push;
+          px[j].x += ux * push;
+          px[j].y += uy * push;
+        }
+      }
+    }
+    return px.map((p) => ({ s: p.s, x: (p.x / REF_W) * 100, y: (p.y / (REF_W / ratio)) * 100 }));
+  });
   const dotBg = (s: MapSpot) =>
     s.flowers.length === 1
       ? s.flowers[0].color
@@ -26,12 +50,12 @@
 
 <div class="frame" style:aspect-ratio={ratio} {onkeydown} role="group" aria-label="Bản đồ điểm ngắm hoa">
   <img {src} alt={label} width="600" height={Math.round(600 / ratio)} decoding="async" />
-  {#each spots as s (s.slug)}
+  {#each placed as { s, x, y } (s.slug)}
     <button
       type="button"
       class="hit"
-      style:left="{s.x}%"
-      style:top="{s.y}%"
+      style:left="{x}%"
+      style:top="{y}%"
       aria-label="{s.name}, {s.province}: {s.flowers.map((f) => f.name).join(', ')}"
       aria-expanded={s.slug === selectedSlug}
       onclick={() => (selectedSlug = s.slug === selectedSlug ? null : s.slug)}

@@ -9,9 +9,13 @@
   let { photos }: { photos: Photo[] } = $props();
   let track: HTMLElement | undefined = $state();
   let index = $state(0);
+  // Chỉ ảnh đầu có src từ HTML build sẵn; slide sau chỉ nạp khi người xem vuốt tới sát nó.
+  let reach = $state(0);
 
   function onScroll() {
-    if (track) index = Math.round(track.scrollLeft / track.clientWidth);
+    if (!track) return;
+    index = Math.round(track.scrollLeft / track.clientWidth);
+    reach = Math.max(reach, index + 1);
   }
 </script>
 
@@ -19,7 +23,7 @@
   <div class="track" bind:this={track} onscroll={onScroll} tabindex="0" role="region" aria-label="Ảnh, vuốt ngang để xem thêm">
     {#each photos as p, i}
       <figure style:background="color-mix(in srgb, {p.color} 72%, white)">
-        {#if p.img}
+        {#if p.img && i <= reach}
           <img
             src={p.img.src}
             srcset={p.img.srcset}

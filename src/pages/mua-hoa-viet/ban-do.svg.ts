@@ -6,7 +6,7 @@ export const GET: APIRoute = () => {
   const text = labels
     .map(
       (l) =>
-        `<text x="${l.x}" y="${l.y}" text-anchor="middle" font-size="11" font-style="italic" fill="#6b655b" font-family="'Be Vietnam Pro',Segoe UI,Arial,sans-serif">${l.text}</text>`,
+        `<text x="${l.x}" y="${l.y}" text-anchor="middle" font-size="19" font-style="italic" fill="#6b655b" font-family="'Be Vietnam Pro',Segoe UI,Arial,sans-serif">${l.text}</text>`,
     )
     .join('');
   const svg =

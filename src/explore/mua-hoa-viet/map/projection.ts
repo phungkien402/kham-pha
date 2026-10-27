@@ -57,6 +57,6 @@ export const labels = [
   { text: 'Quần đảo Trường Sa', box: ts },
 ].map(({ text, box }) => {
   const [cx, cy] = at((box.w + box.e) / 2, box.s);
-  return { text, x: num(cx), y: num(cy + 14) };
+  return { text, x: num(cx), y: num(cy + 24) };
 });
 export const islandBoxes = { hs, ts };

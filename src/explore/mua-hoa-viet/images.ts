@@ -19,7 +19,7 @@ function find(name: string): ImageMetadata {
 /** Ảnh WebP nhiều cỡ (giữ tỉ lệ gốc); `width`/`height` là của cỡ nhỏ nhất, dùng để giữ chỗ. */
 export async function responsive(name: string, widths: number[]): Promise<ResponsiveImage> {
   const meta = find(name);
-  const img = await getImage({ src: meta, widths, format: 'webp' });
+  const img = await getImage({ src: meta, widths, format: 'webp', quality: 70 });
   const srcset = img.srcSet.attribute;
   return {
     // src dự phòng lấy cỡ nhỏ nhất (img.src là ảnh gốc, nặng)
