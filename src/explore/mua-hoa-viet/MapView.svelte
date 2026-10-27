@@ -12,74 +12,92 @@
 
   let { spots, currentSlug, ratio, src, label }: Props = $props();
 
-  let selectedSlug = $state<string | null>(null);
-  const selected = $derived(spots.find((s) => s.slug === selectedSlug));
-
-  // Hai chấm gần nhau hơn MIN_GAP (px, tính trên khung ~300px) thì đẩy nhẹ ra hai phía để cả hai đủ vùng chạm.
+  // Các điểm gần nhau hơn MIN_GAP (px, tính trên khung ~300px) được GỘP thành một nút đặt ở vị trí
+  // trung bình — không đẩy lệch chấm, vì đẩy lệch làm sai vị trí địa lý (vd Hồ Tây bị đẩy sang tận Thái Bình).
   const REF_W = 300;
   const MIN_GAP = 28;
-  const placed = $derived.by(() => {
-    const px = spots.map((s) => ({ s, x: (s.x / 100) * REF_W, y: (s.y / 100) * (REF_W / ratio) }));
-    for (let pass = 0; pass < 4; pass++) {
-      for (let i = 0; i < px.length; i++) {
-        for (let j = i + 1; j < px.length; j++) {
-          const dx = px[j].x - px[i].x;
-          const dy = px[j].y - px[i].y;
-          const d = Math.hypot(dx, dy);
-          if (d >= MIN_GAP) continue;
-          const [ux, uy] = d === 0 ? [1, 0] : [dx / d, dy / d];
-          const push = (MIN_GAP - d) / 2;
-          px[i].x -= ux * push;
-          px[i].y -= uy * push;
-          px[j].x += ux * push;
-          px[j].y += uy * push;
-        }
-      }
+  type Cluster = { key: string; spots: MapSpot[]; x: number; y: number };
+  const clusters = $derived.by(() => {
+    const toPx = (s: MapSpot) => ({ x: (s.x / 100) * REF_W, y: (s.y / 100) * (REF_W / ratio) });
+    const groups: { spots: MapSpot[]; px: { x: number; y: number }[] }[] = [];
+    for (const s of spots) {
+      const p = toPx(s);
+      const g = groups.find((g) => {
+        const cx = g.px.reduce((a, q) => a + q.x, 0) / g.px.length;
+        const cy = g.px.reduce((a, q) => a + q.y, 0) / g.px.length;
+        return Math.hypot(p.x - cx, p.y - cy) < MIN_GAP;
+      });
+      if (g) {
+        g.spots.push(s);
+        g.px.push(p);
+      } else groups.push({ spots: [s], px: [p] });
     }
-    return px.map((p) => ({ s: p.s, x: (p.x / REF_W) * 100, y: (p.y / (REF_W / ratio)) * 100 }));
+    return groups.map(
+      (g): Cluster => ({
+        key: g.spots.map((s) => s.slug).join('+'),
+        spots: g.spots,
+        x: (g.spots.reduce((a, s) => a + s.x, 0) / g.spots.length),
+        y: (g.spots.reduce((a, s) => a + s.y, 0) / g.spots.length),
+      }),
+    );
   });
-  const dotBg = (s: MapSpot) =>
-    s.flowers.length === 1
-      ? s.flowers[0].color
-      : `conic-gradient(${s.flowers.map((f, i, a) => `${f.color} ${(i / a.length) * 100}% ${((i + 1) / a.length) * 100}%`).join(',')})`;
+
+  let selectedKey = $state<string | null>(null);
+  const selected = $derived(clusters.find((c) => c.key === selectedKey));
+
+  const colorsOf = (c: Cluster) => [...new Set(c.spots.flatMap((s) => s.flowers.map((f) => f.color)))];
+  const dotBg = (c: Cluster) => {
+    const cs = colorsOf(c);
+    return cs.length === 1
+      ? cs[0]
+      : `conic-gradient(${cs.map((col, i, a) => `${col} ${(i / a.length) * 100}% ${((i + 1) / a.length) * 100}%`).join(',')})`;
+  };
+  const labelOf = (c: Cluster) =>
+    c.spots.map((s) => `${s.name}, ${s.province}: ${s.flowers.map((f) => f.name).join(', ')}`).join('; ');
 
   function onkeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') selectedSlug = null;
+    if (e.key === 'Escape') selectedKey = null;
   }
 </script>
 
 <div class="frame" style:aspect-ratio={ratio} {onkeydown} role="group" aria-label="Bản đồ điểm ngắm hoa">
   <img {src} alt={label} width="600" height={Math.round(600 / ratio)} decoding="async" />
-  {#each placed as { s, x, y } (s.slug)}
+  {#each clusters as c (c.key)}
     <button
       type="button"
       class="hit"
-      style:left="{x}%"
-      style:top="{y}%"
-      aria-label="{s.name}, {s.province}: {s.flowers.map((f) => f.name).join(', ')}"
-      aria-expanded={s.slug === selectedSlug}
-      onclick={() => (selectedSlug = s.slug === selectedSlug ? null : s.slug)}
+      style:left="{c.x}%"
+      style:top="{c.y}%"
+      aria-label={labelOf(c)}
+      aria-expanded={c.key === selectedKey}
+      onclick={() => (selectedKey = c.key === selectedKey ? null : c.key)}
     >
-      <span class="dot" class:on={s.slug === selectedSlug} style:background={dotBg(s)}></span>
+      <span class="dot" class:on={c.key === selectedKey} style:background={dotBg(c)}>
+        {#if c.spots.length > 1}<span class="count" aria-hidden="true">{c.spots.length}</span>{/if}
+      </span>
     </button>
   {/each}
 
   {#if selected}
-    <div class="pop" role="region" aria-label="Chi tiết điểm ngắm {selected.name}">
-      <button type="button" class="close" aria-label="Đóng" onclick={() => (selectedSlug = null)}>×</button>
-      <strong>{selected.name}</strong>
-      <span class="prov">{selected.province}</span>
-      <ul>
-        {#each selected.flowers as f (f.slug)}
-          <li>
-            <span class="sw" style:background={f.color}></span>
-            <span>
-              {#if f.slug === currentSlug}<strong>{f.name}</strong>{:else}<a href="/mua-hoa-viet/{f.slug}/">{f.name}</a>{/if}
-              · <small>{f.best}</small>
-            </span>
-          </li>
-        {/each}
-      </ul>
+    <div class="pop" role="region" aria-label="Chi tiết điểm ngắm {selected.spots.map((s) => s.name).join(', ')}">
+      <button type="button" class="close" aria-label="Đóng" onclick={() => (selectedKey = null)}>×</button>
+      {#each selected.spots as s (s.slug)}
+        <div class="place">
+          <strong>{s.name}</strong>
+          <span class="prov">{s.province}</span>
+          <ul>
+            {#each s.flowers as f (f.slug)}
+              <li>
+                <span class="sw" style:background={f.color}></span>
+                <span>
+                  {#if f.slug === currentSlug}<strong>{f.name}</strong>{:else}<a href="/mua-hoa-viet/{f.slug}/">{f.name}</a>{/if}
+                  · <small>{f.best}</small>
+                </span>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/each}
     </div>
   {/if}
 </div>
@@ -122,6 +140,29 @@
   }
   .dot.on {
     transform: scale(1.35);
+  }
+  .dot {
+    position: relative;
+  }
+  .count {
+    position: absolute;
+    top: -9px;
+    right: -11px;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    border-radius: 8px;
+    background: #1f1d1a;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 15px;
+    text-align: center;
+  }
+  .place + .place {
+    margin-top: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px solid #ece7de;
   }
   .hit:focus-visible {
     outline: 3px solid var(--color-text);
