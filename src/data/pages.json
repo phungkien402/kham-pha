@@ -4,8 +4,8 @@
     "title": "Mùa Hoa Việt",
     "tagline": "Hôm nay hoa gì đang nở?",
     "color": "#E8A0B4",
-    "status": "coming-soon",
-    "launchDate": "2026-12-14",
+    "status": "live",
+    "launchDate": "2026-10-27",
     "card": "/cards/mua-hoa-viet.webp"
   },
   {
@@ -13,7 +13,7 @@
     "title": "Trang thử nghiệm",
     "tagline": "Thử khung trang khám phá.",
     "color": "#A8D8C9",
-    "status": "live",
+    "status": "draft",
     "launchDate": "2026-10-27",
     "card": "/cards/thu-nghiem.webp"
   },

@@ -13,7 +13,9 @@
         "slug": "mai-anh-dao",
         "best": "T1 – giữa T2"
       }
-    ]
+    ],
+    "lat": 11.94,
+    "lng": 108.458
   },
   {
     "slug": "ba-vi",
@@ -25,7 +27,9 @@
         "slug": "da-quy",
         "best": "Cuối T10 – giữa T11"
       }
-    ]
+    ],
+    "lat": 21.075,
+    "lng": 105.37
   },
   {
     "slug": "chu-dang-ya",
@@ -37,7 +41,9 @@
         "slug": "da-quy",
         "best": "T11"
       }
-    ]
+    ],
+    "lat": 14.07,
+    "lng": 108.04
   },
   {
     "slug": "mu-cang-chai",
@@ -49,7 +55,9 @@
         "slug": "lua-chin",
         "best": "Giữa T9 – đầu T10"
       }
-    ]
+    ],
+    "lat": 21.8,
+    "lng": 104.12
   },
   {
     "slug": "dong-van",
@@ -61,7 +69,9 @@
         "slug": "tam-giac-mach",
         "best": "Giữa T10 – đầu T12"
       }
-    ]
+    ],
+    "lat": 23.28,
+    "lng": 105.36
   },
   {
     "slug": "dien-bien",
@@ -73,7 +83,9 @@
         "slug": "hoa-ban",
         "best": "T3"
       }
-    ]
+    ],
+    "lat": 21.39,
+    "lng": 103.02
   },
   {
     "slug": "ho-tay",
@@ -89,7 +101,9 @@
         "slug": "hoa-sua",
         "best": "T10 – T11"
       }
-    ]
+    ],
+    "lat": 21.055,
+    "lng": 105.82
   },
   {
     "slug": "nhat-tan",
@@ -101,7 +115,9 @@
         "slug": "cuc-hoa-mi",
         "best": "Cuối T11 – đầu T12"
       }
-    ]
+    ],
+    "lat": 21.08,
+    "lng": 105.82
   },
   {
     "slug": "chua-huong",
@@ -113,7 +129,9 @@
         "slug": "hoa-gao",
         "best": "T3"
       }
-    ]
+    ],
+    "lat": 20.62,
+    "lng": 105.75
   },
   {
     "slug": "dong-thap",
@@ -125,6 +143,8 @@
         "slug": "sen",
         "best": "T8"
       }
-    ]
+    ],
+    "lat": 10.55,
+    "lng": 105.83
   }
 ]
