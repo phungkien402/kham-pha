@@ -1,8 +1,15 @@
 import { geoMercator, geoPath } from 'd3-geo';
 import data from './vietnam.json';
 
-// Khung bản đồ: dư phần Biển Đông ở phía đông và nam để hai quần đảo và nhãn không bị cắt mép.
-const EXTENT = { west: 101.9, east: 117.2, south: 5.2, north: 23.8 };
+// Khung bản đồ tính từ chính dữ liệu (đất liền + Hoàng Sa + Trường Sa) rồi chừa lề,
+// để không đảo nào bị cắt mép. Lề nam rộng hơn để chứa nhãn "Quần đảo Trường Sa" bên dưới.
+const allPoints = (data.outline as { coordinates: number[][][][] }).coordinates.flatMap((poly) => poly[0]);
+const EXTENT = {
+  west: Math.min(...allPoints.map((p) => p[0])) - 0.35,
+  east: Math.max(...allPoints.map((p) => p[0])) + 0.45,
+  south: Math.min(...allPoints.map((p) => p[1])) - 0.9,
+  north: Math.max(...allPoints.map((p) => p[1])) + 0.3,
+};
 export const WIDTH = 600;
 const PAD = 8;
 
@@ -52,11 +59,13 @@ const hs = islandBox((lng, lat) => lng > 110.5 && lat > 15 && lat < 18);
 const ts = islandBox((lng, lat) => lng > 110.5 && lat < 12.5);
 
 const at = (lng: number, lat: number) => projection([lng, lat]) ?? [0, 0];
-export const labels = [
-  { text: 'Quần đảo Hoàng Sa', box: hs },
-  { text: 'Quần đảo Trường Sa', box: ts },
-].map(({ text, box }) => {
-  const [cx, cy] = at((box.w + box.e) / 2, box.s);
-  return { text, x: num(cx), y: num(cy + 24) };
-});
+// Hoàng Sa: nhãn bên phải quần đảo (phía biển trống), không đặt bên dưới vì sẽ lấn về bờ miền Trung.
+// Trường Sa: nhãn căn giữa bên dưới quần đảo.
+const [hsRight, hsTop] = at(hs.e, hs.n);
+const [, hsBottom] = at(hs.e, hs.s);
+const [tsCx, tsBottom] = at((ts.w + ts.e) / 2, ts.s);
+export const labels: { text: string; x: number; y: number; anchor: 'start' | 'middle' }[] = [
+  { text: 'Quần đảo Hoàng Sa', x: num(hsRight + 12), y: num((hsTop + hsBottom) / 2 + 6), anchor: 'start' },
+  { text: 'Quần đảo Trường Sa', x: num(tsCx), y: num(tsBottom + 26), anchor: 'middle' },
+];
 export const islandBoxes = { hs, ts };
