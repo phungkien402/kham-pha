@@ -3,7 +3,7 @@
     "slug": "mai-anh-dao",
     "name": "Mai anh đào",
     "scientificName": "Prunus cerasoides",
-    "color": "#F2A7C3",
+    "color": "#D9668A",
     "verified": false,
     "season": {
       "start": {
@@ -18,7 +18,7 @@
     },
     "regions": [
       "bac",
-      "nam"
+      "trung"
     ],
     "regionLabel": "Đà Lạt, Sa Pa",
     "photos": [
@@ -34,7 +34,7 @@
     "slug": "hoa-ban",
     "name": "Hoa ban",
     "scientificName": "Bauhinia variegata",
-    "color": "#F4F0EA",
+    "color": "#8F7FC0",
     "verified": false,
     "season": {
       "start": {
@@ -64,7 +64,7 @@
     "slug": "hoa-gao",
     "name": "Hoa gạo",
     "scientificName": "Bombax ceiba",
-    "color": "#E4572E",
+    "color": "#C23B2A",
     "verified": false,
     "season": {
       "start": {
@@ -95,7 +95,7 @@
     "slug": "loa-ken",
     "name": "Loa kèn",
     "scientificName": "Lilium longiflorum",
-    "color": "#F7F3E8",
+    "color": "#9C9670",
     "verified": false,
     "season": {
       "start": {
@@ -125,7 +125,7 @@
     "slug": "phuong",
     "name": "Hoa phượng",
     "scientificName": "Delonix regia",
-    "color": "#D8412F",
+    "color": "#E0522E",
     "verified": false,
     "season": {
       "start": {
@@ -157,7 +157,7 @@
     "slug": "bang-lang",
     "name": "Bằng lăng",
     "scientificName": "Lagerstroemia speciosa",
-    "color": "#9B72C9",
+    "color": "#8458B8",
     "verified": false,
     "season": {
       "start": {
@@ -188,7 +188,7 @@
     "slug": "sen",
     "name": "Sen",
     "scientificName": "Nelumbo nucifera",
-    "color": "#E98BB0",
+    "color": "#DE6A92",
     "verified": false,
     "season": {
       "start": {
@@ -220,7 +220,7 @@
     "slug": "lua-chin",
     "name": "Lúa chín",
     "scientificName": "Oryza sativa",
-    "color": "#E0B53A",
+    "color": "#B88F1F",
     "verified": false,
     "season": {
       "start": {
@@ -250,7 +250,7 @@
     "slug": "hoa-sua",
     "name": "Hoa sữa",
     "scientificName": "Alstonia scholaris",
-    "color": "#EDE6C8",
+    "color": "#7E8A55",
     "verified": false,
     "season": {
       "start": {
@@ -280,7 +280,7 @@
     "slug": "tam-giac-mach",
     "name": "Tam giác mạch",
     "scientificName": "Fagopyrum tataricum",
-    "color": "#E8B6C9",
+    "color": "#B54E7E",
     "verified": false,
     "season": {
       "start": {
@@ -310,7 +310,7 @@
     "slug": "da-quy",
     "name": "Dã quỳ",
     "scientificName": "Tithonia diversifolia",
-    "color": "#F0B323",
+    "color": "#B57F0A",
     "verified": false,
     "season": {
       "start": {
@@ -328,7 +328,7 @@
     },
     "regions": [
       "bac",
-      "nam"
+      "trung"
     ],
     "regionLabel": "Đà Lạt, Gia Lai, Ba Vì",
     "photos": [
@@ -421,7 +421,7 @@
     "slug": "cuc-hoa-mi",
     "name": "Cúc hoạ mi",
     "scientificName": "Chrysanthemum paludosum",
-    "color": "#F8F8F4",
+    "color": "#7C786C",
     "verified": false,
     "season": {
       "start": {
