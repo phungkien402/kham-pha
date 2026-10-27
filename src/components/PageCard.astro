@@ -48,7 +48,8 @@ const linkProps = soon ? { 'aria-disabled': 'true' } : { href: `/${slug}/` };
     outline-offset: 3px;
   }
   .soon {
-    opacity: 0.55;
+    background: color-mix(in srgb, var(--card-color) 30%, var(--color-bg));
+    border: 2px dashed color-mix(in srgb, var(--card-color) 70%, var(--color-text));
     cursor: not-allowed;
   }
   .badges {

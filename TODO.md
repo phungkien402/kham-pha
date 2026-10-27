@@ -38,6 +38,9 @@ Quy ước: làm theo thứ tự, xong thì tick `[x]` và ghi Nhật ký. Mỗi
 - [ ] **5. Khung trang khám phá**
   - `ExploreLayout.astro`: nút về trang chủ, `ShareButton.svelte` (Web Share API, dự phòng copy link và báo "Đã sao chép"), `NextPage.astro` lấy trang `live` kế tiếp trong `pages.json`.
   - `src/pages/thu-nghiem/index.astro`: trang mẫu có một tương tác nhỏ (ví dụ nút đếm bằng Svelte, `client:visible`) để kiểm tra khung.
+  - Sửa 2 lỗi từ đợt kiểm tra bước 3–4 (commit riêng, trước khi làm khung):
+    - [x] Thẻ "Sắp ra mắt" đang `opacity: 0.55` cả thẻ nên chữ bị nhạt, khó đọc. Bỏ opacity toàn thẻ; thay bằng nền nhạt hơn (pha màu `color` với nền) và chữ vẫn đậm, đạt tương phản tối thiểu 4.5:1.
+    - [x] `og:image` trỏ `/og/default.png` nhưng file chưa có (404). Tạo ảnh mặc định 1200×630 đơn giản (tên web + câu giới thiệu trên nền trung tính) đặt ở `public/og/default.png`.
   - Xong khi: từ trang chủ bấm vào trang thử nghiệm, chia sẻ được, quay về được.
 
 - [ ] **6. Trang phụ**
@@ -59,7 +62,6 @@ Quy ước: làm theo thứ tự, xong thì tick `[x]` và ghi Nhật ký. Mỗi
 ## Câu hỏi cho Kiên
 
 - Tên web và tên miền chính thức?
-- Ảnh Open Graph mặc định `/og/default.png` chưa có file thật (BaseLayout đã trỏ sẵn). Cần Kiên cung cấp hoặc làm ở bước sau; tạm để vậy.
 
 ## Nhật ký
 
@@ -70,3 +72,5 @@ Quy ước: làm theo thứ tự, xong thì tick `[x]` và ghi Nhật ký. Mỗi
 - 2026-10-27: Claude (claude.ai) mở localhost:4321 kiểm tra bước 2: font Be Vietnam Pro 700 hiển thị đủ dấu tiếng Việt. Phát hiện font nạp cả file thay vì subset → thêm việc sửa vào bước 3. Bổ sung yêu cầu lề và phần đầu trang vào bước 4. Từ bước 3 trở đi, mỗi bước một commit riêng.
 - 2026-10-27: Xong bước 3 — `BaseLayout.astro` (title, description, canonical, OG, Twitter, theme-color, favicon `public/favicon.svg`, noindex, chỗ comment cho script đo lường). Sửa font: nguyên nhân là các file `vietnamese-*.css`/`latin-*.css` của fontsource KHÔNG có `unicode-range`, nên import riêng lẻ làm trình duyệt nạp cả hai và subset sau đè subset trước. Đổi sang import `400.css`/`600.css`/`700.css` (đã chia vietnamese/latin-ext/latin kèm unicode-range đúng) — khác gợi ý ban đầu trong TODO vì cách đó không hiệu quả. Build sạch, CSS build có unicode-range cho từng subset. Chưa xem Network trên trình duyệt thật.
 - 2026-10-27: Xong bước 4 — `src/data/pages.json` (3 mục), `PageCard.astro`, trang chủ lưới 2/3/4 cột (lề 16px, tối đa 1200px), nhãn "Mới" (live, launch <30 ngày) và "Sắp ra mắt" (mờ, là `div` không bấm được), focus-visible rõ. Build sạch; HTML build chỉ có 2 thẻ, trang `draft` không hiện. Chưa xem bằng trình duyệt ở 380px (kiểm ở bước 7); link `/thu-nghiem/` sẽ 404 tới khi làm bước 5. Ảnh `card` trong JSON là đường dẫn dự phòng, hiện thẻ chỉ dùng khối màu.
+- 2026-10-27: Claude (claude.ai) kiểm tra bước 3–4 trên trình duyệt. Đạt: 375px ra 2 cột, không cuộn ngang; 1280px ra 4 cột trong khung tối đa 1200px; trang `draft` ẩn; meta đủ (lang vi, description, canonical, OG, Twitter, theme-color); font chỉ tải các file subset (vietnamese, latin, latin-ext). Chưa đạt: thẻ "Sắp ra mắt" mờ cả thẻ nên chữ khó đọc; `/og/default.png` trả 404 → thêm việc sửa vào bước 5.
+- 2026-10-27: Sửa 2 lỗi đầu bước 5. Thẻ "Sắp ra mắt": bỏ `opacity`, dùng nền pha 30% màu thẻ với nền trang + viền đứt, chữ giữ màu đậm `#1f1d1a` (tương phản cao). Ảnh OG: tạo `public/og/default.png` 1200×630 bằng sharp từ SVG (font hệ thống Segoe UI vì máy không có Be Vietnam Pro; dấu hiển thị đủ). Đã xoá câu hỏi về ảnh OG.
