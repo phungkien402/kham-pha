@@ -1,0 +1,10 @@
+{
+  // Cấu hình Cloudflare Workers phục vụ web tĩnh từ thư mục dist/ (không cần adapter Astro)
+  "name": "kham-pha",
+  "compatibility_date": "2026-10-27",
+  "assets": {
+    "directory": "./dist",
+    // Đường dẫn không tồn tại trả về dist/404.html với mã 404
+    "not_found_handling": "404-page"
+  }
+}
