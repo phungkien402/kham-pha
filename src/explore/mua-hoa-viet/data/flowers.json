@@ -4,23 +4,25 @@
     "name": "Mai anh đào",
     "scientificName": "Prunus cerasoides",
     "color": "#D9668A",
-    "verified": false,
+    "verified": true,
     "season": {
       "start": {
-        "month": 12
+        "month": 12,
+        "day": 25
       },
       "peak": {
-        "month": 1
+        "month": 1,
+        "day": 25
       },
       "end": {
-        "month": 2
+        "month": 2,
+        "day": 20
       }
     },
     "regions": [
-      "bac",
       "trung"
     ],
-    "regionLabel": "Đà Lạt, Sa Pa",
+    "regionLabel": "Đà Lạt, Lạc Dương (Lâm Đồng)",
     "photos": [
       {
         "alt": "Hoa mai anh đào (ảnh giữ chỗ)",
@@ -35,16 +37,19 @@
     "name": "Hoa ban",
     "scientificName": "Bauhinia variegata",
     "color": "#8F7FC0",
-    "verified": false,
+    "verified": true,
     "season": {
       "start": {
-        "month": 2
+        "month": 2,
+        "day": 15
       },
       "peak": {
-        "month": 3
+        "month": 3,
+        "day": 10
       },
       "end": {
-        "month": 4
+        "month": 4,
+        "day": 10
       }
     },
     "regions": [
@@ -65,23 +70,25 @@
     "name": "Hoa gạo",
     "scientificName": "Bombax ceiba",
     "color": "#C23B2A",
-    "verified": false,
+    "verified": true,
     "season": {
       "start": {
-        "month": 3
+        "month": 3,
+        "day": 1
       },
       "peak": {
-        "month": 3
+        "month": 3,
+        "day": 15
       },
       "end": {
-        "month": 3
+        "month": 3,
+        "day": 31
       }
     },
     "regions": [
-      "bac",
-      "trung"
+      "bac"
     ],
-    "regionLabel": "Hà Nội, Phú Thọ",
+    "regionLabel": "Hà Nội, Chùa Hương, Chùa Thầy",
     "photos": [
       {
         "alt": "Hoa hoa gạo (ảnh giữ chỗ)",
@@ -96,16 +103,19 @@
     "name": "Loa kèn",
     "scientificName": "Lilium longiflorum",
     "color": "#9C9670",
-    "verified": false,
+    "verified": true,
     "season": {
       "start": {
-        "month": 4
+        "month": 4,
+        "day": 1
       },
       "peak": {
-        "month": 4
+        "month": 4,
+        "day": 10
       },
       "end": {
-        "month": 4
+        "month": 4,
+        "day": 25
       }
     },
     "regions": [
@@ -126,16 +136,19 @@
     "name": "Hoa phượng",
     "scientificName": "Delonix regia",
     "color": "#E0522E",
-    "verified": false,
+    "verified": true,
     "season": {
       "start": {
-        "month": 5
+        "month": 5,
+        "day": 1
       },
       "peak": {
-        "month": 6
+        "month": 6,
+        "day": 1
       },
       "end": {
-        "month": 7
+        "month": 7,
+        "day": 15
       }
     },
     "regions": [
@@ -158,16 +171,19 @@
     "name": "Bằng lăng",
     "scientificName": "Lagerstroemia speciosa",
     "color": "#8458B8",
-    "verified": false,
+    "verified": true,
     "season": {
       "start": {
-        "month": 5
+        "month": 5,
+        "day": 1
       },
       "peak": {
-        "month": 6
+        "month": 5,
+        "day": 25
       },
       "end": {
-        "month": 6
+        "month": 6,
+        "day": 30
       }
     },
     "regions": [
@@ -189,24 +205,26 @@
     "name": "Sen",
     "scientificName": "Nelumbo nucifera",
     "color": "#DE6A92",
-    "verified": false,
+    "verified": true,
     "season": {
       "start": {
-        "month": 6
+        "month": 6,
+        "day": 1
       },
       "peak": {
-        "month": 6
+        "month": 6,
+        "day": 25
       },
       "end": {
-        "month": 7
+        "month": 8,
+        "day": 31
       }
     },
     "regions": [
       "bac",
-      "trung",
       "nam"
     ],
-    "regionLabel": "Đồng Tháp, Huế, Hà Nội",
+    "regionLabel": "Hà Nội (tháng 6–7), Đồng Tháp (tháng 8)",
     "photos": [
       {
         "alt": "Hoa sen (ảnh giữ chỗ)",
@@ -221,22 +239,25 @@
     "name": "Lúa chín",
     "scientificName": "Oryza sativa",
     "color": "#B88F1F",
-    "verified": false,
+    "verified": true,
     "season": {
       "start": {
-        "month": 9
+        "month": 9,
+        "day": 10
       },
       "peak": {
-        "month": 9
+        "month": 9,
+        "day": 25
       },
       "end": {
-        "month": 10
+        "month": 10,
+        "day": 15
       }
     },
     "regions": [
       "bac"
     ],
-    "regionLabel": "Mù Cang Chải, Hoàng Su Phì",
+    "regionLabel": "Mù Cang Chải (Lào Cai)",
     "photos": [
       {
         "alt": "Hoa lúa chín (ảnh giữ chỗ)",
@@ -251,16 +272,19 @@
     "name": "Hoa sữa",
     "scientificName": "Alstonia scholaris",
     "color": "#7E8A55",
-    "verified": false,
+    "verified": true,
     "season": {
       "start": {
-        "month": 10
+        "month": 9,
+        "day": 25
       },
       "peak": {
-        "month": 11
+        "month": 10,
+        "day": 25
       },
       "end": {
-        "month": 11
+        "month": 11,
+        "day": 30
       }
     },
     "regions": [
@@ -279,24 +303,27 @@
   {
     "slug": "tam-giac-mach",
     "name": "Tam giác mạch",
-    "scientificName": "Fagopyrum tataricum",
+    "scientificName": "Fagopyrum esculentum",
     "color": "#B54E7E",
-    "verified": false,
+    "verified": true,
     "season": {
       "start": {
-        "month": 10
+        "month": 10,
+        "day": 15
       },
       "peak": {
-        "month": 11
+        "month": 11,
+        "day": 15
       },
       "end": {
-        "month": 12
+        "month": 12,
+        "day": 5
       }
     },
     "regions": [
       "bac"
     ],
-    "regionLabel": "Hà Giang",
+    "regionLabel": "Hà Giang (nay thuộc Tuyên Quang)",
     "photos": [
       {
         "alt": "Hoa tam giác mạch (ảnh giữ chỗ)",
@@ -315,15 +342,15 @@
     "season": {
       "start": {
         "month": 10,
-        "day": 15
+        "day": 20
       },
       "peak": {
         "month": 11,
-        "day": 15
+        "day": 10
       },
       "end": {
         "month": 12,
-        "day": 31
+        "day": 15
       }
     },
     "regions": [
@@ -422,22 +449,25 @@
     "name": "Cúc hoạ mi",
     "scientificName": "Chrysanthemum paludosum",
     "color": "#7C786C",
-    "verified": false,
+    "verified": true,
     "season": {
       "start": {
-        "month": 11
+        "month": 11,
+        "day": 20
       },
       "peak": {
-        "month": 12
+        "month": 11,
+        "day": 30
       },
       "end": {
-        "month": 12
+        "month": 12,
+        "day": 10
       }
     },
     "regions": [
       "bac"
     ],
-    "regionLabel": "Hà Nội, Sa Pa",
+    "regionLabel": "Hà Nội (Nhật Tân, Tây Tựu)",
     "photos": [
       {
         "alt": "Hoa cúc hoạ mi (ảnh giữ chỗ)",

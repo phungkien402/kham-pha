@@ -47,6 +47,11 @@ Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đú
   - "Nở cùng thời điểm": sắp loài theo trạng thái hôm nay — đang nở / đỉnh mùa / sắp tàn trước, rồi sắp nở, rồi chưa đến mùa / hết mùa.
   - (Dữ liệu dã quỳ đã sửa sẵn: ô số liệu "Mùa nở" thay bằng "Họ Cúc"; "Dễ nhầm với" đổi sang hướng dương.)
 
+- [ ] **16. Tính theo ngày, không chỉ theo tháng** (sau đợt kiểm chứng dữ liệu, giờ mùa nở có ngày cụ thể; commit riêng, không push)
+  - Trang chính: khi tháng đang xem là tháng hiện tại, "Đang nở" / số loài ở hero / vòng cung sáng trên bánh xe / điểm ngắm phải dựa vào `statusOn(flower, hôm nay)` (đang nở, đỉnh mùa, sắp tàn), không dựa vào `inSeason(flower, month)`. Ví dụ 27/10: lúa chín hết mùa 15/10 → KHÔNG còn là "đang nở" (có thể cho vào mục "Vừa hết mùa" thu gọn, hoặc bỏ). Tháng khác vẫn tính theo tháng như cũ.
+  - Câu chữ mùa nở (trang chi tiết, thẻ): dùng phần ngày. Ngày 1–10 = "đầu tháng", 11–20 = "giữa tháng", 21–cuối = "cuối tháng"; không có ngày thì chỉ "tháng M". Ví dụ tam giác mạch (15/10 → 5/12): "nở từ giữa tháng 10 đến đầu tháng 12", không phải "đến hết tháng 12".
+  - Thêm test cho cả hai.
+
 ## Giai đoạn 1 — Nền (đã xong 2026-10-27)
 
 - [x] **1. Khởi tạo dự án**
@@ -107,7 +112,7 @@ Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đú
 ## Câu hỏi cho Kiên
 
 - Tên web và tên miền chính thức?
-- Dữ liệu mẫu (mùa nở, chuyện thú vị, lời người chụp, điểm ngắm trong `places.json`) đều CHƯA kiểm chứng; mọi loài có `verified: false`. Chỉ dã quỳ điền đủ trường, nội dung do Claude Code viết theo tinh thần mockup.
+- Mùa nở, vùng, điểm ngắm của 12 loài đã kiểm chứng (xem `docs/nguon-du-lieu.md`). Dã quỳ còn `verified: false` vì các mục Bạn có biết?, Một ngày trên đồi, lời người chụp vẫn là nội dung mẫu.
 
 ## Nhật ký
 
@@ -143,3 +148,5 @@ Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đú
 - 2026-10-27: Kiên duyệt kết quả bước 14 và bảo push. Claude (claude.ai) sửa dữ liệu dã quỳ (ô số liệu "Mùa nở" → "Họ Cúc · Cùng họ hướng dương"; "Dễ nhầm với" → hướng dương), thêm bước 15 (gộp nút quay lại qua prop chung của ExploreLayout; sắp "Nở cùng thời điểm" theo trạng thái), rồi push `main` lên GitHub → Cloudflare tự deploy. Trang chủ vẫn để Mùa Hoa Việt "Sắp ra mắt"; route `/mua-hoa-viet/` vào được bằng link.
 - 2026-10-27: Xong bước 15 — `ExploreLayout` có prop `back?: { href, label }` (mặc định Trang chủ); trang chi tiết loài truyền `back` về Mùa Hoa Việt, bỏ dòng "← Mùa Hoa Việt" riêng (breadcrumb chỉ còn trên màn ≥1024px, điện thoại chỉ có một nút quay lại). Thêm `sortByStatus` trong `detail.ts` (đang nở/đỉnh mùa/sắp tàn → sắp nở → chưa đến mùa/hết mùa, cùng nhóm giữ thứ tự cũ), `BloomingWith.svelte` dùng hàm này theo ngày ở trình duyệt; thêm 1 test (32/32 pass), build sạch 17 trang.
 - 2026-10-27: Claude (claude.ai) kiểm tra bước 15 trên bản build: điện thoại chỉ còn một nút quay lại "Mùa Hoa Việt" ở đầu trang; máy tính có nút quay lại + breadcrumb Trang chủ / Mùa Hoa Việt; "Nở cùng thời điểm" xếp đúng: hoa sữa, lúa chín (sắp tàn), tam giác mạch → cúc hoạ mi (sắp nở) → mai anh đào (chưa đến mùa). Không cuộn ngang. Đạt, push `main`.
+
+- 2026-10-27: Claude (claude.ai) kiểm chứng dữ liệu 12 loài (nguồn trong `docs/nguon-du-lieu.md`): mùa nở có ngày cụ thể (vd lúa chín 10/9 → 15/10, tam giác mạch 15/10 → 5/12, dã quỳ 20/10 → 10/11 → 15/12, cúc hoạ mi 20/11 → 10/12), sửa vùng và tên tỉnh sau sáp nhập 2025 (Hà Giang → Tuyên Quang, Yên Bái → Lào Cai; Đà Lạt, Gia Lai xếp miền Trung), tên khoa học tam giác mạch → Fagopyrum esculentum, places.json 10 điểm (thêm Nhật Tân – Tây Tựu, Chùa Hương; Đồng Tháp T8). 11 loài `verified: true`, dã quỳ còn `false`. Test 32/32, build sạch. Thêm bước 16 (tính 'đang nở' theo ngày cho tháng hiện tại; câu chữ đầu/giữa/cuối tháng). Push.
