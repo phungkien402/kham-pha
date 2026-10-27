@@ -1,4 +1,4 @@
-# TODO
+﻿# TODO
 
 Quy ước: làm theo thứ tự, xong thì tick `[x]` và ghi Nhật ký. Mỗi bước xong phải `npm run build` không lỗi, rồi commit riêng (message tiếng Việt, `git -c user.name=Kien -c user.email=phungkien4002@gmail.com`). Không push trừ khi Kiên bảo (push lên `main` = web tự cập nhật trên mạng).
 
@@ -38,7 +38,7 @@ Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đú
   - Mỗi trang có title/description/OG riêng (vd "Dã quỳ nở tháng mấy, ngắm ở đâu — Mùa Hoa Việt").
   - Thêm các trang loài vào sitemap.
 
-- [ ] **14. Kiểm tra**
+- [x] **14. Kiểm tra**
   - `npm test`, `npm run build` sạch.
   - Báo Claude (claude.ai) kiểm tra trên trình duyệt ở 375 / 768 / 1280px và chạy Lighthouse (mục tiêu ≥90 cả 4 mục cho `/mua-hoa-viet` và `/mua-hoa-viet/da-quy`).
 
@@ -133,3 +133,5 @@ Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đú
 - 2026-10-27: Claude (claude.ai) kiểm tra bước 11–12 trên bản build (`astro preview`). LỖI GẶP: dev server do Claude Code để chạy từ trước khi có content collections nên `getCollection` trả rỗng → trang báo "0 loài hoa", bánh xe trống; bản build vẫn đúng. Khởi động lại dev là hết. Rút kinh nghiệm: thêm/sửa `content.config.ts` thì phải khởi động lại dev server. Kết quả: 375px — 4 loài đang nở hôm nay (dã quỳ, hoa sữa, lúa chín "Sắp tàn", tam giác mạch), "Sắp nở tháng 11: cúc hoạ mi", 6 điểm ngắm, không cuộn ngang. Bấm "Tháng 3" → tiêu đề, kim, danh sách đổi đúng; phím ←/→ trên kim đổi tháng và đồng bộ nút tháng; kéo kim (pointer) từ T2 tới T6 → "Đang xem tháng 6". 1280px — hero 2 cột, nút tháng lưới 6×2, thẻ "Đang nở" 4 cột, bản đồ giữ chỗ + danh sách bên phải; khớp mockup. Sửa dữ liệu: màu dã quỳ `#B57F0A` gần trùng lúa chín `#B88F1F` → đổi dã quỳ sang cam `#C8650F` (3,94:1 trên nền trắng). Thêm bước 12b (cỡ chữ nhãn bánh xe, quy tắc "Sắp tàn").
 - 2026-10-27: Xong bước 12b — nhãn T1–T12 và chữ "Tháng" ở tâm bánh xe đổi sang `font-size="12"`. Thêm `showEndingTag(flower, viewMonth, today)` trong `season.ts` (tháng hiện tại → `statusOn` = `sap-tan`; tháng khác → tháng cuối mùa và mùa dài hơn một tháng), `MuaHoaViet.svelte` dùng hàm này; thêm 3 test (26/26 pass), build sạch.
 - 2026-10-27: Xong bước 13 — `src/pages/mua-hoa-viet/[slug].astro` (`getStaticPaths` từ collection `flowers`, 12 trang) theo spec mục 2; phần thiếu dữ liệu thì ẩn (vd sen chỉ có: mùa nở, ngắm ở đâu, nở cùng thời điểm). Island: `FlowerNow.svelte` (`client:load`: hộp trạng thái, 3 ô số liệu có đếm ngược, dải 12 tháng), `DayMoments.svelte` (`client:visible`, màu nền đổi 0,4 giây), `BloomingWith.svelte` (`client:visible`, trạng thái từng loài), `Carousel.svelte` (`client:idle`, vuốt ngang + chấm chỉ số). Logic chữ ở `detail.ts` (+5 test), thêm `daysUntilStart`/`daysUntilEnd` vào `season.ts`. Title dạng "Dã quỳ nở tháng mấy, ngắm ở đâu — Mùa Hoa Việt", mô tả lấy `summary`, OG lấy ảnh thật đầu tiên nếu có (không thì ảnh mặc định). 12 trang loài có trong sitemap. Khác spec: (1) khung chung `ExploreLayout` giữ nút "Trang chủ" ở góc trên trái (không sửa layout chung), nút "← Mùa Hoa Việt" / breadcrumb nằm ngay đầu nội dung; (2) chưa có hàng 6 ảnh nhỏ cạnh ảnh lớn và link "Xem cả N ảnh" vì mới có 1 ảnh giữ chỗ mỗi loài; mục "Ảnh" chỉ hiện khi có từ 2 ảnh. Có dòng ghi chú "dữ liệu mẫu, chưa kiểm chứng" cuối trang khi `verified: false`. Test 31/31, build sạch (17 trang). Chưa xem bằng trình duyệt.
+
+- 2026-10-27: Xong bước 14 (Claude claude.ai kiểm tra trên bản build). Trang chi tiết dã quỳ 375px: đủ phần theo spec, không cuộn ngang, không lỗi console; trạng thái 'Đang nở · sắp vào đỉnh mùa', đếm ngược ~12 ngày; bấm 'Bình minh' → nền đổi màu, mẹo đổi, nút aria-pressed đúng; 'Nở cùng thời điểm' có 5 loài, link đúng. 1280px: ảnh 480px trái + tên/trạng thái phải, phần dưới ghép 2 cột. Lighthouse mobile: /mua-hoa-viet 98/100/100/100 (LCP 2,1s, CLS 0,061), /mua-hoa-viet/da-quy 98/100/100/100 (LCP 2,3s, CLS 0,001). Giai đoạn 2 hoàn tất phần code; còn chỉnh nhỏ và kiểm chứng nội dung — xem 'Việc tiếp theo'.
