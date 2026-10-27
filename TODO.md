@@ -97,7 +97,6 @@ Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đú
 ## Câu hỏi cho Kiên
 
 - Tên web và tên miền chính thức?
-- Màu từng loài trong 12 loài mẫu: spec không liệt kê cụ thể nên Claude Code tự chọn (xem `flowers.json`). Có mã màu từ mockup thì sửa lại.
 - Dữ liệu mẫu (mùa nở, chuyện thú vị, lời người chụp, điểm ngắm trong `places.json`) đều CHƯA kiểm chứng; mọi loài có `verified: false`. Chỉ dã quỳ điền đủ trường, nội dung do Claude Code viết theo tinh thần mockup.
 
 ## Nhật ký
