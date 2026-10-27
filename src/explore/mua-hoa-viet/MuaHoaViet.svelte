@@ -3,14 +3,17 @@
   import Wheel from './Wheel.svelte';
   import { inSeason, isBloomingIn, showEndingTag, vnParts } from './season';
   import { monthRangeLabel } from './detail';
-  import type { FlowerLite, PlaceLite, Region } from './types';
+  import MapView from './MapView.svelte';
+  import MapCredit from './MapCredit.svelte';
+  import type { FlowerLite, MapSpot, PlaceLite, Region } from './types';
 
   interface Props {
     flowers: FlowerLite[];
     places: PlaceLite[];
+    mapRatio: number;
   }
 
-  let { flowers, places }: Props = $props();
+  let { flowers, places, mapRatio }: Props = $props();
 
   type Filter = 'all' | Region;
   const FILTERS: { value: Filter; label: string }[] = [
@@ -61,6 +64,28 @@
           .filter((f): f is FlowerLite => !!f && bloomingSlugs.has(f.slug)),
       }))
       .filter((p) => p.now.length > 0),
+  );
+
+  const mapSpots = $derived<MapSpot[]>(
+    spots.flatMap((p) =>
+      p.x == null || p.y == null
+        ? []
+        : [
+            {
+              slug: p.slug,
+              name: p.name,
+              province: p.province,
+              x: p.x,
+              y: p.y,
+              flowers: p.now.map((f) => ({
+                slug: f.slug,
+                name: f.name,
+                color: f.color,
+                best: p.flowers.find((pf) => pf.slug === f.slug)?.best ?? '',
+              })),
+            },
+          ],
+    ),
   );
 
   const placeholder = (color: string) => `color-mix(in srgb, ${color} 72%, white)`;
@@ -168,8 +193,14 @@
 <section class="block" aria-labelledby="ngam">
   <h2 id="ngam">Ngắm ở đâu</h2>
   <div class="where-wrap">
-    <div class="map" role="note">
-      <p>Bản đồ sẽ có ở bản sau, thể hiện đầy đủ quần đảo Hoàng Sa và Trường Sa của Việt Nam.</p>
+    <div class="map">
+      <MapView
+        spots={mapSpots}
+        ratio={mapRatio}
+        src="/mua-hoa-viet/ban-do.svg"
+        label="Bản đồ Việt Nam, gồm quần đảo Hoàng Sa và Trường Sa, với các điểm ngắm hoa đang nở. Danh sách điểm ngắm ở bên cạnh."
+      />
+      <MapCredit />
     </div>
     <div class="spots">
       {#if spots.length}
@@ -425,16 +456,8 @@
     gap: var(--space-4);
   }
   .map {
-    flex: 999 1 560px;
-    min-height: 240px;
-    display: grid;
-    place-items: center;
-    padding: var(--space-6);
-    text-align: center;
-    background: #efeae1;
-    border: 1px dashed #b9b2a5;
-    border-radius: 20px;
-    color: #4a453e;
+    flex: 999 1 360px;
+    min-width: 0;
   }
   .spots {
     flex: 1 1 280px;
@@ -476,9 +499,6 @@
     .months button {
       padding: 0;
       border-radius: 12px;
-    }
-    .map {
-      min-height: 440px;
     }
     .card {
       grid-template-columns: 1fr;

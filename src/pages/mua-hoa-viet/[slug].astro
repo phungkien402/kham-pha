@@ -7,6 +7,9 @@ import DayMoments from '../../explore/mua-hoa-viet/DayMoments.svelte';
 import BloomingWith from '../../explore/mua-hoa-viet/BloomingWith.svelte';
 import { bloomingWith } from '../../explore/mua-hoa-viet/season';
 import { ogImage, responsive, SIZES } from '../../explore/mua-hoa-viet/images';
+import MapView from '../../explore/mua-hoa-viet/MapView.svelte';
+import MapCredit from '../../explore/mua-hoa-viet/MapCredit.svelte';
+import { HEIGHT, toPercent, WIDTH } from '../../explore/mua-hoa-viet/map/projection';
 import { seasonPhrase } from '../../explore/mua-hoa-viet/detail';
 
 export async function getStaticPaths() {
@@ -35,8 +38,10 @@ const spots = places
   .map((p) => {
     const best = p.flowers.find((pf) => pf.slug === f.slug)!.best;
     return {
+      slug: p.slug,
       name: p.name,
       province: p.province,
+      pos: p.lat != null && p.lng != null ? toPercent(p.lat, p.lng) : undefined,
       best: typeof best === 'string' ? best : `T${best.start.month} – T${best.end.month}`,
     };
   });
@@ -104,7 +109,19 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
       spots.length > 0 && (
         <section class="block">
           <h2>Ngắm ở đâu</h2>
-          <div class="map" role="note">Bản đồ sẽ có ở bản sau, thể hiện đầy đủ quần đảo Hoàng Sa và Trường Sa.</div>
+          <MapView
+            client:visible
+            currentSlug={f.slug}
+            ratio={WIDTH / HEIGHT}
+            src="/mua-hoa-viet/ban-do.svg"
+            label={`Bản đồ Việt Nam, gồm quần đảo Hoàng Sa và Trường Sa, đánh dấu các điểm ngắm ${f.name.toLowerCase()}. Danh sách điểm ngắm ở bên dưới.`}
+            spots={spots.flatMap((p) =>
+              p.pos
+                ? [{ slug: p.slug, name: p.name, province: p.province, ...p.pos, flowers: [{ slug: f.slug, name: f.name, color: f.color, best: p.best }] }]
+                : [],
+            )}
+          />
+          <MapCredit />
           <ul class="spots">
             {spots.map((s) => (
               <li>
@@ -361,18 +378,6 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
     gap: 0 var(--space-8);
   }
 
-  .map {
-    display: grid;
-    place-items: center;
-    min-height: 140px;
-    padding: var(--space-4);
-    text-align: center;
-    font-size: 0.875rem;
-    color: #4a453e;
-    background: #efeae1;
-    border: 1px dashed #b9b2a5;
-    border-radius: 16px;
-  }
   .spots li {
     display: flex;
     justify-content: space-between;

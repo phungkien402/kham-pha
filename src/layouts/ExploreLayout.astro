@@ -3,6 +3,7 @@ import BaseLayout from './BaseLayout.astro';
 import ShareButton from '../components/ShareButton.svelte';
 import NextPage from '../components/NextPage.astro';
 import { site } from '../config/site';
+import pages from '../data/pages.json';
 
 interface Props {
   slug: string;
@@ -14,9 +15,11 @@ interface Props {
 }
 
 const { slug, title, description, ogImage, back = { href: '/', label: 'Trang chủ' } } = Astro.props;
+// Trang draft vẫn build được để thử nhưng không được lập chỉ mục.
+const noindex = pages.find((p) => p.slug === slug)?.status === 'draft';
 ---
 
-<BaseLayout title={`${title} · ${site.name}`} description={description} ogImage={ogImage}>
+<BaseLayout title={`${title} · ${site.name}`} description={description} ogImage={ogImage} noindex={noindex}>
   <header class="bar">
     <a class="back" href={back.href}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

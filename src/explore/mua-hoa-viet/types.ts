@@ -20,4 +20,17 @@ export interface PlaceLite {
   province: string;
   region: Region;
   flowers: { slug: string; best: string }[];
+  /** Vị trí trên bản đồ (phần trăm); bỏ qua nếu điểm chưa có toạ độ. */
+  x?: number;
+  y?: number;
+}
+
+/** Một điểm ngắm trên bản đồ; x, y là phần trăm theo khung bản đồ. */
+export interface MapSpot {
+  slug: string;
+  name: string;
+  province: string;
+  x: number;
+  y: number;
+  flowers: { slug: string; name: string; color: string; best: string }[];
 }

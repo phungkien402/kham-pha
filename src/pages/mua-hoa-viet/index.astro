@@ -3,6 +3,7 @@ import { getCollection } from 'astro:content';
 import ExploreLayout from '../../layouts/ExploreLayout.astro';
 import MuaHoaViet from '../../explore/mua-hoa-viet/MuaHoaViet.svelte';
 import { responsive, SIZES } from '../../explore/mua-hoa-viet/images';
+import { HEIGHT, toPercent, WIDTH } from '../../explore/mua-hoa-viet/map/projection';
 import type { FlowerLite, PlaceLite } from '../../explore/mua-hoa-viet/types';
 
 const flowers: FlowerLite[] = await Promise.all(
@@ -26,6 +27,7 @@ const places: PlaceLite[] = (await getCollection('places')).map(({ data: p }) =>
   name: p.name,
   province: p.province,
   region: p.region,
+  ...(p.lat != null && p.lng != null ? toPercent(p.lat, p.lng) : {}),
   flowers: p.flowers.map((pf) => ({
     slug: pf.slug,
     best: typeof pf.best === 'string' ? pf.best : `T${pf.best.start.month} – T${pf.best.end.month}`,
@@ -38,5 +40,5 @@ const places: PlaceLite[] = (await getCollection('places')).map(({ data: p }) =>
   title="Mùa Hoa Việt"
   description="Hôm nay hoa gì đang nở? Xem mùa hoa cả năm trên bánh xe 12 tháng và chỗ ngắm hoa khắp Việt Nam."
 >
-  <MuaHoaViet client:load {flowers} {places} />
+  <MuaHoaViet client:load {flowers} {places} mapRatio={WIDTH / HEIGHT} />
 </ExploreLayout>
