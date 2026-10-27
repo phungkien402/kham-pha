@@ -1,0 +1,29 @@
+[
+  {
+    "slug": "mua-hoa-viet",
+    "title": "Mùa Hoa Việt",
+    "tagline": "Hôm nay hoa gì đang nở?",
+    "color": "#E8A0B4",
+    "status": "coming-soon",
+    "launchDate": "2026-12-14",
+    "card": "/cards/mua-hoa-viet.webp"
+  },
+  {
+    "slug": "thu-nghiem",
+    "title": "Trang thử nghiệm",
+    "tagline": "Thử khung trang khám phá.",
+    "color": "#A8D8C9",
+    "status": "live",
+    "launchDate": "2026-10-27",
+    "card": "/cards/thu-nghiem.webp"
+  },
+  {
+    "slug": "ban-nhap",
+    "title": "Bản nháp",
+    "tagline": "Trang này chưa lên trang chủ.",
+    "color": "#C9B8E8",
+    "status": "draft",
+    "launchDate": "2027-01-01",
+    "card": "/cards/ban-nhap.webp"
+  }
+]

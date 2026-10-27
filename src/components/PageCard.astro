@@ -1,0 +1,82 @@
+---
+interface Props {
+  slug: string;
+  title: string;
+  tagline: string;
+  color: string;
+  status: 'live' | 'coming-soon' | 'draft';
+  isNew?: boolean;
+}
+
+const { slug, title, tagline, color, status, isNew = false } = Astro.props;
+const soon = status === 'coming-soon';
+const Tag = soon ? 'div' : 'a';
+const linkProps = soon ? { 'aria-disabled': 'true' } : { href: `/${slug}/` };
+---
+
+<Tag class:list={['card', { soon }]} style={`--card-color: ${color}`} {...linkProps}>
+  <span class="badges">
+    {isNew && <span class="badge">Mới</span>}
+    {soon && <span class="badge">Sắp ra mắt</span>}
+  </span>
+  <span class="text">
+    <span class="title">{title}</span>
+    <span class="tagline">{tagline}</span>
+  </span>
+</Tag>
+
+<style>
+  .card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: var(--space-6);
+    min-height: 11rem;
+    padding: var(--space-4);
+    border-radius: var(--radius);
+    background: var(--card-color);
+    color: #1f1d1a;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  a.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgb(0 0 0 / 0.12);
+  }
+  a.card:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 3px;
+  }
+  .soon {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    min-height: 1.5rem;
+  }
+  .badge {
+    padding: 0.1rem 0.6rem;
+    border-radius: 999px;
+    background: #1f1d1a;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .tagline {
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+</style>

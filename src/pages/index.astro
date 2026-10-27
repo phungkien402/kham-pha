@@ -1,8 +1,77 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import PageCard from '../components/PageCard.astro';
 import { site } from '../config/site';
+import pages from '../data/pages.json';
+
+const DAY = 24 * 60 * 60 * 1000;
+const now = Date.now();
+const visible = pages.filter((p) => p.status === 'live' || p.status === 'coming-soon');
+const isNew = (p: (typeof pages)[number]) => {
+  if (p.status !== 'live') return false;
+  const age = now - new Date(p.launchDate).getTime();
+  return age >= 0 && age < 30 * DAY;
+};
 ---
 
 <BaseLayout title={site.name}>
-  <h1>Mùa Hoa Việt — Hôm nay hoa gì đang nở?</h1>
+  <main class="wrap">
+    <header class="intro">
+      <h1>{site.name}</h1>
+      <p>{site.description}</p>
+    </header>
+    <ul class="grid">
+      {
+        visible.map((p) => (
+          <li>
+            <PageCard
+              slug={p.slug}
+              title={p.title}
+              tagline={p.tagline}
+              color={p.color}
+              status={p.status as 'live' | 'coming-soon'}
+              isNew={isNew(p)}
+            />
+          </li>
+        ))
+      }
+    </ul>
+  </main>
 </BaseLayout>
+
+<style>
+  .wrap {
+    max-width: 1200px;
+    margin-inline: auto;
+    padding: var(--space-8) var(--space-4) var(--space-12);
+  }
+  .intro {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-bottom: var(--space-8);
+  }
+  h1 {
+    font-size: 1.75rem;
+  }
+  .intro p {
+    color: var(--color-text-muted);
+    max-width: 40rem;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  @media (min-width: 768px) {
+    .wrap { padding-inline: var(--space-6); }
+    h1 { font-size: 2.25rem; }
+    .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+  }
+  @media (min-width: 1200px) {
+    .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+</style>
