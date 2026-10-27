@@ -347,8 +347,8 @@
         "label": "Chiều cao cây"
       },
       {
-        "value": "Tháng 10 – 12",
-        "label": "Mùa nở"
+        "value": "Họ Cúc",
+        "label": "Cùng họ hướng dương"
       }
     ],
     "identify": [
@@ -357,9 +357,9 @@
       "Mọc thành rặng dọc sườn đồi, ven đường."
     ],
     "confusedWith": {
-      "name": "Cúc hoạ mi",
-      "ours": "Dã quỳ: hoa lớn, vàng cam, cây cao.",
-      "theirs": "Cúc hoạ mi: hoa nhỏ, cánh trắng, nhuỵ vàng, cây thấp."
+      "name": "Hướng dương",
+      "ours": "Dã quỳ: nhiều bông cỡ lòng bàn tay trên một bụi, lá xẻ thuỳ.",
+      "theirs": "Hướng dương: một bông rất lớn trên thân đơn, lá nguyên hình tim."
     },
     "didYouKnow": [
       {
