@@ -1,0 +1,72 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import ShareButton from '../components/ShareButton.svelte';
+import NextPage from '../components/NextPage.astro';
+import { site } from '../config/site';
+
+interface Props {
+  slug: string;
+  title: string;
+  description?: string;
+  ogImage?: string;
+}
+
+const { slug, title, description, ogImage } = Astro.props;
+---
+
+<BaseLayout title={`${title} · ${site.name}`} description={description} ogImage={ogImage}>
+  <header class="bar">
+    <a class="back" href="/">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+      <span>Trang chủ</span>
+    </a>
+    <ShareButton client:idle title={title} text={description} />
+  </header>
+  <main class="content">
+    <slot />
+    <NextPage currentSlug={slug} />
+  </main>
+</BaseLayout>
+
+<style>
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    max-width: 1200px;
+    margin-inline: auto;
+    padding: var(--space-3) var(--space-4);
+  }
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 2.5rem;
+    padding-right: var(--space-3);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .back:hover {
+    text-decoration: underline;
+  }
+  .back:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+  .content {
+    max-width: 1200px;
+    margin-inline: auto;
+    padding: var(--space-4) var(--space-4) var(--space-12);
+  }
+  @media (min-width: 768px) {
+    .bar,
+    .content {
+      padding-inline: var(--space-6);
+    }
+  }
+</style>

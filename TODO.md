@@ -35,7 +35,7 @@ Quy ước: làm theo thứ tự, xong thì tick `[x]` và ghi Nhật ký. Mỗi
   - Thẻ: bo góc, chữ tiêu đề đọc rõ trên nền màu (đủ tương phản), có trạng thái hover/focus nhìn thấy được khi dùng bàn phím.
   - Xong khi: ở 380px hiện 2 cột gọn, không cuộn ngang; trang `draft` không hiện.
 
-- [ ] **5. Khung trang khám phá**
+- [x] **5. Khung trang khám phá**
   - `ExploreLayout.astro`: nút về trang chủ, `ShareButton.svelte` (Web Share API, dự phòng copy link và báo "Đã sao chép"), `NextPage.astro` lấy trang `live` kế tiếp trong `pages.json`.
   - `src/pages/thu-nghiem/index.astro`: trang mẫu có một tương tác nhỏ (ví dụ nút đếm bằng Svelte, `client:visible`) để kiểm tra khung.
   - Sửa 2 lỗi từ đợt kiểm tra bước 3–4 (commit riêng, trước khi làm khung):
@@ -74,3 +74,4 @@ Quy ước: làm theo thứ tự, xong thì tick `[x]` và ghi Nhật ký. Mỗi
 - 2026-10-27: Xong bước 4 — `src/data/pages.json` (3 mục), `PageCard.astro`, trang chủ lưới 2/3/4 cột (lề 16px, tối đa 1200px), nhãn "Mới" (live, launch <30 ngày) và "Sắp ra mắt" (mờ, là `div` không bấm được), focus-visible rõ. Build sạch; HTML build chỉ có 2 thẻ, trang `draft` không hiện. Chưa xem bằng trình duyệt ở 380px (kiểm ở bước 7); link `/thu-nghiem/` sẽ 404 tới khi làm bước 5. Ảnh `card` trong JSON là đường dẫn dự phòng, hiện thẻ chỉ dùng khối màu.
 - 2026-10-27: Claude (claude.ai) kiểm tra bước 3–4 trên trình duyệt. Đạt: 375px ra 2 cột, không cuộn ngang; 1280px ra 4 cột trong khung tối đa 1200px; trang `draft` ẩn; meta đủ (lang vi, description, canonical, OG, Twitter, theme-color); font chỉ tải các file subset (vietnamese, latin, latin-ext). Chưa đạt: thẻ "Sắp ra mắt" mờ cả thẻ nên chữ khó đọc; `/og/default.png` trả 404 → thêm việc sửa vào bước 5.
 - 2026-10-27: Sửa 2 lỗi đầu bước 5. Thẻ "Sắp ra mắt": bỏ `opacity`, dùng nền pha 30% màu thẻ với nền trang + viền đứt, chữ giữ màu đậm `#1f1d1a` (tương phản cao). Ảnh OG: tạo `public/og/default.png` 1200×630 bằng sharp từ SVG (font hệ thống Segoe UI vì máy không có Be Vietnam Pro; dấu hiển thị đủ). Đã xoá câu hỏi về ảnh OG.
+- 2026-10-27: Xong bước 5 — `ExploreLayout.astro` (nút Trang chủ trái, `ShareButton.svelte` phải với `client:idle`, `NextPage` cuối trang), `ShareButton` (Web Share API → dự phòng copy link, hiện "Đã sao chép" 2 giây, cuối cùng là hộp thoại prompt), `NextPage.astro` (trang `live` kế tiếp, quay vòng; hiện chỉ có 1 trang live nên hiện khung "Xem tất cả trang" về trang chủ), `/thu-nghiem/` với nút đếm Svelte `client:visible` (`src/explore/thu-nghiem/Counter.svelte`). Build sạch, `/thu-nghiem/` trả 200. Chưa thử Web Share/clipboard trên trình duyệt thật.

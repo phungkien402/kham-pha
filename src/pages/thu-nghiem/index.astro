@@ -1,0 +1,27 @@
+---
+import ExploreLayout from '../../layouts/ExploreLayout.astro';
+import Counter from '../../explore/thu-nghiem/Counter.svelte';
+---
+
+<ExploreLayout
+  slug="thu-nghiem"
+  title="Trang thử nghiệm"
+  description="Trang mẫu để thử khung chung của các trang khám phá."
+>
+  <h1>Trang thử nghiệm</h1>
+  <p>Trang mẫu để kiểm tra khung chung: nút về trang chủ, chia sẻ và gợi ý trang tiếp theo.</p>
+  <div class="demo">
+    <Counter client:visible />
+  </div>
+</ExploreLayout>
+
+<style>
+  p {
+    margin-top: var(--space-2);
+    color: var(--color-text-muted);
+    max-width: 40rem;
+  }
+  .demo {
+    margin-top: var(--space-6);
+  }
+</style>

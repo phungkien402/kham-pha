@@ -1,0 +1,68 @@
+---
+import pages from '../data/pages.json';
+
+interface Props {
+  currentSlug: string;
+}
+
+const { currentSlug } = Astro.props;
+const live = pages.filter((p) => p.status === 'live');
+const index = live.findIndex((p) => p.slug === currentSlug);
+// Trang live kế tiếp, quay vòng về đầu; trang không live (draft) thì lấy trang live đầu tiên.
+const next = live.length > 0 ? live[(index + 1) % live.length] : undefined;
+const hasNext = next !== undefined && next.slug !== currentSlug;
+---
+
+<nav class="next" aria-label="Trang tiếp theo">
+  {
+    hasNext ? (
+      <a class="link" href={`/${next.slug}/`} style={`--card-color: ${next.color}`}>
+        <span class="label">Trang tiếp theo</span>
+        <span class="title">{next.title}</span>
+        <span class="tagline">{next.tagline}</span>
+      </a>
+    ) : (
+      <a class="link" href="/" style="--card-color: var(--color-border)">
+        <span class="label">Còn nhiều trang khác sắp ra mắt</span>
+        <span class="title">Xem tất cả trang</span>
+      </a>
+    )
+  }
+</nav>
+
+<style>
+  .next {
+    margin-top: var(--space-12);
+  }
+  .link {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-4);
+    border-radius: var(--radius);
+    background: var(--card-color);
+    color: #1f1d1a;
+    text-decoration: none;
+    transition: transform 0.15s ease;
+  }
+  .link:hover {
+    transform: translateY(-2px);
+  }
+  .link:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 3px;
+  }
+  .label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .title {
+    font-size: 1.125rem;
+    font-weight: 700;
+  }
+  .tagline {
+    font-size: 0.875rem;
+  }
+</style>
