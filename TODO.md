@@ -88,6 +88,14 @@ Mục tiêu: trang `/mua-hoa-viet` và trang chi tiết từng loài chạy đú
   - Tỉ lệ khung bản đồ giữ cố định khi zoom (không nhảy chiều cao trang).
   - Lighthouse 2 trang vẫn ≥ 90 mọi mục.
 
+- [ ] **21. Một loài nhiều đợt nở** (Kiên chọn 2026-10-27; commit riêng, không push)
+  - Lý do: hướng dương Nghĩa Lâm (Nghệ An) trồng nhiều đợt; hiện chỉ có một khoảng 10/10→10/1 nên sau khi đợt tháng 10 tàn (~cuối T10) vẫn hiện "đang nở" suốt tới tháng 1. Sai.
+  - Schema: cho phép `seasons: [{start, peak, end, note?}]` (mảng ≥1) thay cho một mùa. Giữ tương thích: loài cũ có một mùa vẫn chạy (chuyển hết 13 loài sang `seasons` cũng được, miễn test xanh). `note` là ghi chú ngắn của đợt, vd "Đợt Tết".
+  - Hướng dương: tra lại nguồn (báo Nghệ An, VnExpress… ghi vào `docs/nguon-du-lieu.md`) rồi tách thành các đợt thật. Gợi ý cần kiểm chứng: đợt 1 ~5/10→17/10→28/10 (đẹp nhất 14–20/10, Kiên xác nhận), đợt 2 dịp Tết ~cuối T12→giữa T1. Nếu không tìm được nguồn cho đợt 2 thì chỉ giữ đợt 1, ghi lý do vào Nhật ký.
+  - `season.ts`: `statusOn`, `inSeason`, `daysUntilPeak`, `isBloomingIn`, `showEndingTag` xét đợt gần nhất/đang diễn ra; giữa hai đợt là "chưa nở"/"sắp nở" theo đợt kế tiếp, không phải "đang nở". Mùa vắt qua năm (T12→T1) vẫn đúng. Thêm test: ngày giữa hai đợt, ngày trong đợt 2, ngày 31/12 và 1/1.
+  - Bánh xe 12 tháng: vẽ mỗi đợt thành một cung riêng (có khoảng trống giữa hai đợt). Trang chi tiết: dòng thời gian/"Thời điểm đẹp" liệt kê từng đợt. Bản đồ và danh sách "đang nở" theo đợt đang diễn ra.
+  - Xong khi: test xanh, build OK; ngày 1/11 hướng dương KHÔNG hiện đang nở; ngày 15/10 hiện đang nở/đỉnh mùa; Lighthouse không tụt dưới 90.
+
 ## Giai đoạn 1 — Nền (đã xong 2026-10-27)
 
 - [x] **1. Khởi tạo dự án**
