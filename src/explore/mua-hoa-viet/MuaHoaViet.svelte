@@ -8,6 +8,7 @@
   import RegionSeg from './RegionSeg.svelte';
   import Postcard from './Postcard.svelte';
   import { nearestBlooming } from './nearest';
+  import { downloadFlowerIcs } from './ics';
   import {
     PROVINCES_BY_REGION,
     PROVINCE_COORDS,
@@ -401,6 +402,18 @@
             <span class="ring" style:border-color={f.color}></span>
             <span><strong>{f.name}</strong> · {f.regionLabel}</span>
           </a>
+          <button
+            type="button"
+            class="soon-bell"
+            aria-label="Nhắc mùa {f.name} (.ics)"
+            title="Nhắc tôi mùa {f.name} (.ics)"
+            onclick={() => downloadFlowerIcs(f, todayNoon)}
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+          </button>
         </li>
       {/each}
     </ul>
@@ -645,14 +658,40 @@
     display: grid;
     gap: var(--space-2);
   }
+  .soon li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: 1px dashed #b9b2a5;
+    border-radius: 14px;
+  }
   .soon a {
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    padding: var(--space-3);
-    border: 1px dashed #b9b2a5;
-    border-radius: 14px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: var(--space-1) 0;
     text-decoration: none;
+  }
+  .soon-bell {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid #d5cfc4;
+    background: #fff;
+    color: var(--color-text);
+    display: inline-grid;
+    place-items: center;
+    cursor: pointer;
+    padding: 0;
+  }
+  .soon-bell:hover {
+    border-color: var(--color-text);
+    background: #f5f1e8;
   }
   .ring {
     width: 14px;

@@ -3,15 +3,19 @@
   import { inSeason, vnParts } from './season';
   import type { Season } from './season';
   import { countdown, monthRangeLabel, peakMonths, statusHeadline, statusSubline } from './detail';
+  import { downloadFlowerIcs } from './ics';
 
   interface Props {
+    slug?: string;
+    name?: string;
+    regionLabel?: string;
     color: string;
     seasons: Season[];
     facts?: { value: string; label: string }[];
   }
 
-  let { color, seasons, facts = [] }: Props = $props();
-  const flower = $derived({ seasons });
+  let { slug = 'hoa', name = 'Hoa', regionLabel, color, seasons, facts = [] }: Props = $props();
+  const flower = $derived({ slug, name, regionLabel, seasons });
 
   // HTML build theo ngày build; onMount tính lại theo ngày thật (spec mục 4).
   let now = $state(new Date());
@@ -29,10 +33,22 @@
 
 <div class="status" style:background="color-mix(in srgb, {color} 12%, white)">
   <span class="dot" style:background={color} style:box-shadow="0 0 0 5px color-mix(in srgb, {color} 25%, transparent)"></span>
-  <div>
+  <div class="status-body">
     <p class="head">{headline}</p>
     <p class="sub">{statusSubline(flower)}</p>
   </div>
+  <button
+    type="button"
+    class="remind-btn"
+    title="Tải lịch nhắc mùa {name} (.ics)"
+    onclick={() => downloadFlowerIcs(flower, now)}
+  >
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+    </svg>
+    <span>Nhắc tôi mùa sau</span>
+  </button>
 </div>
 
 <ul class="stats">
@@ -72,11 +88,42 @@
 <style>
   .status {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-3);
     align-items: flex-start;
     padding: var(--space-4);
     border-radius: 16px;
     margin-top: var(--space-4);
+  }
+  .status-body {
+    flex: 1 1 180px;
+    min-width: 0;
+  }
+  .remind-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 0 var(--space-3);
+    border: 1px solid #cfc9be;
+    border-radius: 999px;
+    background: #fff;
+    color: var(--color-text);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    flex: none;
+    align-self: center;
+  }
+  .remind-btn:hover {
+    border-color: var(--color-text);
+    background: #faf8f5;
+  }
+  .remind-btn:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
   }
   .dot {
     width: 12px;

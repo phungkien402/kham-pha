@@ -189,3 +189,15 @@ export {
   type NearestInputPlace,
   type NearestPlaceResult,
 } from './nearest';
+
+export {
+  buildIcs,
+  downloadFlowerIcs,
+  escapeIcsText,
+  foldIcsLine,
+  formatIcsDate,
+  unfoldIcs,
+  type IcsEventKind,
+  type IcsFlowerInput,
+} from './ics';
+

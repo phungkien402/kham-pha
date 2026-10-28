@@ -130,7 +130,15 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
         </p>
       )}
       <p class="chips"><span class="chip">{f.regionLabel}</span></p>
-      <FlowerNow client:load color={f.color} seasons={f.seasons} facts={f.facts} />
+      <FlowerNow
+        client:load
+        slug={f.slug}
+        name={f.name}
+        regionLabel={f.regionLabel}
+        color={f.color}
+        seasons={f.seasons}
+        facts={f.facts}
+      />
     </div>
   </div>
 
