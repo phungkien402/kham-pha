@@ -301,3 +301,153 @@ export function formatCarouselCaption(p: {
   }
   return `Ảnh: ${p.author}`;
 }
+
+export interface GridPhotoInput {
+  img?: ResponsiveImage;
+  fullImg?: ResponsiveImage;
+  src?: string;
+  src600?: string;
+  alt: string;
+  author: string;
+  author_link?: string | null;
+  license?: string;
+  caption?: string | null;
+  place?: string | null;
+  taken_on?: string | null;
+  status?: 'approved' | 'pending' | string;
+  color?: string;
+}
+
+export interface GridPhotoItem {
+  id: string;
+  thumbSrc: string;
+  thumbSrcset?: string;
+  width: number;
+  height: number;
+  fullSrc: string;
+  fullSrcset?: string;
+  alt: string;
+  author: string;
+  authorLink?: string;
+  license?: string;
+  caption?: string;
+  place?: string;
+  takenOn?: string;
+  color: string;
+}
+
+/**
+ * Chỉ giữ link tác giả có giao thức http:// hoặc https:// hợp lệ.
+ */
+export function sanitizeAuthorLink(url?: string | null): string | undefined {
+  if (!url || typeof url !== 'string') return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return trimmed;
+    }
+  } catch {
+    // URL không hợp lệ
+  }
+  return undefined;
+}
+
+function largestSrcFromResponsive(img?: ResponsiveImage): string | undefined {
+  if (!img) return undefined;
+  if (img.srcset) {
+    const parts = img.srcset
+      .split(',')
+      .map((s) => s.trim().split(/\s+/)[0])
+      .filter(Boolean);
+    if (parts.length > 0) {
+      return parts[parts.length - 1];
+    }
+  }
+  return img.src;
+}
+
+export function publicPhotoToGridItem(
+  p: PublicPhoto,
+  color: string,
+  flowerName?: string,
+): GridPhotoItem {
+  const fullSrc = p.src || `/api/anh/${p.id}.webp`;
+  const thumbSrc = p.src600 || `/api/anh/${p.id}-600.webp`;
+  return {
+    id: `api-${p.id}`,
+    thumbSrc,
+    width: p.width || 800,
+    height: p.height || 600,
+    fullSrc,
+    alt: p.caption || (flowerName ? `Ảnh ${flowerName} — ${p.author}` : `Ảnh — ${p.author}`),
+    author: p.author,
+    authorLink: sanitizeAuthorLink(p.author_link),
+    license: p.license && p.license !== 'Chưa có' ? p.license : undefined,
+    caption: p.caption || undefined,
+    place: p.place || undefined,
+    takenOn: p.taken_on || undefined,
+    color,
+  };
+}
+
+function initialPhotoToGridItem(
+  p: GridPhotoInput,
+  index: number,
+  fallbackColor: string,
+): GridPhotoItem {
+  const thumbImg = p.img ?? p.fullImg;
+  const fullImg = p.fullImg ?? p.img;
+  const thumbSrc = p.src600 || thumbImg?.src || p.src || '';
+  const fullSrc = p.src || largestSrcFromResponsive(fullImg) || thumbSrc;
+  return {
+    id: `init-${index}-${thumbSrc}`,
+    thumbSrc,
+    thumbSrcset: thumbImg?.srcset,
+    width: thumbImg?.width || 640,
+    height: thumbImg?.height || 480,
+    fullSrc,
+    fullSrcset: fullImg?.srcset,
+    alt: p.alt,
+    author: p.author,
+    authorLink: sanitizeAuthorLink(p.author_link),
+    license: p.license && p.license !== 'Chưa có' ? p.license : undefined,
+    caption: p.caption || undefined,
+    place: p.place || undefined,
+    takenOn: p.taken_on || undefined,
+    color: p.color || fallbackColor,
+  };
+}
+
+/**
+ * Gộp ảnh thật build sẵn (Commons) và ảnh đã duyệt từ API cho mục "Ảnh":
+ * - Bỏ mọi ảnh giữ chỗ (author "Chưa có", status "pending", không có ảnh).
+ * - Trả về mảng rỗng khi chưa có ảnh thật nào (ẩn mục "Ảnh").
+ * - Khi có ảnh thật: ảnh Commons ở đầu, nối tiếp ảnh đã duyệt (mới nhất trước).
+ */
+export function mergeGridPhotos(
+  initialPhotos: GridPhotoInput[] = [],
+  apiPhotos: PublicPhoto[] = [],
+  color?: string,
+  flowerName?: string,
+): GridPhotoItem[] {
+  const fallbackColor = color || initialPhotos[0]?.color || '#ccc';
+  const realInitial = initialPhotos
+    .filter((p) => {
+      const hasSource = Boolean(p.img?.src || p.fullImg?.src || p.src || p.src600);
+      if (!hasSource || p.status === 'pending' || p.author === 'Chưa có') {
+        return false;
+      }
+      return true;
+    })
+    .map((p, i) => initialPhotoToGridItem(p, i, fallbackColor));
+
+  const sortedApi = sortPublicPhotosNewestFirst(apiPhotos ?? []);
+  const mappedApi = sortedApi.map((p) =>
+    publicPhotoToGridItem(p, fallbackColor, flowerName),
+  );
+
+  return [...realInitial, ...mappedApi];
+}
+

@@ -35,6 +35,15 @@ const photos = await Promise.all(
   })),
 );
 const gridPhotos = await Promise.all(f.photos.map(async (p) => (p.src ? await responsive(p.src, SIZES.grid) : undefined)));
+const initialGridPhotos = f.photos.map((p, i) => ({
+  img: gridPhotos[i],
+  fullImg: photos[i].img,
+  alt: p.alt,
+  author: p.author,
+  license: p.license,
+  status: p.status,
+  color: f.color,
+}));
 const realPhoto = f.photos.find((p) => p.src);
 const og = realPhoto?.src ? await ogImage(realPhoto.src) : undefined;
 const spots = places
@@ -156,35 +165,14 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
         </section>
       )
     }
-    {
-      photos.length > 1 && (
-        <section class="block">
-          <h2>Ảnh</h2>
-          <ul class="grid-photos">
-            {f.photos.map((p, i) => (
-              <li>
-                <div class="ph" style={`background:${placeholder}`}>
-                  {gridPhotos[i] && (
-                    <img
-                      data-src={gridPhotos[i].src}
-                      data-srcset={gridPhotos[i].srcset}
-                      sizes="(min-width: 1024px) 280px, 50vw"
-                      alt={p.alt}
-                      width={gridPhotos[i].width}
-                      height={gridPhotos[i].height}
-                    />
-                    <noscript>
-                      <img src={gridPhotos[i].src} srcset={gridPhotos[i].srcset} sizes="(min-width: 1024px) 280px, 50vw" alt={p.alt} width={gridPhotos[i].width} height={gridPhotos[i].height} />
-                    </noscript>
-                  )}
-                </div>
-                <small>{p.author === 'Chưa có' ? 'Ảnh giữ chỗ' : `Ảnh: ${p.author}`}</small>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )
-    }
+    <ApprovedPhotos
+      client:idle
+      flowerSlug={f.slug}
+      flowerName={f.name}
+      color={f.color}
+      initialPhotos={initialGridPhotos}
+      placesMap={placesMap}
+    />
   </div>
 
   <div class="cols">
@@ -274,14 +262,6 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
     }
   </div>
 
-  <ApprovedPhotos
-    client:visible
-    flowerSlug={f.slug}
-    flowerName={f.name}
-    color={f.color}
-    placesMap={placesMap}
-  />
-
   <div class="submit-photo-cta">
     <p>Bạn có ảnh {f.name.toLowerCase()} tự chụp?</p>
     <a href={`/gui-anh?hoa=${f.slug}`} class="submit-photo-btn">Gửi ảnh của bạn</a>
@@ -328,31 +308,6 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
     )
   }
 </ExploreLayout>
-
-<script>
-  // Ảnh lưới "Ảnh" chỉ nạp khi gần cuộn tới, để không tranh băng thông với ảnh đầu carousel.
-  const imgs = document.querySelectorAll<HTMLImageElement>('.grid-photos img[data-src]');
-  const load = (img: HTMLImageElement) => {
-    img.srcset = img.dataset.srcset ?? '';
-    img.src = img.dataset.src ?? '';
-  };
-  if ('IntersectionObserver' in window) {
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (!e.isIntersecting) continue;
-          load(e.target as HTMLImageElement);
-          io.unobserve(e.target);
-        }
-      },
-      { rootMargin: '200px' },
-    );
-    imgs.forEach((img) => io.observe(img));
-  } else {
-    imgs.forEach(load);
-  }
-</script>
-
 
 <style>
   .photo-credits {

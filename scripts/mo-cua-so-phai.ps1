@@ -12,6 +12,8 @@ $half = [int]($wa.Width / 2)
 $full = "`$host.UI.RawUI.WindowTitle = '$TieuDe'; $Lenh"
 $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($full))
 $p = Start-Process powershell -ArgumentList '-NoExit','-EncodedCommand',$enc -PassThru
+# Ghi PID để scripts\dong-cua-so.ps1 đóng đúng cửa sổ này khi việc xong
+Set-Content -Path (Join-Path $env:TEMP 'kham-pha-cli-window.pid') -Value $p.Id
 $h = [IntPtr]::Zero
 for ($i = 0; $i -lt 50 -and $h -eq [IntPtr]::Zero; $i++) {
   Start-Sleep -Milliseconds 200
