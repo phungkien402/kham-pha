@@ -104,6 +104,10 @@ export interface Env {
   DEV_BYPASS_AUTH?: string;
   ACCESS_JWKS?: JwksResponse | string;
   JWKS_FETCH?: typeof fetch;
+  TURNSTILE_SITEKEY?: string;
+  TURNSTILE_SECRET?: string;
+  TURNSTILE_FETCH?: typeof fetch;
+  IP_SALT?: string;
 }
 
 export type PhotoStatus = 'pending' | 'approved' | 'rejected';

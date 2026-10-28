@@ -1,16 +1,22 @@
 import { clearJwksCache, normalizeTeamDomain, verifyAccessJwt } from './auth';
 import {
+  approveAdminPhoto,
   deleteAdminPhoto,
+  handleApproveAdminPhoto,
   handleDeleteAdminPhoto,
+  handleGetAdminPhotoFile,
   handleGetAdminPhotos,
   handleGetPhotoCovers,
   handleGetPhotoFile,
   handleGetPublicPhotos,
   handleHideAdminPhoto,
+  handleRejectAdminPhoto,
   hideAdminPhoto,
   listAdminPhotos,
   listApprovedCovers,
   listApprovedPhotos,
+  rejectAdminPhoto,
+  type ApprovePhotoUpdates,
 } from './photos';
 import {
   ensureSchema,
@@ -25,28 +31,43 @@ import {
 } from './types';
 import {
   detectImageFormat,
+  getClientIp,
   handleAdminUpload,
+  handlePublicSubmit,
+  hashIp,
   isValidFlowerSlug,
   isValidImageMagicBytes,
+  MAX_PUBLIC_FILES,
+  MAX_PUBLIC_SUBMISSIONS_PER_DAY,
   MAX_UPLOAD_BYTES,
   parseImageDimensions,
+  TURNSTILE_DUMMY_PASS_SECRET,
+  TURNSTILE_VERIFY_URL,
   VALID_FLOWER_SLUGS,
+  verifyTurnstileToken,
 } from './upload';
 
 export {
+  approveAdminPhoto,
   clearJwksCache,
   deleteAdminPhoto,
   detectImageFormat,
   ensureSchema,
   getBucket,
+  getClientIp,
   getDb,
   handleAdminUpload,
+  handleApproveAdminPhoto,
   handleDeleteAdminPhoto,
+  handleGetAdminPhotoFile,
   handleGetAdminPhotos,
   handleGetPhotoCovers,
   handleGetPhotoFile,
   handleGetPublicPhotos,
   handleHideAdminPhoto,
+  handlePublicSubmit,
+  handleRejectAdminPhoto,
+  hashIp,
   hideAdminPhoto,
   isValidFlowerSlug,
   isValidImageMagicBytes,
@@ -54,11 +75,18 @@ export {
   listAdminPhotos,
   listApprovedCovers,
   listApprovedPhotos,
+  MAX_PUBLIC_FILES,
+  MAX_PUBLIC_SUBMISSIONS_PER_DAY,
   MAX_UPLOAD_BYTES,
   normalizeTeamDomain,
   parseImageDimensions,
+  rejectAdminPhoto,
+  TURNSTILE_DUMMY_PASS_SECRET,
+  TURNSTILE_VERIFY_URL,
   VALID_FLOWER_SLUGS,
   verifyAccessJwt,
+  verifyTurnstileToken,
+  type ApprovePhotoUpdates,
   type CoverItem,
   type Env,
   type ExecutionContext,
@@ -102,6 +130,23 @@ export default {
         return handleGetAdminPhotos(request, env);
       }
 
+      const adminFileMatch = pathname.match(/^\/api\/admin\/anh\/([a-zA-Z0-9_-]+?)(-600)?\.webp$/);
+      if (adminFileMatch && method === 'GET') {
+        const id = adminFileMatch[1];
+        const is600 = Boolean(adminFileMatch[2]);
+        return handleGetAdminPhotoFile(request, env, id, is600);
+      }
+
+      const approveMatch = pathname.match(/^\/api\/admin\/photos\/([^/]+)\/approve$/);
+      if (approveMatch && method === 'POST') {
+        return handleApproveAdminPhoto(request, env, decodeURIComponent(approveMatch[1]));
+      }
+
+      const rejectMatch = pathname.match(/^\/api\/admin\/photos\/([^/]+)\/reject$/);
+      if (rejectMatch && method === 'POST') {
+        return handleRejectAdminPhoto(request, env, decodeURIComponent(rejectMatch[1]));
+      }
+
       const hideMatch = pathname.match(/^\/api\/admin\/photos\/([^/]+)\/hide$/);
       if (hideMatch && method === 'POST') {
         return handleHideAdminPhoto(request, env, decodeURIComponent(hideMatch[1]));
@@ -115,17 +160,22 @@ export default {
       return jsonResponse({ error: 'Not Found' }, 404);
     }
 
-    // 3. API công khai lấy danh sách ảnh approved theo loài
+    // 3. API công khai nhận ảnh người ngoài gửi
+    if ((pathname === '/api/gui-anh' || pathname === '/api/gui-anh/') && method === 'POST') {
+      return handlePublicSubmit(request, env);
+    }
+
+    // 4. API công khai lấy danh sách ảnh approved theo loài
     if (pathname === '/api/anh' && method === 'GET') {
       return handleGetPublicPhotos(request, env);
     }
 
-    // 4. API công khai lấy ảnh bìa (approved mới nhất) của từng loài
+    // 5. API công khai lấy ảnh bìa (approved mới nhất) của từng loài
     if (pathname === '/api/anh/bia' && method === 'GET') {
       return handleGetPhotoCovers(request, env);
     }
 
-    // 5. API công khai phục vụ file ảnh approved (.webp và -600.webp)
+    // 6. API công khai phục vụ file ảnh approved (.webp và -600.webp)
     const fileMatch = pathname.match(/^\/api\/anh\/([a-zA-Z0-9_-]+?)(-600)?\.webp$/);
     if (fileMatch && method === 'GET') {
       const id = fileMatch[1];

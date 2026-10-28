@@ -282,6 +282,11 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
     placesMap={placesMap}
   />
 
+  <div class="submit-photo-cta">
+    <p>Bạn có ảnh {f.name.toLowerCase()} tự chụp?</p>
+    <a href={`/gui-anh?hoa=${f.slug}`} class="submit-photo-btn">Gửi ảnh của bạn</a>
+  </div>
+
   {
     related.length > 0 && (
       <section class="block">
@@ -354,6 +359,44 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
     margin-top: 2rem;
     font-size: 0.8125rem;
     color: #6b655c;
+  }
+  .submit-photo-cta {
+    margin-top: var(--space-6);
+    padding: var(--space-4);
+    border-radius: 16px;
+    background: #fff;
+    border: 1px solid #e7e2d9;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+  .submit-photo-cta p {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+  .submit-photo-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 0.5rem 1rem;
+    border-radius: 10px;
+    background: var(--color-text);
+    color: #faf8f5;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .submit-photo-btn:hover {
+    opacity: 0.92;
+  }
+  .submit-photo-btn:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
   }
   .photo-credits h2 {
     font-size: 0.875rem;

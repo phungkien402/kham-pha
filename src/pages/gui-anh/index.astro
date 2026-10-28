@@ -1,0 +1,83 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PublicSubmitForm from '../../explore/mua-hoa-viet/gui-anh/PublicSubmitForm.svelte';
+
+const flowers = (await getCollection('flowers')).map((e) => ({
+  slug: e.data.slug,
+  name: e.data.name,
+}));
+
+const places = (await getCollection('places')).map((e) => ({
+  slug: e.data.slug,
+  name: e.data.name,
+  province: e.data.province,
+  flowers: e.data.flowers.map((f) => f.slug),
+}));
+
+const turnstileSiteKey =
+  import.meta.env.PUBLIC_TURNSTILE_SITEKEY ||
+  import.meta.env.TURNSTILE_SITEKEY ||
+  process.env.TURNSTILE_SITEKEY ||
+  '0x4AAAAAAFpG_KK7XNX_hIBU';
+---
+
+<BaseLayout
+  title="Gửi ảnh của bạn — Mùa Hoa Việt"
+  description="Gửi ảnh mùa hoa bạn tự chụp để đóng góp cho trang Mùa Hoa Việt."
+  noindex={true}
+>
+  <script
+    is:inline
+    src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+    async
+    defer
+  ></script>
+
+  <main class="submit-shell">
+    <header class="submit-header">
+      <a href="/mua-hoa-viet/" class="back-link">← Mùa Hoa Việt</a>
+      <h1>Gửi ảnh của bạn</h1>
+      <p class="subtitle">
+        Chia sẻ khoảnh khắc mùa hoa bạn chụp được. Ảnh sẽ xuất hiện trên trang loài hoa sau khi được duyệt.
+      </p>
+    </header>
+
+    <PublicSubmitForm
+      client:load
+      flowers={flowers}
+      places={places}
+      turnstileSiteKey={turnstileSiteKey}
+    />
+  </main>
+</BaseLayout>
+
+<style>
+  .submit-shell {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-4) var(--space-12);
+  }
+  .submit-header {
+    margin-bottom: var(--space-6);
+  }
+  .back-link {
+    display: inline-block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    margin-bottom: var(--space-2);
+  }
+  .back-link:hover {
+    color: var(--color-text);
+  }
+  h1 {
+    font-size: 1.75rem;
+    margin-bottom: var(--space-1);
+  }
+  .subtitle {
+    color: var(--color-text-muted);
+    font-size: 0.9375rem;
+  }
+</style>

@@ -19,6 +19,7 @@ export default defineConfig({
       filter: (url) => {
         const pathname = new URL(url).pathname;
         if (pathname === '/admin' || pathname.startsWith('/admin/')) return false;
+        if (pathname === '/gui-anh' || pathname.startsWith('/gui-anh/')) return false;
         return !draftPaths.some((path) => pathname === path);
       },
     }),
