@@ -65,6 +65,15 @@ function landOnly(geom) {
   });
   return { type: 'MultiPolygon', coordinates: keep };
 }
+// Diện tích chính thức (km², số liệu thường dùng của CIA World Factbook / chính phủ các nước) cho
+// các nước nhỏ mà ranh giới Natural Earth 1:50m vẽ quá thô (vd Singapore ra ~485 thay vì ~735).
+// Chỉ ghi đè CON SỐ diện tích hiển thị/so sánh; hình vẽ vẫn từ Natural Earth.
+const AREA_CHINH_THUC = {
+  sgp: 735, bhr: 786, mlt: 316, mco: 2.08, vat: 0.44, lie: 160, smr: 61, and: 468, lux: 2586,
+  brn: 5765, mdv: 298, nru: 21, tuv: 26, kna: 261, lca: 617, vct: 389, grd: 344, atg: 442,
+  dma: 751, brb: 430, syc: 452, plw: 459, mhl: 181, fsm: 702, kir: 811, ton: 747, stp: 964,
+  cpv: 4033, mus: 2040, com: 1862,
+};
 async function runMapshaper(cmd, inputDict) {
   const out = await mapshaper.applyCommands(cmd, inputDict);
   return JSON.parse(out['out.json'].toString());
@@ -220,6 +229,16 @@ async function main() {
 
   const deletedSCSPolygons = [];
 
+  const NE10M_FILE = resolve(RAW_DIR, 'ne_10m_admin_0_countries.geojson');
+  const ne10mByAdm = new Map();
+  if (existsSync(NE10M_FILE)) {
+    for (const f10 of JSON.parse(readFileSync(NE10M_FILE, 'utf8')).features) {
+      if (f10.properties?.ADM0_A3 && f10.geometry) ne10mByAdm.set(f10.properties.ADM0_A3, f10.geometry);
+    }
+  } else {
+    console.warn('   Không có ne_10m_admin_0_countries.geojson — nước nhỏ dùng hình 1:50m (diện tích kém chính xác).');
+  }
+
   for (const f of countriesRaw.features) {
     const props = f.properties;
     const isoA3Raw =
@@ -232,6 +251,11 @@ async function main() {
     if (isoA3 === 'vnm' || props.SOV_A3 === 'VNM' || props.ADMIN === 'Vietnam') {
       continue;
     }
+
+    // Nước nhỏ (< 5.000 km²): Natural Earth 1:50m vẽ quá thô (Singapore chỉ ra ~485 km² thay vì ~735)
+    // → dùng hình 1:10m nếu có (raw-data/ne_10m_admin_0_countries.geojson).
+    // (Thử 1:10m cho kết quả còn tệ hơn với vi quốc gia — Monaco 19 km², Vatican 0 — nên KHÔNG dùng;
+    //  thay vào đó ghi đè DIỆN TÍCH bằng số chính thức cho các nước nhỏ, xem AREA_CHINH_THUC.)
 
     // Lọc chủ quyền Biển Đông
     const filteredFeature = scsFilter(f, false);
@@ -287,7 +311,7 @@ async function main() {
       name: nameVi,
       enName: nameEn,
       type: 'nuoc',
-      area: origArea,
+      area: AREA_CHINH_THUC[isoA3] ?? origArea,
       bbox: projected.bbox,
       len: shapePca.len,
       wid: shapePca.wid,
