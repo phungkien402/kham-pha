@@ -1,0 +1,47 @@
+---
+import ExploreLayout from '../../layouts/ExploreLayout.astro';
+import ToCoNao from '../../explore/to-co-nao/ToCoNao.svelte';
+---
+
+<ExploreLayout
+  slug="to-co-nao"
+  title="Việt Nam to cỡ nào?"
+  description="Kéo thả và so sánh diện tích thực tế của Việt Nam cùng các tỉnh thành với các quốc gia trên thế giới theo phép chiếu Lambert bảo toàn diện tích."
+>
+  <ToCoNao client:load />
+
+  <footer class="sources-note">
+    <p class="disclaimer">
+      <strong>Lưu ý:</strong> Diện tích tính từ ranh giới giản lược, có thể lệch vài phần trăm so với số liệu chính thức.
+    </p>
+    <p class="source-item">
+      <strong>Ranh giới Việt Nam:</strong> Dữ liệu 34 tỉnh thành hậu sáp nhập 2025 từ nguồn Free-GIS-Data/nguyenduy1133, thể hiện đầy đủ chủ quyền hai quần đảo Hoàng Sa và Trường Sa.
+    </p>
+    <p class="source-item">
+      <strong>Ranh giới quốc tế:</strong> Natural Earth Admin 0 Countries (tỉ lệ 1:50m, Public Domain). Đã loại bỏ các đa giác xung đột với vùng biển chủ quyền Việt Nam.
+    </p>
+    <p class="source-item">
+      <strong>Phép chiếu bản đồ:</strong> Lambert Azimuthal Equal-Area (LAEA) cục bộ theo tâm từng thực thể, đưa về toạ độ phẳng km, bảo toàn tỷ lệ diện tích tương đối.
+    </p>
+  </footer>
+</ExploreLayout>
+
+<style>
+  .sources-note {
+    margin-top: var(--space-8, 2rem);
+    padding: var(--space-4, 1rem) var(--space-6, 1.5rem);
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid var(--color-border, #e6e1d9);
+    border-radius: var(--radius, 1rem);
+    font-size: 0.8125rem;
+    color: var(--color-text-muted, #6b665f);
+    line-height: 1.6;
+  }
+  .disclaimer {
+    margin-bottom: 0.5rem;
+    color: var(--color-text, #1f1d1a);
+  }
+  .source-item {
+    margin-top: 0.25rem;
+  }
+</style>

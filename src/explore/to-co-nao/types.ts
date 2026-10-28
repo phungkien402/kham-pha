@@ -33,3 +33,18 @@ export interface Viewport {
 }
 
 export type ShapeChunk = Record<string, string>;
+
+export interface ShapeColor {
+  fill: string;
+  stroke: string;
+  border: string;
+}
+
+export const SHAPE_PALETTE: ShapeColor[] = [
+  { fill: '#2563eb', stroke: '#1d4ed8', border: '#1e40af' }, // Blue
+  { fill: '#dc2626', stroke: '#b91c1c', border: '#991b1b' }, // Crimson / Coral
+  { fill: '#059669', stroke: '#047857', border: '#065f46' }, // Emerald / Forest Green
+  { fill: '#d97706', stroke: '#b45309', border: '#92400e' }, // Amber / Gold
+  { fill: '#7c3aed', stroke: '#6d28d9', border: '#5b21b6' }, // Purple / Violet
+  { fill: '#0891b2', stroke: '#0e7490', border: '#155e75' }, // Cyan / Teal
+];
