@@ -1,6 +1,6 @@
 # Chạy một bước theo quy trình: agy code (cửa sổ phải) -> đóng -> Claude Code test (cửa sổ phải) -> đóng.
 # Dùng: powershell -File scripts\chay-buoc.ps1 -Buoc 28
-param([Parameter(Mandatory)][int]$Buoc, [int]$PhutToiDa = 45)
+param([Parameter(Mandatory)][string]$Buoc, [int]$PhutToiDa = 60)
 Set-Location D:\Neal
 $agyTask = ".agy-task-$Buoc.txt"; $ccTask = ".claude-test-$Buoc.md"
 Remove-Item AGY_DONE.md, REVIEW.json -ErrorAction SilentlyContinue
