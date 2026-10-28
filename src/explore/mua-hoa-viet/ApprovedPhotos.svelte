@@ -1,20 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-
-  interface PublicPhoto {
-    id: string;
-    flower: string;
-    place?: string | null;
-    author: string;
-    author_link?: string | null;
-    license: string;
-    caption?: string | null;
-    taken_on?: string | null;
-    width?: number;
-    height?: number;
-    src?: string;
-    src600?: string;
-  }
+  import { fetchPublicPhotos, type PublicPhoto } from './publicPhotos';
 
   let {
     flowerSlug,
@@ -33,23 +19,12 @@
   onMount(() => {
     let cancelled = false;
 
-    const load = async () => {
-      try {
-        const res = await fetch(`/api/anh?flower=${encodeURIComponent(flowerSlug)}`);
-        if (!res.ok) return;
-        const contentType = res.headers.get('content-type') ?? '';
-        if (!contentType.includes('application/json')) return;
-        const data = await res.json();
-        const list: PublicPhoto[] = Array.isArray(data) ? data : (data?.photos ?? []);
-        if (!cancelled && list.length > 0) {
-          photos = list;
-        }
-      } catch {
-        // Bỏ qua lỗi mạng khi chạy bản tĩnh không có Worker
+    fetchPublicPhotos(flowerSlug).then((list) => {
+      if (!cancelled && list.length > 0) {
+        photos = list;
       }
-    };
+    });
 
-    load();
     return () => {
       cancelled = true;
     };

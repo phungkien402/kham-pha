@@ -1,16 +1,49 @@
 <script lang="ts">
-  import type { ResponsiveImage } from './images';
-  interface Photo {
-    img?: ResponsiveImage;
-    alt: string;
-    author: string;
-    color: string;
-  }
-  let { photos }: { photos: Photo[] } = $props();
+  import { onMount } from 'svelte';
+  import {
+    fetchPublicPhotos,
+    formatCarouselCaption,
+    mergeCarouselPhotos,
+    type CarouselPhoto,
+    type PublicPhoto,
+  } from './publicPhotos';
+
+  let {
+    photos,
+    flowerSlug = '',
+    flowerName = '',
+    color = '',
+  }: {
+    photos: CarouselPhoto[];
+    flowerSlug?: string;
+    flowerName?: string;
+    color?: string;
+  } = $props();
+
+  let apiPhotos = $state<PublicPhoto[]>([]);
   let track: HTMLElement | undefined = $state();
   let index = $state(0);
   // Chỉ ảnh đầu có src từ HTML build sẵn; slide sau chỉ nạp khi người xem vuốt tới sát nó.
   let reach = $state(0);
+
+  const displayPhotos = $derived(
+    mergeCarouselPhotos(photos, apiPhotos, color, flowerName),
+  );
+
+  onMount(() => {
+    if (!flowerSlug) return;
+    let cancelled = false;
+
+    fetchPublicPhotos(flowerSlug).then((list) => {
+      if (!cancelled && list.length > 0) {
+        apiPhotos = list;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  });
 
   function onScroll() {
     if (!track) return;
@@ -21,7 +54,7 @@
 
 <div class="wrap">
   <div class="track" bind:this={track} onscroll={onScroll} tabindex="0" role="region" aria-label="Ảnh, vuốt ngang để xem thêm">
-    {#each photos as p, i}
+    {#each displayPhotos as p, i}
       <figure style:background="color-mix(in srgb, {p.color} 72%, white)">
         {#if p.img && i <= reach}
           <img
@@ -35,13 +68,13 @@
             fetchpriority={i === 0 ? 'high' : undefined}
           />
         {/if}
-        <figcaption>{p.author === 'Chưa có' ? 'Ảnh giữ chỗ' : `Ảnh: ${p.author}`}</figcaption>
+        <figcaption>{formatCarouselCaption(p)}</figcaption>
       </figure>
     {/each}
   </div>
-  {#if photos.length > 1}
+  {#if displayPhotos.length > 1}
     <div class="dots" aria-hidden="true">
-      {#each photos as _, i}<span class:on={i === index}></span>{/each}
+      {#each displayPhotos as _, i}<span class:on={i === index}></span>{/each}
     </div>
   {/if}
 </div>

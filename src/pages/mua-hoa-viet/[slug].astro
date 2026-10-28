@@ -29,6 +29,8 @@ const photos = await Promise.all(
     img: p.src ? await responsive(p.src, SIZES.hero) : undefined,
     alt: p.alt,
     author: p.author,
+    license: p.license,
+    status: p.status,
     color: f.color,
   })),
 );
@@ -92,7 +94,13 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
 
   <div class="top">
     <div class="gallery">
-      <Carousel client:idle photos={photos} />
+      <Carousel
+        client:idle
+        photos={photos}
+        flowerSlug={f.slug}
+        flowerName={f.name}
+        color={f.color}
+      />
     </div>
     <div class="info">
       <h1>{f.name}</h1>
