@@ -100,6 +100,8 @@ const flowers = defineCollection({
           }),
         )
         .optional(),
+      seasonOverride: z.any().optional(),
+      seasonOverrides: z.array(z.any()).optional(),
     })
     .transform(({ season: single, seasons, ...rest }, ctx) => {
       const list = seasons ?? (single ? [single] : undefined);

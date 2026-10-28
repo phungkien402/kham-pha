@@ -12,9 +12,23 @@
     color: string;
     seasons: Season[];
     facts?: { value: string; label: string }[];
+    seasonOverride?: {
+      year?: number;
+      note?: string | null;
+      source_url?: string | null;
+      sources?: Array<{ url: string; title?: string }>;
+    } | null;
   }
 
-  let { slug = 'hoa', name = 'Hoa', regionLabel, color, seasons, facts = [] }: Props = $props();
+  let {
+    slug = 'hoa',
+    name = 'Hoa',
+    regionLabel,
+    color,
+    seasons,
+    facts = [],
+    seasonOverride = null,
+  }: Props = $props();
   const flower = $derived({ slug, name, regionLabel, seasons });
 
   // HTML build theo ngày build; onMount tính lại theo ngày thật (spec mục 4).
@@ -36,6 +50,21 @@
   <div class="status-body">
     <p class="head">{headline}</p>
     <p class="sub">{statusSubline(flower)}</p>
+    {#if seasonOverride}
+      <p class="season-override">
+        <span>{seasonOverride.note || 'Năm nay: nở sớm/muộn hơn thường lệ'}</span>
+        {#if seasonOverride.source_url || (seasonOverride.sources && seasonOverride.sources[0]?.url)}
+          <a
+            href={seasonOverride.source_url || seasonOverride.sources[0]?.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="override-source"
+          >
+            (Nguồn)
+          </a>
+        {/if}
+      </p>
+    {/if}
   </div>
   <button
     type="button"
@@ -98,6 +127,26 @@
   .status-body {
     flex: 1 1 180px;
     min-width: 0;
+  }
+  .season-override {
+    margin-top: var(--space-2);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+  .override-source {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    color: var(--color-text-muted);
+  }
+  .override-source:hover {
+    color: var(--color-text);
   }
   .remind-btn {
     display: inline-flex;

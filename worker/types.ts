@@ -116,6 +116,66 @@ export interface Env {
   CF_BUILD_TRIGGER_ID?: string;
   CF_BUILD_BRANCH?: string;
   CF_DEPLOY_HOOK?: string;
+  BOT_TOKEN?: string;
+}
+
+export type SuggestionKind = 'new_flower' | 'new_place' | 'season_update' | 'news';
+export type SuggestionStatus = 'pending' | 'applied' | 'dismissed';
+
+export interface SuggestionSource {
+  url: string;
+  title?: string;
+  published?: string;
+}
+
+export interface SuggestionRow {
+  id: string;
+  kind: SuggestionKind;
+  target_slug: string | null;
+  payload: string;
+  sources: string;
+  summary: string | null;
+  confidence: number | null;
+  status: SuggestionStatus;
+  created_at: string;
+  reviewed_at: string | null;
+  dedupe_key: string | null;
+}
+
+export interface SuggestionItem {
+  id: string;
+  kind: SuggestionKind;
+  target_slug: string | null;
+  payload: Record<string, unknown>;
+  sources: SuggestionSource[];
+  summary: string | null;
+  confidence: number | null;
+  status: SuggestionStatus;
+  created_at: string;
+  reviewed_at: string | null;
+  dedupe_key: string | null;
+}
+
+export interface SeasonOverrideRow {
+  slug: string;
+  year: number;
+  start: string | null;
+  peak: string | null;
+  end: string | null;
+  note: string | null;
+  sources?: string | null;
+  created_at?: string;
+}
+
+export interface SeasonOverrideItem {
+  slug: string;
+  year: number;
+  start?: unknown;
+  peak?: unknown;
+  end?: unknown;
+  note?: string | null;
+  sources?: SuggestionSource[];
+  source_url?: string | null;
 }
 
 export type PhotoStatus = 'pending' | 'approved' | 'rejected';
@@ -256,6 +316,46 @@ export async function ensureSchema(db: D1Database): Promise<void> {
         `CREATE TABLE IF NOT EXISTS build_state (
           key TEXT PRIMARY KEY,
           value TEXT NOT NULL
+        )`,
+      )
+      .run();
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS suggestions (
+          id TEXT PRIMARY KEY,
+          kind TEXT NOT NULL CHECK (kind IN ('new_flower', 'new_place', 'season_update', 'news')),
+          target_slug TEXT NULL,
+          payload TEXT NOT NULL,
+          sources TEXT NOT NULL,
+          summary TEXT NULL,
+          confidence REAL NULL,
+          status TEXT NOT NULL CHECK (status IN ('pending', 'applied', 'dismissed')),
+          created_at TEXT NOT NULL,
+          reviewed_at TEXT NULL,
+          dedupe_key TEXT UNIQUE
+        )`,
+      )
+      .run();
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS season_overrides (
+          slug TEXT NOT NULL,
+          year INT NOT NULL,
+          start TEXT NULL,
+          peak TEXT NULL,
+          end TEXT NULL,
+          note TEXT NULL,
+          sources TEXT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY (slug, year)
+        )`,
+      )
+      .run();
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS bot_requests (
+          id TEXT PRIMARY KEY,
+          created_at TEXT NOT NULL
         )`,
       )
       .run();

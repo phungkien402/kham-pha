@@ -236,3 +236,56 @@ export async function verifyAccessJwt(
     return false;
   }
 }
+
+/**
+ * So sánh 2 chuỗi theo thời gian hằng (constant-time) qua SHA-256 digest để tránh timing attack.
+ */
+export async function constantTimeCompare(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [digestA, digestB] = await Promise.all([
+    crypto.subtle.digest('SHA-256', enc.encode(a)),
+    crypto.subtle.digest('SHA-256', enc.encode(b)),
+  ]);
+  const viewA = new Uint8Array(digestA);
+  const viewB = new Uint8Array(digestB);
+  let diff = 0;
+  for (let i = 0; i < viewA.length; i++) {
+    diff |= viewA[i] ^ viewB[i];
+  }
+  return diff === 0;
+}
+
+/**
+ * Xác thực Authorization: Bearer <BOT_TOKEN> cho các route bot (/api/bot/*).
+ * - Chưa đặt secret BOT_TOKEN → 503
+ * - Thiếu/sai Bearer token → 401
+ */
+export async function verifyBotToken(
+  request: Request,
+  env: Env = {},
+): Promise<{ ok: boolean; status?: number; error?: string }> {
+  const configuredToken = env.BOT_TOKEN;
+  if (!configuredToken || typeof configuredToken !== 'string' || !configuredToken.trim()) {
+    return { ok: false, status: 503, error: 'Chưa đặt secret BOT_TOKEN' };
+  }
+
+  const authHeader =
+    request.headers.get('Authorization') ??
+    request.headers.get('authorization');
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { ok: false, status: 401, error: 'Thiếu hoặc sai định dạng Authorization Bearer' };
+  }
+
+  const token = authHeader.slice(7).trim();
+  if (!token) {
+    return { ok: false, status: 401, error: 'Bearer token rỗng' };
+  }
+
+  const valid = await constantTimeCompare(token, configuredToken.trim());
+  if (!valid) {
+    return { ok: false, status: 401, error: 'Bearer token không đúng' };
+  }
+
+  return { ok: true };
+}

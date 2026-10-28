@@ -1,4 +1,4 @@
-﻿import flowersData from '../src/explore/mua-hoa-viet/data/flowers.json';
+import flowersData from '../src/explore/mua-hoa-viet/data/flowers.json';
 import placesData from '../src/explore/mua-hoa-viet/data/places.json';
 import {
   FLOWER_COLOR_PALETTE,
@@ -763,7 +763,7 @@ function parseSeasonItem(raw: unknown): FlowerSeason | null {
   };
 }
 
-function parseSeasonsFromBody(body: Record<string, unknown>): FlowerSeason[] | null {
+export function parseSeasonsFromBody(body: Record<string, unknown>): FlowerSeason[] | null {
   const rawSeasons = tryParseJson(body.seasons);
   if (Array.isArray(rawSeasons)) {
     if (rawSeasons.length === 0) return null;
@@ -793,7 +793,7 @@ function parseSeasonsFromBody(body: Record<string, unknown>): FlowerSeason[] | n
   return null;
 }
 
-function parseRegionsFromBody(body: Record<string, unknown>): RegionCode[] | null {
+export function parseRegionsFromBody(body: Record<string, unknown>): RegionCode[] | null {
   const raw = tryParseJson(body.regions ?? body.region ?? body.vung ?? body.mien);
   const items: unknown[] = Array.isArray(raw)
     ? raw
@@ -996,7 +996,7 @@ function buildDefaultRegionLabel(
   return regions.map((r) => REGION_LABELS[r]).join(', ');
 }
 
-async function buildAndValidateFlowerPayload(
+export async function buildAndValidateFlowerPayload(
   body: Record<string, unknown>,
   env: Env,
   db: D1Database,
@@ -1244,7 +1244,7 @@ async function buildAndValidateFlowerPayload(
   };
 }
 
-async function buildAndValidatePlacePayload(
+export async function buildAndValidatePlacePayload(
   body: Record<string, unknown>,
   env: Env,
   db: D1Database,
@@ -1449,8 +1449,85 @@ export async function handleGetPublicData(_request: Request, env: Env): Promise<
     }
   }
 
+  const seasonOverrides: Array<{
+    slug: string;
+    year: number;
+    start?: unknown;
+    peak?: unknown;
+    end?: unknown;
+    note?: string | null;
+    sources?: unknown[];
+    source_url?: string | null;
+  }> = [];
+
+  try {
+    const overridesRes = await db
+      .prepare(
+        `SELECT slug, year, start, peak, end, note, sources FROM season_overrides ORDER BY year DESC, slug ASC`,
+      )
+      .all<{
+        slug: string;
+        year: number;
+        start: string | null;
+        peak: string | null;
+        end: string | null;
+        note: string | null;
+        sources: string | null;
+      }>();
+
+    for (const r of overridesRes.results ?? []) {
+      let start: unknown = r.start;
+      let peak: unknown = r.peak;
+      let end: unknown = r.end;
+      let sources: unknown = r.sources;
+      try {
+        if (typeof start === 'string' && (start.startsWith('{') || start.startsWith('['))) {
+          start = JSON.parse(start);
+        }
+      } catch {}
+      try {
+        if (typeof peak === 'string' && (peak.startsWith('{') || peak.startsWith('['))) {
+          peak = JSON.parse(peak);
+        }
+      } catch {}
+      try {
+        if (typeof end === 'string' && (end.startsWith('{') || end.startsWith('['))) {
+          end = JSON.parse(end);
+        }
+      } catch {}
+      try {
+        if (typeof sources === 'string' && (sources.startsWith('[') || sources.startsWith('{'))) {
+          sources = JSON.parse(sources);
+        }
+      } catch {}
+
+      let sourceUrl: string | null = null;
+      if (Array.isArray(sources) && sources.length > 0) {
+        const first = sources[0];
+        if (typeof first === 'string') {
+          sourceUrl = first;
+        } else if (first && typeof first === 'object' && typeof (first as { url?: string }).url === 'string') {
+          sourceUrl = (first as { url: string }).url;
+        }
+      }
+
+      seasonOverrides.push({
+        slug: r.slug,
+        year: Number(r.year),
+        ...(start !== null && start !== undefined ? { start } : {}),
+        ...(peak !== null && peak !== undefined ? { peak } : {}),
+        ...(end !== null && end !== undefined ? { end } : {}),
+        note: r.note ?? null,
+        sources: Array.isArray(sources) ? sources : [],
+        source_url: sourceUrl,
+      });
+    }
+  } catch {
+    // Bỏ qua nếu bảng season_overrides chưa có trong môi trường test
+  }
+
   return jsonResponse(
-    { flowers, places },
+    { flowers, places, seasonOverrides },
     200,
     { 'Cache-Control': 'no-cache' },
   );

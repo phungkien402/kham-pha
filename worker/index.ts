@@ -1,4 +1,18 @@
-import { clearJwksCache, normalizeTeamDomain, verifyAccessJwt } from './auth';
+import {
+  clearJwksCache,
+  constantTimeCompare,
+  normalizeTeamDomain,
+  verifyAccessJwt,
+  verifyBotToken,
+} from './auth';
+import {
+  checkAndRecordBotRateLimit,
+  handleApplyAdminSuggestion,
+  handleBotGetSummary,
+  handleBotSubmitSuggestions,
+  handleDismissAdminSuggestion,
+  handleGetAdminSuggestions,
+} from './suggestions';
 import {
   clearRemoteDataCache,
   isCloudflareBuildEnv,
@@ -119,9 +133,11 @@ export {
   approveAdminPhoto,
   BASE_FLOWER_COLORS,
   BUILD_DEBOUNCE_MS,
+  checkAndRecordBotRateLimit,
   clearJwksCache,
   clearRemoteDataCache,
   computeDefaultPeak,
+  constantTimeCompare,
   countWeeklyPhotos,
   deleteAdminPhoto,
   detectImageFormat,
@@ -138,19 +154,24 @@ export {
   getWeeklyPhotosCount,
   handleAdminTriggerBuild,
   handleAdminUpload,
+  handleApplyAdminSuggestion,
   handleApproveAdminFlower,
   handleApproveAdminPhoto,
   handleApproveAdminPlace,
+  handleBotGetSummary,
+  handleBotSubmitSuggestions,
   handleCreateAdminFlower,
   handleCreateAdminPlace,
   handleDeleteAdminFlower,
   handleDeleteAdminPhoto,
   handleDeleteAdminPlace,
+  handleDismissAdminSuggestion,
   handleGetAdminBuildStatus,
   handleGetAdminFlowers,
   handleGetAdminPhotoFile,
   handleGetAdminPhotos,
   handleGetAdminPlaces,
+  handleGetAdminSuggestions,
   handleGetPhotoCovers,
   handleGetPhotoFile,
   handleGetPublicData,
@@ -207,6 +228,7 @@ export {
   VALID_FLOWER_SLUGS,
   VALID_PLACE_SLUGS,
   verifyAccessJwt,
+  verifyBotToken,
   verifyTurnstileToken,
   type ApprovePhotoUpdates,
   type BuildTriggerResult,
@@ -412,6 +434,68 @@ export default {
         method === 'POST'
       ) {
         return handleAdminTriggerBuild(request, env);
+      }
+
+      // --- Quản trị đề xuất tự động (bước 33) ---
+      if (
+        (pathname === '/api/admin/de-xuat' || pathname === '/api/admin/de-xuat/') &&
+        method === 'GET'
+      ) {
+        return handleGetAdminSuggestions(request, env);
+      }
+
+      const applySuggestionMatch = pathname.match(
+        /^\/api\/admin\/de-xuat\/([^/]+)\/apply\/?$/,
+      );
+      if (applySuggestionMatch && method === 'POST') {
+        return handleApplyAdminSuggestion(
+          request,
+          env,
+          decodeURIComponent(applySuggestionMatch[1]),
+        );
+      }
+
+      const dismissSuggestionMatch = pathname.match(
+        /^\/api\/admin\/de-xuat\/([^/]+)\/dismiss\/?$/,
+      );
+      if (dismissSuggestionMatch && method === 'POST') {
+        return handleDismissAdminSuggestion(
+          request,
+          env,
+          decodeURIComponent(dismissSuggestionMatch[1]),
+        );
+      }
+
+      return jsonResponse({ error: 'Not Found' }, 404);
+    }
+
+    // 2b. API bot thu thập tự động (bước 33: KHÔNG qua Cloudflare Access, có Bearer + rate limit)
+    if (pathname === '/api/bot' || pathname.startsWith('/api/bot/')) {
+      const auth = await verifyBotToken(request, env);
+      if (!auth.ok) {
+        return jsonResponse({ error: auth.error }, auth.status ?? 401);
+      }
+
+      const rate = await checkAndRecordBotRateLimit(env);
+      if (!rate.allowed) {
+        return jsonResponse(
+          { error: 'Quá giới hạn 10 request/giờ cho bot' },
+          429,
+        );
+      }
+
+      if (
+        (pathname === '/api/bot/de-xuat' || pathname === '/api/bot/de-xuat/') &&
+        method === 'POST'
+      ) {
+        return handleBotSubmitSuggestions(request, env);
+      }
+
+      if (
+        (pathname === '/api/bot/tom-tat' || pathname === '/api/bot/tom-tat/') &&
+        method === 'GET'
+      ) {
+        return handleBotGetSummary(request, env);
       }
 
       return jsonResponse({ error: 'Not Found' }, 404);

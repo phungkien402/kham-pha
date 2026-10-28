@@ -60,6 +60,20 @@
     data: PlaceInitialData & { slug: string; name: string; province: string };
   }
 
+  interface AdminSuggestionItem {
+    id: string;
+    kind: 'new_flower' | 'new_place' | 'season_update' | 'news';
+    target_slug: string | null;
+    payload: Record<string, unknown>;
+    sources: Array<{ url: string; title?: string; published?: string }>;
+    summary: string | null;
+    confidence: number | null;
+    status: 'pending' | 'applied' | 'dismissed';
+    created_at: string;
+    reviewed_at: string | null;
+    dedupe_key: string | null;
+  }
+
   let {
     flowers,
     places,
@@ -68,7 +82,7 @@
     places: PlaceOption[];
   } = $props();
 
-  let mainSection = $state<'photos' | 'flowers' | 'places'>('photos');
+  let mainSection = $state<'photos' | 'flowers' | 'places' | 'suggestions'>('photos');
 
   // --- Trạng thái Build tự động ---
   let buildConfigured = $state<boolean | null>(null);
@@ -119,6 +133,28 @@
   let showAddPlace = $state(false);
   let editingPlaceSlug = $state<string | null>(null);
   let busyPlaceSlug = $state<string | null>(null);
+
+  // --- State Đề xuất tự động (bước 33) ---
+  let suggestions = $state<AdminSuggestionItem[]>([]);
+  let loadingSuggestions = $state(false);
+  let suggestionError = $state('');
+  let suggestionKindFilter = $state<string>('all');
+  let suggestionStatusFilter = $state<string>('pending');
+  let editingSuggestionId = $state<string | null>(null);
+  let busySuggestionId = $state<string | null>(null);
+
+  const pendingSuggestions = $derived(
+    suggestions.filter((s) => s.status === 'pending'),
+  );
+
+  const filteredSuggestions = $derived.by(() => {
+    return suggestions.filter((s) => {
+      if (suggestionKindFilter !== 'all' && s.kind !== suggestionKindFilter) {
+        return false;
+      }
+      return true;
+    });
+  });
 
   // Gộp danh sách loài/địa điểm gốc với các mục đã duyệt trong D1
   const allFlowers = $derived.by(() => {
@@ -548,10 +584,89 @@
     }
   }
 
+  async function fetchSuggestions() {
+    loadingSuggestions = true;
+    suggestionError = '';
+    try {
+      const q =
+        suggestionStatusFilter !== 'all'
+          ? `?status=${encodeURIComponent(suggestionStatusFilter)}`
+          : '';
+      const res = await fetch(`/api/admin/de-xuat${q}`);
+      if (!res.ok) {
+        throw new Error(`Lỗi tải danh sách đề xuất (${res.status})`);
+      }
+      const data = await res.json();
+      suggestions = data.suggestions ?? [];
+    } catch (err) {
+      suggestionError = err instanceof Error ? err.message : 'Lỗi tải đề xuất';
+    } finally {
+      loadingSuggestions = false;
+    }
+  }
+
+  async function handleApplySuggestion(
+    item: AdminSuggestionItem,
+    editedPayload?: Record<string, unknown>,
+  ) {
+    busySuggestionId = item.id;
+    suggestionError = '';
+    try {
+      const init: RequestInit = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      };
+      if (editedPayload) {
+        init.body = JSON.stringify(editedPayload);
+      }
+      const res = await fetch(
+        `/api/admin/de-xuat/${encodeURIComponent(item.id)}/apply`,
+        init,
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `Không thể áp dụng đề xuất (${res.status})`);
+      }
+      editingSuggestionId = null;
+      applyBuildStatus(data.build as Record<string, unknown>);
+      await Promise.all([
+        fetchSuggestions(),
+        fetchExtraFlowers(),
+        fetchExtraPlaces(),
+      ]);
+    } catch (err) {
+      suggestionError = err instanceof Error ? err.message : 'Lỗi khi áp dụng đề xuất';
+    } finally {
+      busySuggestionId = null;
+    }
+  }
+
+  async function handleDismissSuggestion(id: string) {
+    busySuggestionId = id;
+    suggestionError = '';
+    try {
+      const res = await fetch(
+        `/api/admin/de-xuat/${encodeURIComponent(id)}/dismiss`,
+        { method: 'POST' },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `Không thể bỏ qua đề xuất (${res.status})`);
+      }
+      editingSuggestionId = null;
+      await fetchSuggestions();
+    } catch (err) {
+      suggestionError = err instanceof Error ? err.message : 'Lỗi khi bỏ qua đề xuất';
+    } finally {
+      busySuggestionId = null;
+    }
+  }
+
   onMount(() => {
     fetchPhotos();
     fetchExtraFlowers();
     fetchExtraPlaces();
+    fetchSuggestions();
   });
 </script>
 
@@ -586,6 +701,16 @@
       onclick={() => (mainSection = 'places')}
     >
       Địa điểm ({pendingPlaces.length})
+    </button>
+    <button
+      type="button"
+      role="tab"
+      aria-selected={mainSection === 'suggestions'}
+      class="main-tab-btn"
+      class:active={mainSection === 'suggestions'}
+      onclick={() => (mainSection = 'suggestions')}
+    >
+      Đề xuất tự động ({pendingSuggestions.length})
     </button>
   </div>
 
@@ -1341,6 +1466,334 @@
       </ul>
     {/if}
   </section>
+{:else if mainSection === 'suggestions'}
+  <section class="admin-tab-panel" aria-label="Đề xuất tự động">
+    <div class="section-head">
+      <div>
+        <h2>Đề xuất tự động từ bot ({filteredSuggestions.length})</h2>
+        <p class="section-desc">
+          Các tin tức, loài hoa, địa điểm và mùa hoa do bot tự động thu thập từ web.
+          Bạn có thể chỉnh sửa trước khi Áp dụng để đăng chính thức và kích hoạt build web.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="btn secondary small"
+        disabled={loadingSuggestions}
+        onclick={fetchSuggestions}
+      >
+        {loadingSuggestions ? 'Đang tải…' : 'Làm mới'}
+      </button>
+    </div>
+
+    {#if suggestionError}
+      <div class="msg error" role="alert">
+        {suggestionError}
+      </div>
+    {/if}
+
+    <div class="filter-bar" style="margin-bottom: var(--space-4);">
+      <div class="filter-group">
+        <span class="muted">Trạng thái:</span>
+        <button
+          type="button"
+          class="btn small"
+          class:secondary={suggestionStatusFilter !== 'pending'}
+          onclick={() => {
+            suggestionStatusFilter = 'pending';
+            fetchSuggestions();
+          }}
+        >
+          Chờ duyệt ({pendingSuggestions.length})
+        </button>
+        <button
+          type="button"
+          class="btn small"
+          class:secondary={suggestionStatusFilter !== 'applied'}
+          onclick={() => {
+            suggestionStatusFilter = 'applied';
+            fetchSuggestions();
+          }}
+        >
+          Đã áp dụng
+        </button>
+        <button
+          type="button"
+          class="btn small"
+          class:secondary={suggestionStatusFilter !== 'dismissed'}
+          onclick={() => {
+            suggestionStatusFilter = 'dismissed';
+            fetchSuggestions();
+          }}
+        >
+          Đã bỏ qua
+        </button>
+        <button
+          type="button"
+          class="btn small"
+          class:secondary={suggestionStatusFilter !== 'all'}
+          onclick={() => {
+            suggestionStatusFilter = 'all';
+            fetchSuggestions();
+          }}
+        >
+          Tất cả
+        </button>
+      </div>
+
+      <div class="filter-group">
+        <label for="suggestion-kind-select" class="muted">Loại đề xuất:</label>
+        <select
+          id="suggestion-kind-select"
+          bind:value={suggestionKindFilter}
+        >
+          <option value="all">Tất cả loại</option>
+          <option value="new_flower">Loài hoa mới (new_flower)</option>
+          <option value="new_place">Địa điểm mới (new_place)</option>
+          <option value="season_update">Cập nhật mùa (season_update)</option>
+          <option value="news">Tin tức (news)</option>
+        </select>
+      </div>
+    </div>
+
+    {#if loadingSuggestions}
+      <p class="muted">Đang tải đề xuất…</p>
+    {:else if filteredSuggestions.length === 0}
+      <p class="muted">Không có đề xuất nào phù hợp.</p>
+    {:else}
+      <ul class="extra-list">
+        {#each filteredSuggestions as item (item.id)}
+          <li class="extra-item suggestion-item" class:pending-item={item.status === 'pending'}>
+            <div class="extra-item-head">
+              <div class="meta-top">
+                <span class="badge" class:kind-flower={item.kind === 'new_flower'} class:kind-place={item.kind === 'new_place'} class:kind-season={item.kind === 'season_update'} class:kind-news={item.kind === 'news'}>
+                  {#if item.kind === 'new_flower'}🌸 Loài hoa mới
+                  {:else if item.kind === 'new_place'}📍 Địa điểm mới
+                  {:else if item.kind === 'season_update'}📅 Cập nhật mùa
+                  {:else}📰 Tin tức{/if}
+                </span>
+
+                <span class="badge status-{item.status}">
+                  {#if item.status === 'pending'}Chờ duyệt
+                  {:else if item.status === 'applied'}Đã áp dụng
+                  {:else}Đã bỏ qua{/if}
+                </span>
+
+                {#if item.confidence != null}
+                  <span class="confidence-badge" title="Độ tin cậy của bot">
+                    Độ tin cậy: {Math.round(item.confidence * 100)}%
+                  </span>
+                {/if}
+              </div>
+
+              <div class="actions">
+                {#if editingSuggestionId === item.id}
+                  <button
+                    type="button"
+                    class="btn secondary small"
+                    onclick={() => (editingSuggestionId = null)}
+                  >
+                    Đóng sửa
+                  </button>
+                {:else}
+                  <button
+                    type="button"
+                    class="btn secondary small"
+                    onclick={() => (editingSuggestionId = item.id)}
+                  >
+                    Chỉnh sửa
+                  </button>
+                {/if}
+
+                <button
+                  type="button"
+                  class="btn primary small"
+                  disabled={busySuggestionId === item.id}
+                  onclick={() => handleApplySuggestion(item)}
+                >
+                  {busySuggestionId === item.id ? 'Đang áp dụng…' : 'Áp dụng'}
+                </button>
+
+                {#if item.status !== 'dismissed'}
+                  <button
+                    type="button"
+                    class="btn danger small"
+                    disabled={busySuggestionId === item.id}
+                    onclick={() => handleDismissSuggestion(item.id)}
+                  >
+                    Bỏ qua
+                  </button>
+                {/if}
+              </div>
+            </div>
+
+            {#if item.summary}
+              <p class="suggestion-summary"><strong>Tóm tắt:</strong> {item.summary}</p>
+            {/if}
+
+            {#if item.sources && item.sources.length > 0}
+              <div class="suggestion-sources">
+                <span class="muted" style="font-size: 0.8125rem;">Nguồn tin:</span>
+                <div class="source-links">
+                  {#each item.sources as src}
+                    <a
+                      href={src.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="source-link-tag"
+                      title={src.url}
+                    >
+                      {src.title || src.url} ↗
+                    </a>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+
+            {#if editingSuggestionId === item.id}
+              <div class="subform-box">
+                {#if item.kind === 'new_flower'}
+                  <FlowerForm
+                    mode="admin"
+                    places={allPlaces}
+                    initialData={item.payload as FlowerInitialData}
+                    endpoint={`/api/admin/de-xuat/${encodeURIComponent(item.id)}/apply`}
+                    submitLabel="Lưu & Áp dụng loài hoa"
+                    onSuccess={(res) => {
+                      editingSuggestionId = null;
+                      applyBuildStatus(res.build as Record<string, unknown>);
+                      fetchSuggestions();
+                      fetchExtraFlowers();
+                      fetchExtraPlaces();
+                    }}
+                    onCancel={() => (editingSuggestionId = null)}
+                  />
+                {:else if item.kind === 'new_place'}
+                  <PlaceForm
+                    mode="admin"
+                    flowers={allFlowers}
+                    initialData={item.payload as PlaceInitialData}
+                    endpoint={`/api/admin/de-xuat/${encodeURIComponent(item.id)}/apply`}
+                    submitLabel="Lưu & Áp dụng địa điểm"
+                    onSuccess={(res) => {
+                      editingSuggestionId = null;
+                      applyBuildStatus(res.build as Record<string, unknown>);
+                      fetchSuggestions();
+                      fetchExtraPlaces();
+                    }}
+                    onCancel={() => (editingSuggestionId = null)}
+                  />
+                {:else if item.kind === 'season_update'}
+                  <div class="manual-edit-box">
+                    <h4>Chỉnh sửa thông tin mùa hoa</h4>
+                    <div class="row-2">
+                      <div class="field">
+                        <label for="edit-target-slug-{item.id}">Slug loài hoa</label>
+                        <input
+                          id="edit-target-slug-{item.id}"
+                          type="text"
+                          bind:value={item.payload.slug}
+                        />
+                      </div>
+                      <div class="field">
+                        <label for="edit-target-year-{item.id}">Năm</label>
+                        <input
+                          id="edit-target-year-{item.id}"
+                          type="number"
+                          bind:value={item.payload.year}
+                        />
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label for="edit-target-note-{item.id}">Ghi chú mùa</label>
+                      <input
+                        id="edit-target-note-{item.id}"
+                        type="text"
+                        bind:value={item.payload.note}
+                      />
+                    </div>
+                    <div class="actions" style="margin-top: var(--space-2);">
+                      <button
+                        type="button"
+                        class="btn primary small"
+                        disabled={busySuggestionId === item.id}
+                        onclick={() => handleApplySuggestion(item, item.payload)}
+                      >
+                        Lưu & Áp dụng
+                      </button>
+                      <button
+                        type="button"
+                        class="btn secondary small"
+                        onclick={() => (editingSuggestionId = null)}
+                      >
+                        Huỷ
+                      </button>
+                    </div>
+                  </div>
+                {:else if item.kind === 'news'}
+                  <div class="manual-edit-box">
+                    <h4>Chỉnh sửa tin tức</h4>
+                    <div class="field">
+                      <label for="edit-news-text-{item.id}">Nội dung</label>
+                      <textarea
+                        id="edit-news-text-{item.id}"
+                        rows="3"
+                        bind:value={item.payload.text}
+                      ></textarea>
+                    </div>
+                    <div class="actions" style="margin-top: var(--space-2);">
+                      <button
+                        type="button"
+                        class="btn primary small"
+                        disabled={busySuggestionId === item.id}
+                        onclick={() => handleApplySuggestion(item, item.payload)}
+                      >
+                        Lưu & Áp dụng
+                      </button>
+                      <button
+                        type="button"
+                        class="btn secondary small"
+                        onclick={() => (editingSuggestionId = null)}
+                      >
+                        Huỷ
+                      </button>
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <div class="suggestion-payload-preview">
+                <span class="muted" style="font-size: 0.8125rem;">Dữ liệu đề xuất:</span>
+                {#if item.kind === 'new_flower'}
+                  <p class="details">
+                    <strong>Tên:</strong> {item.payload.name || '(chưa có tên)'} |
+                    <strong>Vùng:</strong> {Array.isArray(item.payload.regions) ? item.payload.regions.join(', ') : '(chưa có)'}
+                  </p>
+                {:else if item.kind === 'new_place'}
+                  <p class="details">
+                    <strong>Tên:</strong> {item.payload.name || '(chưa có tên)'} |
+                    <strong>Tỉnh:</strong> {item.payload.province} |
+                    <strong>Vùng:</strong> {item.payload.region}
+                    {#if item.payload.maps_url} | <strong>Maps:</strong> <a href={String(item.payload.maps_url)} target="_blank" rel="noopener noreferrer">Xem vị trí ↗</a>{/if}
+                  </p>
+                {:else if item.kind === 'season_update'}
+                  <p class="details">
+                    <strong>Loài:</strong> {item.payload.slug || item.target_slug} |
+                    <strong>Năm:</strong> {item.payload.year}
+                    {#if item.payload.note} | <strong>Ghi chú:</strong> {item.payload.note}{/if}
+                  </p>
+                {:else if item.kind === 'news'}
+                  <p class="details">
+                    <strong>Nội dung:</strong> {item.payload.text}
+                  </p>
+                {/if}
+              </div>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
 {/if}
 
 <style>
@@ -1644,6 +2097,78 @@
   .status-rejected {
     background: #fbe9e7;
     color: #9c2318;
+  }
+  .status-dismissed {
+    background: #eceff1;
+    color: #455a64;
+  }
+  .kind-flower {
+    background: #fce4ec;
+    color: #ad1457;
+  }
+  .kind-place {
+    background: #e1f5fe;
+    color: #0277bd;
+  }
+  .kind-season {
+    background: #fff3e0;
+    color: #e65100;
+  }
+  .kind-news {
+    background: #f3e5f5;
+    color: #6a1b9a;
+  }
+  .confidence-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+  }
+  .suggestion-summary {
+    font-size: 0.9375rem;
+    margin: 0;
+    line-height: 1.5;
+  }
+  .suggestion-sources {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .source-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .source-link-tag {
+    display: inline-block;
+    font-size: 0.8125rem;
+    color: #0d47a1;
+    background: #e3f2fd;
+    padding: 2px 8px;
+    border-radius: 6px;
+    text-decoration: none;
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .source-link-tag:hover {
+    text-decoration: underline;
+  }
+  .suggestion-payload-preview {
+    background: #f5f2eb;
+    padding: var(--space-3);
+    border-radius: 8px;
+    display: grid;
+    gap: 4px;
+  }
+  .manual-edit-box {
+    background: #fff;
+    border: 1px solid #dcd6cb;
+    padding: var(--space-4);
+    border-radius: 10px;
+    display: grid;
+    gap: var(--space-3);
   }
   .caption {
     font-size: 0.9375rem;

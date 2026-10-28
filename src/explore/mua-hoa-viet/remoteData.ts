@@ -2,12 +2,24 @@ import baseFlowersJson from './data/flowers.json';
 import basePlacesJson from './data/places.json';
 import { site } from '../../config/site';
 
+export interface SeasonOverrideItem {
+  slug: string;
+  year: number;
+  start?: unknown;
+  peak?: unknown;
+  end?: unknown;
+  note?: string | null;
+  sources?: Array<{ url: string; title?: string; published?: string }>;
+  source_url?: string | null;
+}
+
 export interface RemoteDuLieuPayload<
   TFlower extends { slug: string } = Record<string, unknown> & { slug: string },
   TPlace extends { slug: string } = Record<string, unknown> & { slug: string },
 > {
   flowers?: TFlower[];
   places?: TPlace[];
+  seasonOverrides?: SeasonOverrideItem[];
 }
 
 export interface LoadCombinedDataOptions {
@@ -59,10 +71,28 @@ export function mergeRemoteData<
 >(
   base: { flowers: readonly TFlower[]; places: readonly TPlace[] },
   remote?: RemoteDuLieuPayload<TFlower, TPlace> | null,
-): { flowers: TFlower[]; places: TPlace[] } {
+): { flowers: TFlower[]; places: TPlace[]; seasonOverrides: SeasonOverrideItem[] } {
+  const seasonOverrides = remote?.seasonOverrides ?? [];
+  const mergedFlowers = mergeBySlug(base.flowers, remote?.flowers ?? []);
+
+  if (seasonOverrides.length > 0) {
+    const overrideMap = new Map<string, SeasonOverrideItem>();
+    for (const ov of seasonOverrides) {
+      if (ov.slug && !overrideMap.has(ov.slug)) {
+        overrideMap.set(ov.slug, ov);
+      }
+    }
+    for (const f of mergedFlowers) {
+      if (overrideMap.has(f.slug)) {
+        (f as Record<string, unknown>).seasonOverride = overrideMap.get(f.slug);
+      }
+    }
+  }
+
   return {
-    flowers: mergeBySlug(base.flowers, remote?.flowers ?? []),
+    flowers: mergedFlowers,
     places: mergeBySlug(base.places, remote?.places ?? []),
+    seasonOverrides,
   };
 }
 
@@ -99,6 +129,7 @@ export function isCloudflareBuildEnv(
 let cachedDefaultLoadPromise: Promise<{
   flowers: Array<Record<string, unknown> & { id: string; slug: string }>;
   places: Array<Record<string, unknown> & { id: string; slug: string }>;
+  seasonOverrides: SeasonOverrideItem[];
 }> | null = null;
 
 export function clearRemoteDataCache(): void {
@@ -120,6 +151,7 @@ function attachCollectionIds<T extends { slug: string }>(
 export async function loadCombinedData(options?: LoadCombinedDataOptions): Promise<{
   flowers: Array<Record<string, unknown> & { id: string; slug: string }>;
   places: Array<Record<string, unknown> & { id: string; slug: string }>;
+  seasonOverrides: SeasonOverrideItem[];
 }> {
   const env = options?.env ?? getProcessEnv();
   const baseFlowers = (options?.baseFlowers ??
@@ -138,6 +170,7 @@ export async function loadCombinedData(options?: LoadCombinedDataOptions): Promi
     return {
       flowers: attachCollectionIds(baseFlowers),
       places: attachCollectionIds(basePlaces),
+      seasonOverrides: [],
     };
   }
 
@@ -152,6 +185,7 @@ export async function loadCombinedData(options?: LoadCombinedDataOptions): Promi
     return {
       flowers: attachCollectionIds(merged.flowers),
       places: attachCollectionIds(merged.places),
+      seasonOverrides: merged.seasonOverrides,
     };
   }
 
@@ -179,6 +213,7 @@ export async function loadCombinedData(options?: LoadCombinedDataOptions): Promi
       return {
         flowers: attachCollectionIds(baseFlowers),
         places: attachCollectionIds(basePlaces),
+        seasonOverrides: [],
       };
     }
     if (!res.ok) {
@@ -196,6 +231,7 @@ export async function loadCombinedData(options?: LoadCombinedDataOptions): Promi
     return {
       flowers: attachCollectionIds(merged.flowers),
       places: attachCollectionIds(merged.places),
+      seasonOverrides: merged.seasonOverrides,
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -210,6 +246,7 @@ export async function loadCombinedData(options?: LoadCombinedDataOptions): Promi
     return {
       flowers: attachCollectionIds(baseFlowers),
       places: attachCollectionIds(basePlaces),
+      seasonOverrides: [],
     };
   }
 }
@@ -217,6 +254,7 @@ export async function loadCombinedData(options?: LoadCombinedDataOptions): Promi
 export function loadCombinedDataCached(): Promise<{
   flowers: Array<Record<string, unknown> & { id: string; slug: string }>;
   places: Array<Record<string, unknown> & { id: string; slug: string }>;
+  seasonOverrides: SeasonOverrideItem[];
 }> {
   if (!cachedDefaultLoadPromise) {
     cachedDefaultLoadPromise = loadCombinedData();
