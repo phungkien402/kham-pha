@@ -1,10 +1,31 @@
 {
-  // Cấu hình Cloudflare Workers phục vụ web tĩnh từ thư mục dist/ (không cần adapter Astro)
+  // Cấu hình Cloudflare Workers phục vụ web tĩnh từ thư mục dist/ kèm Worker xử lý /api/* và /admin*
   "name": "kham-pha",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-10-27",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     // Đường dẫn không tồn tại trả về dist/404.html với mã 404
-    "not_found_handling": "404-page"
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api/*", "/admin*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kham-pha-db",
+      "database_id": "THAY_BANG_ID_D1",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "kham-pha-anh"
+    }
+  ],
+  "vars": {
+    "ACCESS_TEAM": "",
+    "ACCESS_AUD": ""
   }
 }

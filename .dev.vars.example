@@ -1,0 +1,6 @@
+# Biến môi trường chạy thử local với `npx wrangler dev`
+# Sao chép file này thành `.dev.vars` khi chạy trên máy.
+# KHÔNG đặt DEV_BYPASS_AUTH trong wrangler.jsonc hoặc môi trường production.
+DEV_BYPASS_AUTH=1
+ACCESS_TEAM=your-team-name
+ACCESS_AUD=your-access-aud-tag

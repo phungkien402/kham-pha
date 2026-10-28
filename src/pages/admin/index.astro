@@ -1,0 +1,59 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminManager from '../../explore/mua-hoa-viet/admin/AdminManager.svelte';
+
+const flowers = (await getCollection('flowers')).map((e) => ({
+  slug: e.data.slug,
+  name: e.data.name,
+}));
+
+const places = (await getCollection('places')).map((e) => ({
+  slug: e.data.slug,
+  name: e.data.name,
+  province: e.data.province,
+  flowers: e.data.flowers.map((f) => f.slug),
+}));
+---
+
+<BaseLayout
+  title="Quản trị ảnh — Mùa Hoa Việt"
+  description="Trang quản trị đăng và quản lý ảnh Mùa Hoa Việt."
+  noindex={true}
+>
+  <main class="admin-shell">
+    <header class="admin-header">
+      <div>
+        <a href="/mua-hoa-viet/" class="back-link">← Mùa Hoa Việt</a>
+        <h1>Quản trị ảnh hoa</h1>
+      </div>
+    </header>
+
+    <AdminManager client:load flowers={flowers} places={places} />
+  </main>
+</BaseLayout>
+
+<style>
+  .admin-shell {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-4) var(--space-12);
+  }
+  .admin-header {
+    margin-bottom: var(--space-6);
+  }
+  .back-link {
+    display: inline-block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    margin-bottom: var(--space-2);
+  }
+  .back-link:hover {
+    color: var(--color-text);
+  }
+  h1 {
+    font-size: 1.75rem;
+  }
+</style>

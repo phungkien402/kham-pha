@@ -5,6 +5,7 @@ import Carousel from '../../explore/mua-hoa-viet/Carousel.svelte';
 import FlowerNow from '../../explore/mua-hoa-viet/FlowerNow.svelte';
 import DayMoments from '../../explore/mua-hoa-viet/DayMoments.svelte';
 import BloomingWith from '../../explore/mua-hoa-viet/BloomingWith.svelte';
+import ApprovedPhotos from '../../explore/mua-hoa-viet/ApprovedPhotos.svelte';
 import { bloomingWith } from '../../explore/mua-hoa-viet/season';
 import { ogImage, responsive, SIZES } from '../../explore/mua-hoa-viet/images';
 import MapView from '../../explore/mua-hoa-viet/MapView.svelte';
@@ -51,12 +52,12 @@ const related = await Promise.all(
   bloomingWith(f, allFlowers).map(async (o) => {
     const src = o.photos.find((p) => p.src)?.src;
     return {
-  slug: o.slug,
-  name: o.name,
-  color: o.color,
-  regionLabel: o.regionLabel,
-  seasons: o.seasons,
-  photo: src ? await responsive(src, SIZES.mini) : undefined,
+      slug: o.slug,
+      name: o.name,
+      color: o.color,
+      regionLabel: o.regionLabel,
+      seasons: o.seasons,
+      photo: src ? await responsive(src, SIZES.mini) : undefined,
     };
   }),
 );
@@ -67,6 +68,7 @@ const initialRegion = regionSet.size === 1 ? [...regionSet][0] : 'all';
 const stripName = (s: string) => s.replace(/^[^:]{1,40}:\s*/, '');
 
 const seasonText = seasonPhrase(f);
+const placesMap = Object.fromEntries(places.map((p) => [p.slug, p.name]));
 const title = `${f.name} nở tháng mấy, ngắm ở đâu — Mùa Hoa Việt`;
 const description =
   f.summary ?? `${f.name} (${f.scientificName}) nở ${seasonText}. Xem mùa nở, nơi ngắm đẹp và mẹo chụp.`;
@@ -258,11 +260,19 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
             {f.tips.map((t) => (
               <li>{t}</li>
             ))}
-          </ul>
+          </ul >
         </section>
       )
     }
   </div>
+
+  <ApprovedPhotos
+    client:visible
+    flowerSlug={f.slug}
+    flowerName={f.name}
+    color={f.color}
+    placesMap={placesMap}
+  />
 
   {
     related.length > 0 && (

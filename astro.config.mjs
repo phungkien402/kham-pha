@@ -16,7 +16,11 @@ export default defineConfig({
   integrations: [
     svelte(),
     sitemap({
-      filter: (url) => !draftPaths.some((path) => new URL(url).pathname === path),
+      filter: (url) => {
+        const pathname = new URL(url).pathname;
+        if (pathname === '/admin' || pathname.startsWith('/admin/')) return false;
+        return !draftPaths.some((path) => pathname === path);
+      },
     }),
   ],
 });

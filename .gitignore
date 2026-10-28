@@ -16,9 +16,17 @@ pnpm-debug.log*
 # environment variables
 .env
 .env.production
+.dev.vars
+.wrangler/
 
 # macOS-specific files
 .DS_Store
 
 # jetbrains setting folder
 .idea/
+
+# file trao đổi giữa các agent
+.agy-task-*.txt
+.claude-test-*.md
+AGY_DONE.md
+REVIEW.json
