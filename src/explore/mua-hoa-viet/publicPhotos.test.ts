@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  applyCoverToFlower,
   clearPublicPhotosCache,
+  fetchCovers,
   fetchPublicPhotos,
   formatCarouselCaption,
   mergeCarouselPhotos,
@@ -133,5 +135,66 @@ describe('publicPhotoToCarouselPhoto', () => {
     const caption = formatCarouselCaption(s);
     expect(caption).toContain('Trần B');
     expect(caption).toContain('CC0');
+  });
+});
+
+describe('fetchCovers', () => {
+  const cover = { id: 'x1', src: '/api/anh/x1.webp', src600: '/api/anh/x1-600.webp', author: 'A', license: 'CC0' };
+
+  it('gọi /api/anh/bia đúng 1 lần dù gọi nhiều lần', async () => {
+    const f = vi.fn(async () => jsonRes({ covers: { 'da-quy': cover } }));
+    const [r1, r2] = await Promise.all([fetchCovers(f as any), fetchCovers(f as any)]);
+    await fetchCovers(f as any);
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(f).toHaveBeenCalledWith('/api/anh/bia');
+    expect(r1['da-quy'].src600).toBe('/api/anh/x1-600.webp');
+    expect(r2).toEqual(r1);
+  });
+
+  it('fetch lỗi mạng → {}', async () => {
+    const f = vi.fn(async () => {
+      throw new Error('mạng lỗi');
+    });
+    expect(await fetchCovers(f as any)).toEqual({});
+  });
+
+  it('HTTP 500 → {}', async () => {
+    const f = vi.fn(async () => jsonRes({ error: 'x' }, 500));
+    expect(await fetchCovers(f as any)).toEqual({});
+  });
+});
+
+describe('applyCoverToFlower', () => {
+  const cover = { id: 'x1', src: '/api/anh/x1.webp', src600: '/api/anh/x1-600.webp', author: 'A', license: 'CC0' };
+  const covers = { 'da-quy': cover };
+
+  it('loài chỉ có ảnh giữ chỗ + có cover → dùng src600 của cover', () => {
+    const f = { slug: 'da-quy', name: 'Dã quỳ', status: 'pending', author: 'Chưa có' };
+    const out = applyCoverToFlower(f, covers);
+    expect(out.photo?.src).toBe('/api/anh/x1-600.webp');
+    expect(out.photo?.srcset).toContain('/api/anh/x1-600.webp');
+  });
+
+  it('loài chưa có photo.src + có cover → dùng cover', () => {
+    const out = applyCoverToFlower({ slug: 'da-quy' }, covers);
+    expect(out.photo?.src).toBe('/api/anh/x1-600.webp');
+  });
+
+  it('loài có ảnh Commons thật → giữ nguyên', () => {
+    const f = {
+      slug: 'da-quy',
+      status: 'approved',
+      author: 'Wikimedia User',
+      photo: { src: '/c.webp', srcset: '/c.webp 800w', width: 800, height: 600 },
+    };
+    const out = applyCoverToFlower(f, covers);
+    expect(out).toBe(f);
+    expect(out.photo?.src).toBe('/c.webp');
+  });
+
+  it('loài không có cover → giữ nguyên', () => {
+    const f = { slug: 'sen', status: 'pending', author: 'Chưa có' };
+    expect(applyCoverToFlower(f, covers)).toBe(f);
+    expect(applyCoverToFlower(f, {})).toBe(f);
   });
 });

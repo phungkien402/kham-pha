@@ -6,6 +6,7 @@
   import MapView from './MapView.svelte';
   import MapCredit from './MapCredit.svelte';
   import RegionSeg from './RegionSeg.svelte';
+  import { applyCoversToFlowers, fetchCovers, type CoversMap } from './publicPhotos';
   import type { Snippet } from 'svelte';
   import type { Filter, FlowerLite, MapSpot, PlaceLite } from './types';
 
@@ -31,6 +32,7 @@
   let month = $state(today.month);
   let region = $state<Filter>('all');
   let monthRow: HTMLElement | undefined = $state();
+  let covers = $state<CoversMap>({});
 
   onMount(() => {
     today = vnParts(new Date());
@@ -40,6 +42,16 @@
     if (monthRow && btn) {
       monthRow.scrollLeft = btn.offsetLeft - (monthRow.clientWidth - btn.offsetWidth) / 2;
     }
+
+    let cancelled = false;
+    fetchCovers().then((map) => {
+      if (!cancelled && Object.keys(map).length > 0) {
+        covers = map;
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   });
 
   const dateLabel = $derived.by(() => {
@@ -48,13 +60,14 @@
   });
 
   const nextMonth = $derived((month % 12) + 1);
-  const visible = $derived(flowers.filter((f) => region === 'all' || f.regions.includes(region)));
+  const resolvedFlowers = $derived(applyCoversToFlowers(flowers, covers));
+  const visible = $derived(resolvedFlowers.filter((f) => region === 'all' || f.regions.includes(region)));
   const blooming = $derived(visible.filter((f) => isBloomingIn(f, month, today)));
   const upcoming = $derived(visible.filter((f) => f.seasons.some((s) => s.start.month === nextMonth)));
   const bloomingSlugs = $derived(new Set(blooming.map((f) => f.slug)));
   const isThisMonth = $derived(month === today.month);
 
-  const flowerBySlug = $derived(new Map(flowers.map((f) => [f.slug, f])));
+  const flowerBySlug = $derived(new Map(resolvedFlowers.map((f) => [f.slug, f])));
   const spots = $derived(
     places
       .filter((p) => region === 'all' || p.region === region)
@@ -105,7 +118,7 @@
   </div>
 
   <div class="wheel-card">
-    <Wheel {flowers} bind:month {today} activeSlugs={bloomingSlugs} />
+    <Wheel flowers={resolvedFlowers} bind:month {today} activeSlugs={bloomingSlugs} />
   </div>
 
   <ul class="legend" aria-label="Các loài đang nở">

@@ -263,3 +263,61 @@ describe('Worker ảnh hoa (bước 22)', () => {
     expect(await res.text()).toContain('asset');
   });
 });
+
+async function insertCoverRow(id: string, status: string, flower: string, createdAt: string) {
+  await db
+    .prepare(
+      `INSERT INTO photos (id, flower, status, author, license, width, height, source, created_at)
+       VALUES (?, ?, ?, 'Người thử', 'CC BY-SA 4.0', 10, 10, 'admin', ?)`,
+    )
+    .bind(id, flower, status, createdAt)
+    .run();
+}
+
+describe('GET /api/anh/bia (ảnh bìa loài)', () => {
+  it('trả {"covers":{...}}, mỗi loài đúng 1 ảnh approved mới nhất', async () => {
+    await insertCoverRow('cu', 'approved', 'da-quy', '2026-10-01T00:00:00.000Z');
+    await insertCoverRow('moi', 'approved', 'da-quy', '2026-10-20T00:00:00.000Z');
+    await insertCoverRow('giua', 'approved', 'da-quy', '2026-10-10T00:00:00.000Z');
+    await insertCoverRow('hoa-sen-1', 'approved', 'sen', '2026-10-05T00:00:00.000Z');
+    const res = await call('/api/anh/bia');
+    expect(res.status).toBe(200);
+    const body: any = await res.json();
+    expect(Object.keys(body)).toEqual(['covers']);
+    expect(Object.keys(body.covers).sort()).toEqual(['da-quy', 'sen']);
+    expect(body.covers['da-quy'].id).toBe('moi');
+    expect(body.covers['sen'].id).toBe('hoa-sen-1');
+  });
+
+  it('ảnh pending/rejected không xuất hiện; loài chỉ có pending thì không có key', async () => {
+    await insertCoverRow('ok', 'approved', 'da-quy', '2026-10-01T00:00:00.000Z');
+    await insertCoverRow('cho', 'pending', 'da-quy', '2026-10-25T00:00:00.000Z');
+    await insertCoverRow('tuchoi', 'rejected', 'da-quy', '2026-10-26T00:00:00.000Z');
+    await insertCoverRow('chi-cho', 'pending', 'mai', '2026-10-25T00:00:00.000Z');
+    await insertCoverRow('chi-tuchoi', 'rejected', 'dao', '2026-10-25T00:00:00.000Z');
+    const body: any = await (await call('/api/anh/bia')).json();
+    expect(body.covers['da-quy'].id).toBe('ok');
+    expect(body.covers).not.toHaveProperty('mai');
+    expect(body.covers).not.toHaveProperty('dao');
+    expect(JSON.stringify(body)).not.toMatch(/"(cho|tuchoi|chi-cho|chi-tuchoi)"/);
+  });
+
+  it('không có ảnh nào thì covers rỗng', async () => {
+    const body: any = await (await call('/api/anh/bia')).json();
+    expect(body).toEqual({ covers: {} });
+  });
+
+  it('có Cache-Control chứa max-age=60', async () => {
+    const res = await call('/api/anh/bia');
+    expect(res.headers.get('Cache-Control') ?? '').toContain('max-age=60');
+  });
+
+  it('không bị hiểu nhầm là file ảnh id "bia"', async () => {
+    const res = await call('/api/anh/bia');
+    expect(res.status).not.toBe(404);
+    expect(res.headers.get('content-type') ?? '').toContain('application/json');
+    const body: any = await res.json();
+    expect(body).toHaveProperty('covers');
+    expect(assetsFetch).not.toHaveBeenCalled();
+  });
+});

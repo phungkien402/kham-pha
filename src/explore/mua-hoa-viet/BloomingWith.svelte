@@ -3,6 +3,7 @@
   import type { ResponsiveImage } from './images';
   import { statusOn, type SeasonFlower } from './season';
   import { STATUS_SHORT, sortByStatus } from './detail';
+  import { applyCoversToFlowers, fetchCovers, type CoversMap } from './publicPhotos';
 
   interface Item extends SeasonFlower {
     slug: string;
@@ -14,10 +15,21 @@
   let { items }: { items: Item[] } = $props();
 
   let now = $state(new Date());
+  let covers = $state<CoversMap>({});
   onMount(() => {
     now = new Date();
+    let cancelled = false;
+    fetchCovers().then((map) => {
+      if (!cancelled && Object.keys(map).length > 0) {
+        covers = map;
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   });
-  let sorted = $derived(sortByStatus(items, now));
+  let resolvedItems = $derived(applyCoversToFlowers(items, covers));
+  let sorted = $derived(sortByStatus(resolvedItems, now));
 </script>
 
 <ul>

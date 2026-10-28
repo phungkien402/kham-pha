@@ -146,6 +146,16 @@ export interface PhotoItem {
   src600: string;
 }
 
+export interface CoverItem {
+  id: string;
+  src: string;
+  src600: string;
+  author: string;
+  license: string;
+  width: number;
+  height: number;
+}
+
 export function getDb(env: Env): D1Database {
   const db = env.DB ?? env.D1;
   if (!db) {

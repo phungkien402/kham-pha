@@ -3,6 +3,7 @@ import {
   getBucket,
   getDb,
   jsonResponse,
+  type CoverItem,
   type Env,
   type PhotoItem,
   type PhotoRow,
@@ -57,6 +58,50 @@ export async function handleGetPublicPhotos(request: Request, env: Env): Promise
   const photos = await listApprovedPhotos(env, flower);
   return jsonResponse(
     { photos },
+    200,
+    { 'Cache-Control': 'public, max-age=60' },
+  );
+}
+
+export async function listApprovedCovers(env: Env): Promise<Record<string, CoverItem>> {
+  const db = getDb(env);
+  await ensureSchema(db);
+  const { results } = await db
+    .prepare(
+      `SELECT id, flower, status, author, license, width, height, created_at
+       FROM (
+         SELECT id, flower, status, author, license, width, height, created_at,
+                ROW_NUMBER() OVER (PARTITION BY flower ORDER BY created_at DESC, rowid DESC) AS rn
+         FROM photos
+         WHERE status = 'approved'
+       )
+       WHERE rn = 1`,
+    )
+    .all<PhotoRow>();
+
+  const covers: Record<string, CoverItem> = {};
+  for (const row of results ?? []) {
+    if (row.status && row.status !== 'approved') continue;
+    if (!covers[row.flower]) {
+      covers[row.flower] = {
+        id: row.id,
+        src: `/api/anh/${row.id}.webp`,
+        src600: `/api/anh/${row.id}-600.webp`,
+        author: row.author,
+        license: row.license,
+        width: Number(row.width ?? 0),
+        height: Number(row.height ?? 0),
+      };
+    }
+  }
+
+  return covers;
+}
+
+export async function handleGetPhotoCovers(_request: Request, env: Env): Promise<Response> {
+  const covers = await listApprovedCovers(env);
+  return jsonResponse(
+    { covers },
     200,
     { 'Cache-Control': 'public, max-age=60' },
   );

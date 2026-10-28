@@ -25,7 +25,29 @@ export interface CarouselPhoto {
   color: string;
 }
 
+export interface CoverPhoto {
+  id: string;
+  src: string;
+  src600: string;
+  author: string;
+  license: string;
+  width?: number;
+  height?: number;
+}
+
+export type CoversMap = Record<string, CoverPhoto>;
+
+export interface FlowerWithCover {
+  slug: string;
+  name?: string;
+  photo?: ResponsiveImage;
+  photoAlt?: string;
+  status?: 'approved' | 'pending' | string;
+  author?: string;
+}
+
 const GLOBAL_CACHE_KEY = '__muaHoaPublicPhotosCache';
+const GLOBAL_COVERS_CACHE_KEY = '__muaHoaCoversCache';
 
 function getCache(): Map<string, Promise<PublicPhoto[]>> {
   const g = globalThis as Record<string, unknown>;
@@ -35,8 +57,14 @@ function getCache(): Map<string, Promise<PublicPhoto[]>> {
   return g[GLOBAL_CACHE_KEY] as Map<string, Promise<PublicPhoto[]>>;
 }
 
+export function clearCoversCache(): void {
+  const g = globalThis as Record<string, unknown>;
+  delete g[GLOBAL_COVERS_CACHE_KEY];
+}
+
 export function clearPublicPhotosCache(): void {
   getCache().clear();
+  clearCoversCache();
 }
 
 export function sortPublicPhotosNewestFirst(list: PublicPhoto[]): PublicPhoto[] {
@@ -86,6 +114,118 @@ export function fetchPublicPhotos(
   cache.set(slug, promise);
   return promise;
 }
+
+/**
+ * Gọi GET /api/anh/bia đúng 1 lần mỗi trang (dùng chung một Promise)
+ * để lấy ảnh bìa đã duyệt mới nhất cho từng loài hoa. Lỗi/rỗng → {}.
+ */
+export function fetchCovers(
+  fetchImpl: typeof fetch | undefined = typeof fetch !== 'undefined' ? fetch : undefined,
+): Promise<CoversMap> {
+  if (!fetchImpl) {
+    return Promise.resolve({});
+  }
+
+  const g = globalThis as Record<string, unknown>;
+  const cached = g[GLOBAL_COVERS_CACHE_KEY] as Promise<CoversMap> | undefined;
+  if (cached) {
+    return cached;
+  }
+
+  const promise = (async (): Promise<CoversMap> => {
+    try {
+      const res = await fetchImpl('/api/anh/bia');
+      if (!res.ok) return {};
+      const contentType = res.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) return {};
+      const data = await res.json();
+      if (!data || typeof data !== 'object') return {};
+      const raw = 'covers' in data ? (data as { covers?: unknown }).covers : data;
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+
+      const out: CoversMap = {};
+      for (const [slug, val] of Object.entries(raw as Record<string, unknown>)) {
+        if (!val || typeof val !== 'object') continue;
+        const c = val as Partial<CoverPhoto>;
+        if (!c.id && !c.src && !c.src600) continue;
+        const id = c.id ?? '';
+        out[slug] = {
+          ...(c as CoverPhoto),
+          id,
+          src: c.src || `/api/anh/${id}.webp`,
+          src600: c.src600 || `/api/anh/${id}-600.webp`,
+          author: c.author ?? '',
+          license: c.license ?? '',
+        };
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  })();
+
+  g[GLOBAL_COVERS_CACHE_KEY] = promise;
+  return promise;
+}
+
+export function coverToResponsiveImage(cover: CoverPhoto): ResponsiveImage {
+  const src600 = cover.src600 || cover.src || `/api/anh/${cover.id}-600.webp`;
+  return {
+    src: src600,
+    srcset: `${src600} 600w`,
+    width: cover.width || 600,
+    height: cover.height || 450,
+  };
+}
+
+/**
+ * Thay ảnh bìa cho loài chỉ có ảnh giữ chỗ (không có photo.src, hoặc status 'pending' / author 'Chưa có')
+ * khi covers có ảnh của loài đó. Loài đã có ảnh Commons giữ nguyên ảnh Commons.
+ */
+export function applyCoverToFlower<T extends FlowerWithCover>(
+  flower: T,
+  covers: CoversMap | undefined | null,
+): T {
+  if (!covers || !flower?.slug) return flower;
+  const cover = covers[flower.slug];
+  if (!cover) return flower;
+
+  const isPlaceholder =
+    !flower.photo?.src ||
+    flower.status === 'pending' ||
+    flower.author === 'Chưa có';
+
+  if (!isPlaceholder) {
+    return flower;
+  }
+
+  const next: T = {
+    ...flower,
+    photo: coverToResponsiveImage(cover),
+  };
+  if ('photoAlt' in flower || flower.name) {
+    next.photoAlt =
+      flower.photoAlt && !flower.photoAlt.includes('ảnh giữ chỗ')
+        ? flower.photoAlt
+        : flower.name
+          ? `Ảnh ${flower.name} — ${cover.author}`
+          : `Ảnh — ${cover.author}`;
+  }
+  return next;
+}
+
+export function applyCoversToFlowers<T extends FlowerWithCover>(
+  flowers: T[],
+  covers: CoversMap | undefined | null,
+): T[] {
+  if (!covers || Object.keys(covers).length === 0) {
+    return flowers;
+  }
+  return flowers.map((f) => applyCoverToFlower(f, covers));
+}
+
+export const mergeFlowerCover = applyCoverToFlower;
+export const mergeFlowerCovers = applyCoversToFlowers;
 
 export function isPlaceholderPhoto(p: {
   img?: ResponsiveImage;

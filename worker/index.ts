@@ -3,11 +3,13 @@ import {
   deleteAdminPhoto,
   handleDeleteAdminPhoto,
   handleGetAdminPhotos,
+  handleGetPhotoCovers,
   handleGetPhotoFile,
   handleGetPublicPhotos,
   handleHideAdminPhoto,
   hideAdminPhoto,
   listAdminPhotos,
+  listApprovedCovers,
   listApprovedPhotos,
 } from './photos';
 import {
@@ -15,6 +17,7 @@ import {
   getBucket,
   getDb,
   jsonResponse,
+  type CoverItem,
   type Env,
   type ExecutionContext,
   type PhotoItem,
@@ -40,6 +43,7 @@ export {
   handleAdminUpload,
   handleDeleteAdminPhoto,
   handleGetAdminPhotos,
+  handleGetPhotoCovers,
   handleGetPhotoFile,
   handleGetPublicPhotos,
   handleHideAdminPhoto,
@@ -48,12 +52,14 @@ export {
   isValidImageMagicBytes,
   jsonResponse,
   listAdminPhotos,
+  listApprovedCovers,
   listApprovedPhotos,
   MAX_UPLOAD_BYTES,
   normalizeTeamDomain,
   parseImageDimensions,
   VALID_FLOWER_SLUGS,
   verifyAccessJwt,
+  type CoverItem,
   type Env,
   type ExecutionContext,
   type PhotoItem,
@@ -114,7 +120,12 @@ export default {
       return handleGetPublicPhotos(request, env);
     }
 
-    // 4. API công khai phục vụ file ảnh approved (.webp và -600.webp)
+    // 4. API công khai lấy ảnh bìa (approved mới nhất) của từng loài
+    if (pathname === '/api/anh/bia' && method === 'GET') {
+      return handleGetPhotoCovers(request, env);
+    }
+
+    // 5. API công khai phục vụ file ảnh approved (.webp và -600.webp)
     const fileMatch = pathname.match(/^\/api\/anh\/([a-zA-Z0-9_-]+?)(-600)?\.webp$/);
     if (fileMatch && method === 'GET') {
       const id = fileMatch[1];
