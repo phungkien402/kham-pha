@@ -108,3 +108,8 @@ Trang chủ chỉ hiện các trang `live` và `coming-soon`. Trang `draft` vẫ
 - 2026-10-27: Tên web chưa chốt. Tạm dùng "Khám Phá" trong `src/config/site.ts`, đổi sau.
 - 2026-10-27: Giai đoạn 2 làm trang Mùa Hoa Việt theo mockup (đặc tả ở `docs/mua-hoa-viet-spec.md`). Phần quản trị/đăng ảnh và bản đồ thật để giai đoạn sau. Ngày "hôm nay" luôn tính ở trình duyệt theo giờ Việt Nam vì web là web tĩnh.
 - 2026-10-27: Sau khi thêm hoặc sửa `src/content.config.ts` (hoặc file dữ liệu bị sửa từ ngoài), phải khởi động lại `npm run dev`; dev server cũ có thể giữ dữ liệu rỗng/cũ trong khi `npm run build` vẫn đúng.
+
+## Phân vai (từ 2026-10-28)
+- Claude (claude.ai) điều phối: viết TODO/spec, kiểm tra, push.
+- Antigravity (`agy`) viết code theo TODO.
+- Claude Code phụ trách test: viết thêm test case, chạy `npx vitest run`, báo lỗi; không tự sửa tính năng ngoài phạm vi test.
