@@ -10,6 +10,13 @@
   import { nearestBlooming } from './nearest';
   import { downloadFlowerIcs } from './ics';
   import {
+    POSTER_SIZE_LIST,
+    downloadPosterPng,
+    posterFilename,
+    posterTitle,
+    type PosterSizeKey,
+  } from './poster';
+  import {
     PROVINCES_BY_REGION,
     PROVINCE_COORDS,
     REGION_LABELS,
@@ -49,6 +56,28 @@
   let locating = $state(false);
   let geoFallbackPrompt = $state(false);
   let provinceSelectEl: HTMLSelectElement | undefined = $state();
+
+  let posterOpen = $state(false);
+  let posterSize = $state<PosterSizeKey>('doc');
+  let posterRegion = $state<Filter>('all');
+  let downloadingPoster = $state(false);
+
+  function togglePosterPicker() {
+    if (!posterOpen) {
+      posterRegion = region;
+    }
+    posterOpen = !posterOpen;
+  }
+
+  async function handleDownloadPoster() {
+    if (downloadingPoster) return;
+    downloadingPoster = true;
+    try {
+      await downloadPosterPng(resolvedFlowers, posterRegion, today.year, posterSize);
+    } finally {
+      downloadingPoster = false;
+    }
+  }
 
   onMount(() => {
     today = vnParts(new Date());
@@ -217,6 +246,78 @@
 
   <div class="wheel-card">
     <Wheel flowers={resolvedFlowers} bind:month {today} activeSlugs={bloomingSlugs} />
+    <div class="poster-wrap">
+      <button
+        type="button"
+        class="poster-trigger"
+        aria-expanded={posterOpen}
+        aria-controls="poster-picker-box"
+        onclick={togglePosterPicker}
+      >
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Tải lịch hoa cả năm
+      </button>
+
+      {#if posterOpen}
+        <div
+          id="poster-picker-box"
+          class="poster-dialog"
+          role="region"
+          aria-label="Tùy chọn tải poster lịch hoa 12 tháng"
+        >
+          <div class="poster-dialog-head">
+            <strong>{posterTitle(today.year)}</strong>
+            <button
+              type="button"
+              class="poster-close"
+              aria-label="Đóng hộp chọn poster"
+              onclick={() => (posterOpen = false)}
+            >
+              Đóng
+            </button>
+          </div>
+
+          <div class="poster-field">
+            <span class="poster-label">Chọn khổ ảnh</span>
+            <div class="poster-sizes" role="group" aria-label="Chọn khổ poster">
+              {#each POSTER_SIZE_LIST as s (s.key)}
+                <button
+                  type="button"
+                  class="poster-size-btn"
+                  aria-pressed={posterSize === s.key}
+                  onclick={() => (posterSize = s.key)}
+                >
+                  <span class="size-name">{s.label}</span>
+                  <small class="size-dim">({s.description})</small>
+                </button>
+              {/each}
+            </div>
+          </div>
+
+          <div class="poster-field">
+            <span class="poster-label">Chọn miền</span>
+            <RegionSeg bind:region={posterRegion} label="Chọn miền cho poster" />
+          </div>
+
+          <div class="poster-actions">
+            <button
+              type="button"
+              class="poster-download-btn"
+              disabled={downloadingPoster}
+              onclick={handleDownloadPoster}
+            >
+              {downloadingPoster
+                ? 'Đang xuất PNG…'
+                : `Tải PNG (${posterFilename(posterRegion, posterSize)})`}
+            </button>
+          </div>
+        </div>
+      {/if}
+    </div>
   </div>
 
   <ul class="legend" aria-label="Các loài đang nở">
@@ -498,6 +599,129 @@
     max-width: 480px;
     width: 100%;
     justify-self: center;
+  }
+
+  .poster-wrap {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid #efeae1;
+    display: grid;
+    gap: var(--space-3);
+  }
+  .poster-trigger {
+    justify-self: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: 40px;
+    padding: 0 var(--space-4);
+    border: 1px solid #d5cfc4;
+    border-radius: 999px;
+    background: #faf8f5;
+    color: var(--color-text);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .poster-trigger:hover {
+    border-color: var(--color-text);
+    background: #f3eee5;
+  }
+  .poster-dialog {
+    background: #faf8f5;
+    border: 1px solid #e7e2d9;
+    border-radius: 14px;
+    padding: var(--space-3);
+    display: grid;
+    gap: var(--space-3);
+  }
+  .poster-dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    font-size: 0.9375rem;
+  }
+  .poster-close {
+    border: 0;
+    background: transparent;
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+  .poster-close:hover {
+    color: var(--color-text);
+    background: #efeae1;
+  }
+  .poster-field {
+    display: grid;
+    gap: 6px;
+  }
+  .poster-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+  }
+  .poster-sizes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .poster-size-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 48px;
+    padding: 6px 4px;
+    border: 1px solid #d5cfc4;
+    border-radius: 10px;
+    background: #fff;
+    color: var(--color-text);
+    font: inherit;
+    cursor: pointer;
+    text-align: center;
+  }
+  .poster-size-btn[aria-pressed='true'] {
+    background: var(--color-text);
+    border-color: var(--color-text);
+    color: #faf8f5;
+  }
+  .size-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  .size-dim {
+    font-size: 0.6875rem;
+    opacity: 0.8;
+  }
+  .poster-actions {
+    display: flex;
+  }
+  .poster-download-btn {
+    width: 100%;
+    min-height: 42px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--color-text);
+    border-radius: 999px;
+    background: var(--color-text);
+    color: #faf8f5;
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .poster-download-btn:disabled {
+    opacity: 0.7;
+    cursor: wait;
   }
 
   .legend {
