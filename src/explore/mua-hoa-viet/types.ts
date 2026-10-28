@@ -14,6 +14,7 @@ export interface FlowerLite extends SeasonFlower {
   regionLabel: string;
   photo?: ResponsiveImage;
   photoAlt?: string;
+  places?: { slug: string; best: string }[];
 }
 
 export interface PlaceLite {
@@ -25,6 +26,7 @@ export interface PlaceLite {
   /** Vị trí trên bản đồ (phần trăm); bỏ qua nếu điểm chưa có toạ độ. */
   x?: number;
   y?: number;
+  maps_url?: string;
 }
 
 /** Một điểm ngắm trên bản đồ; x, y là phần trăm theo khung bản đồ. */
@@ -34,5 +36,6 @@ export interface MapSpot {
   province: string;
   x: number;
   y: number;
+  maps_url?: string;
   flowers: { slug: string; name: string; color: string; best: string }[];
 }

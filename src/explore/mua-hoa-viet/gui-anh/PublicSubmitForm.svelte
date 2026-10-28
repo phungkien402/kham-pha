@@ -26,6 +26,7 @@
 
   let flower = $state('da-quy');
   let place = $state('');
+  let mapsUrl = $state('');
   let caption = $state('');
   let takenOn = $state('');
   let author = $state('');
@@ -120,6 +121,7 @@
       const payload = new FormData();
       payload.append('flower', flower);
       if (place.trim()) payload.append('place', place.trim());
+      if (mapsUrl.trim()) payload.append('maps_url', mapsUrl.trim());
       if (caption.trim()) payload.append('caption', caption.trim());
       if (takenOn.trim()) payload.append('taken_on', takenOn.trim());
       payload.append('author', author.trim());
@@ -151,6 +153,7 @@
       successMessage = 'Cảm ơn! Ảnh sẽ hiện sau khi được duyệt.';
       selectedFiles = [];
       caption = '';
+      mapsUrl = '';
       if (fileInput) fileInput.value = '';
       resetTurnstile();
     } catch (err) {
@@ -199,6 +202,17 @@
           </optgroup>
         {/if}
       </select>
+    </div>
+
+    <div class="field">
+      <label for="public-maps-url-input">Link Google Maps chỗ chụp (tuỳ chọn)</label>
+      <input
+        id="public-maps-url-input"
+        type="url"
+        name="maps_url"
+        placeholder="https://maps.app.goo.gl/... hoặc https://www.google.com/maps/..."
+        bind:value={mapsUrl}
+      />
     </div>
 
     <div class="field">

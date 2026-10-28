@@ -1,0 +1,86 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import FlowerForm from '../../explore/mua-hoa-viet/forms/FlowerForm.svelte';
+
+const places = (await getCollection('places')).map((e) => ({
+  slug: e.data.slug,
+  name: e.data.name,
+  province: e.data.province,
+}));
+
+const turnstileSiteKey =
+  import.meta.env.PUBLIC_TURNSTILE_SITEKEY ||
+  import.meta.env.TURNSTILE_SITEKEY ||
+  process.env.TURNSTILE_SITEKEY ||
+  '0x4AAAAAAFpG_KK7XNX_hIBU';
+---
+
+<BaseLayout
+  title="Thêm loài hoa — Mùa Hoa Việt"
+  description="Đóng góp loài hoa mới cho trang Mùa Hoa Việt."
+  noindex={true}
+>
+  <script
+    is:inline
+    src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+    async
+    defer
+  ></script>
+
+  <main class="submit-shell">
+    <header class="submit-header">
+      <a href="/mua-hoa-viet/" class="back-link">← Mùa Hoa Việt</a>
+      <h1>Thêm loài hoa mới</h1>
+      <p class="subtitle">
+        Đóng góp một mùa hoa ở Việt Nam. Bạn chỉ cần điền vài thông tin bắt buộc (tên, mùa nở, vùng và điểm ngắm), các phần chi tiết khác có thể bỏ trống. Loài hoa sẽ hiện trên web sau khi được duyệt.
+      </p>
+    </header>
+
+    <div class="card">
+      <FlowerForm
+        client:load
+        mode="public"
+        places={places}
+        turnstileSiteKey={turnstileSiteKey}
+      />
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .submit-shell {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-4) var(--space-12);
+  }
+  .submit-header {
+    margin-bottom: var(--space-6);
+  }
+  .back-link {
+    display: inline-block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    margin-bottom: var(--space-2);
+  }
+  .back-link:hover {
+    color: var(--color-text);
+  }
+  h1 {
+    font-size: 1.75rem;
+    margin-bottom: var(--space-1);
+  }
+  .subtitle {
+    color: var(--color-text-muted);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    padding: var(--space-6);
+  }
+</style>

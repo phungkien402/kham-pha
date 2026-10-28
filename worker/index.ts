@@ -1,5 +1,65 @@
 import { clearJwksCache, normalizeTeamDomain, verifyAccessJwt } from './auth';
 import {
+  clearRemoteDataCache,
+  isCloudflareBuildEnv,
+  isSkipRemoteDataEnabled,
+  loadCombinedData,
+  mergeBySlug,
+  mergeFlowers,
+  mergePlaces,
+  mergeRemoteData,
+} from '../src/explore/mua-hoa-viet/remoteData';
+import {
+  BASE_FLOWER_COLORS,
+  BUILD_DEBOUNCE_MS,
+  FLOWER_COLOR_PALETTE,
+  MAX_PUBLIC_FLOWER_SUBMISSIONS_PER_DAY,
+  MAX_PUBLIC_PLACE_SUBMISSIONS_PER_DAY,
+  PROVINCES_34,
+  PROVINCE_TO_REGION,
+  REGION_LABELS,
+  VALID_PLACE_SLUGS,
+  computeDefaultPeak,
+  extractMapsCoords,
+  generateUniqueFlowerSlug,
+  generateUniquePlaceSlug,
+  getBuildStatus,
+  getRegionForProvince,
+  handleAdminTriggerBuild,
+  handleApproveAdminFlower,
+  handleApproveAdminPlace,
+  handleCreateAdminFlower,
+  handleCreateAdminPlace,
+  handleDeleteAdminFlower,
+  handleDeleteAdminPlace,
+  handleGetAdminBuildStatus,
+  handleGetAdminFlowers,
+  handleGetAdminPlaces,
+  handleGetPublicData,
+  handlePublicSubmitFlower,
+  handlePublicSubmitPlace,
+  handleRejectAdminFlower,
+  handleRejectAdminPlace,
+  handleUpdateAdminFlower,
+  handleUpdateAdminPlace,
+  hasBuildTriggerConfig,
+  isKnownFlowerSlug,
+  isValidGoogleMapsUrl,
+  parseCoordsFromMapsUrl,
+  pickFlowerColor,
+  resolveMapsUrlAndExtractCoords,
+  slugifyVietnamese,
+  triggerBuildIfNeeded,
+  triggerCloudflareBuild,
+  type BuildTriggerResult,
+  type ExtraRow,
+  type FlowerExtraData,
+  type FlowerSeason,
+  type MonthDay,
+  type PlaceExtraData,
+  type RegionCode,
+} from './extra';
+import {
   approveAdminPhoto,
   deleteAdminPhoto,
   handleApproveAdminPhoto,
@@ -49,49 +109,105 @@ import {
 
 export {
   approveAdminPhoto,
+  BASE_FLOWER_COLORS,
+  BUILD_DEBOUNCE_MS,
   clearJwksCache,
+  clearRemoteDataCache,
+  computeDefaultPeak,
   deleteAdminPhoto,
   detectImageFormat,
   ensureSchema,
+  extractMapsCoords,
+  FLOWER_COLOR_PALETTE,
+  generateUniqueFlowerSlug,
+  generateUniquePlaceSlug,
   getBucket,
+  getBuildStatus,
   getClientIp,
   getDb,
+  getRegionForProvince,
+  handleAdminTriggerBuild,
   handleAdminUpload,
+  handleApproveAdminFlower,
   handleApproveAdminPhoto,
+  handleApproveAdminPlace,
+  handleCreateAdminFlower,
+  handleCreateAdminPlace,
+  handleDeleteAdminFlower,
   handleDeleteAdminPhoto,
+  handleDeleteAdminPlace,
+  handleGetAdminBuildStatus,
+  handleGetAdminFlowers,
   handleGetAdminPhotoFile,
   handleGetAdminPhotos,
+  handleGetAdminPlaces,
   handleGetPhotoCovers,
   handleGetPhotoFile,
+  handleGetPublicData,
   handleGetPublicPhotos,
   handleHideAdminPhoto,
   handlePublicSubmit,
+  handlePublicSubmitFlower,
+  handlePublicSubmitPlace,
+  handleRejectAdminFlower,
   handleRejectAdminPhoto,
+  handleRejectAdminPlace,
+  handleUpdateAdminFlower,
+  handleUpdateAdminPlace,
+  hasBuildTriggerConfig,
   hashIp,
   hideAdminPhoto,
+  isCloudflareBuildEnv,
+  isKnownFlowerSlug,
+  isSkipRemoteDataEnabled,
   isValidFlowerSlug,
+  isValidGoogleMapsUrl,
   isValidImageMagicBytes,
   jsonResponse,
   listAdminPhotos,
   listApprovedCovers,
   listApprovedPhotos,
+  loadCombinedData,
   MAX_PUBLIC_FILES,
+  MAX_PUBLIC_FLOWER_SUBMISSIONS_PER_DAY,
+  MAX_PUBLIC_PLACE_SUBMISSIONS_PER_DAY,
   MAX_PUBLIC_SUBMISSIONS_PER_DAY,
   MAX_UPLOAD_BYTES,
+  mergeBySlug,
+  mergeFlowers,
+  mergePlaces,
+  mergeRemoteData,
   normalizeTeamDomain,
+  parseCoordsFromMapsUrl,
   parseImageDimensions,
+  pickFlowerColor,
+  PROVINCES_34,
+  PROVINCE_TO_REGION,
+  REGION_LABELS,
   rejectAdminPhoto,
+  resolveMapsUrlAndExtractCoords,
+  slugifyVietnamese,
+  triggerBuildIfNeeded,
+  triggerCloudflareBuild,
   TURNSTILE_DUMMY_PASS_SECRET,
   TURNSTILE_VERIFY_URL,
   VALID_FLOWER_SLUGS,
+  VALID_PLACE_SLUGS,
   verifyAccessJwt,
   verifyTurnstileToken,
   type ApprovePhotoUpdates,
+  type BuildTriggerResult,
   type CoverItem,
   type Env,
   type ExecutionContext,
+  type ExtraRow,
+  type FlowerExtraData,
+  type FlowerSeason,
+  type MonthDay,
   type PhotoItem,
   type PhotoRow,
+  type PlaceExtraData,
+  type RegionCode,
 };
 
 export default {
@@ -157,10 +273,164 @@ export default {
         return handleDeleteAdminPhoto(request, env, decodeURIComponent(deleteMatch[1]));
       }
 
+      // --- Quản trị loài hoa bổ sung (flowers_extra) ---
+      if (
+        (pathname === '/api/admin/flowers' ||
+          pathname === '/api/admin/flowers/' ||
+          pathname === '/api/admin/loai-hoa' ||
+          pathname === '/api/admin/loai-hoa/') &&
+        method === 'GET'
+      ) {
+        return handleGetAdminFlowers(request, env);
+      }
+
+      if (
+        (pathname === '/api/admin/flowers' ||
+          pathname === '/api/admin/flowers/' ||
+          pathname === '/api/admin/loai-hoa' ||
+          pathname === '/api/admin/loai-hoa/' ||
+          pathname === '/api/admin/them-hoa') &&
+        method === 'POST'
+      ) {
+        return handleCreateAdminFlower(request, env);
+      }
+
+      const approveFlowerMatch = pathname.match(
+        /^\/api\/admin\/(?:flowers|loai-hoa)\/([^/]+)\/approve$/,
+      );
+      if (approveFlowerMatch && method === 'POST') {
+        return handleApproveAdminFlower(
+          request,
+          env,
+          decodeURIComponent(approveFlowerMatch[1]),
+        );
+      }
+
+      const rejectFlowerMatch = pathname.match(
+        /^\/api\/admin\/(?:flowers|loai-hoa)\/([^/]+)\/reject$/,
+      );
+      if (rejectFlowerMatch && method === 'POST') {
+        return handleRejectAdminFlower(
+          request,
+          env,
+          decodeURIComponent(rejectFlowerMatch[1]),
+        );
+      }
+
+      const singleFlowerMatch = pathname.match(/^\/api\/admin\/(?:flowers|loai-hoa)\/([^/]+)$/);
+      if (singleFlowerMatch) {
+        const flowerSlug = decodeURIComponent(singleFlowerMatch[1]);
+        if (method === 'PUT' || method === 'PATCH' || method === 'POST') {
+          return handleUpdateAdminFlower(request, env, flowerSlug);
+        }
+        if (method === 'DELETE') {
+          return handleDeleteAdminFlower(request, env, flowerSlug);
+        }
+      }
+
+      // --- Quản trị địa điểm bổ sung (places_extra) ---
+      if (
+        (pathname === '/api/admin/places' ||
+          pathname === '/api/admin/places/' ||
+          pathname === '/api/admin/dia-diem' ||
+          pathname === '/api/admin/dia-diem/') &&
+        method === 'GET'
+      ) {
+        return handleGetAdminPlaces(request, env);
+      }
+
+      if (
+        (pathname === '/api/admin/places' ||
+          pathname === '/api/admin/places/' ||
+          pathname === '/api/admin/dia-diem' ||
+          pathname === '/api/admin/dia-diem/' ||
+          pathname === '/api/admin/them-dia-diem') &&
+        method === 'POST'
+      ) {
+        return handleCreateAdminPlace(request, env);
+      }
+
+      const approvePlaceMatch = pathname.match(
+        /^\/api\/admin\/(?:places|dia-diem)\/([^/]+)\/approve$/,
+      );
+      if (approvePlaceMatch && method === 'POST') {
+        return handleApproveAdminPlace(
+          request,
+          env,
+          decodeURIComponent(approvePlaceMatch[1]),
+        );
+      }
+
+      const rejectPlaceMatch = pathname.match(
+        /^\/api\/admin\/(?:places|dia-diem)\/([^/]+)\/reject$/,
+      );
+      if (rejectPlaceMatch && method === 'POST') {
+        return handleRejectAdminPlace(
+          request,
+          env,
+          decodeURIComponent(rejectPlaceMatch[1]),
+        );
+      }
+
+      const singlePlaceMatch = pathname.match(/^\/api\/admin\/(?:places|dia-diem)\/([^/]+)$/);
+      if (singlePlaceMatch) {
+        const placeSlug = decodeURIComponent(singlePlaceMatch[1]);
+        if (method === 'PUT' || method === 'PATCH' || method === 'POST') {
+          return handleUpdateAdminPlace(request, env, placeSlug);
+        }
+        if (method === 'DELETE') {
+          return handleDeleteAdminPlace(request, env, placeSlug);
+        }
+      }
+
+      // --- Kích hoạt build lại web ---
+      if (
+        (pathname === '/api/admin/build-status' || pathname === '/api/admin/build') &&
+        method === 'GET'
+      ) {
+        return handleGetAdminBuildStatus(request, env);
+      }
+
+      if (
+        (pathname === '/api/admin/build' ||
+          pathname === '/api/admin/rebuild' ||
+          pathname === '/api/admin/trigger-build') &&
+        method === 'POST'
+      ) {
+        return handleAdminTriggerBuild(request, env);
+      }
+
       return jsonResponse({ error: 'Not Found' }, 404);
     }
 
-    // 3. API công khai nhận ảnh người ngoài gửi
+    // 3. API công khai lấy dữ liệu loài hoa & địa điểm đã duyệt cho build kết hợp
+    if ((pathname === '/api/du-lieu' || pathname === '/api/du-lieu/') && method === 'GET') {
+      return handleGetPublicData(request, env);
+    }
+
+    // 4. API công khai khách gửi loài hoa mới
+    if (
+      (pathname === '/api/them-hoa' ||
+        pathname === '/api/them-hoa/' ||
+        pathname === '/api/flowers' ||
+        pathname === '/api/loai-hoa') &&
+      method === 'POST'
+    ) {
+      return handlePublicSubmitFlower(request, env);
+    }
+
+    // 5. API công khai khách gửi địa điểm mới
+    if (
+      (pathname === '/api/them-dia-diem' ||
+        pathname === '/api/them-dia-diem/' ||
+        pathname === '/api/places' ||
+        pathname === '/api/dia-diem') &&
+      method === 'POST'
+    ) {
+      return handlePublicSubmitPlace(request, env);
+    }
+
+    // 6. API công khai nhận ảnh người ngoài gửi
     if ((pathname === '/api/gui-anh' || pathname === '/api/gui-anh/') && method === 'POST') {
       return handlePublicSubmit(request, env);
     }

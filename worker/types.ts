@@ -108,6 +108,14 @@ export interface Env {
   TURNSTILE_SECRET?: string;
   TURNSTILE_FETCH?: typeof fetch;
   IP_SALT?: string;
+  MAPS_FETCH?: typeof fetch;
+  BUILD_FETCH?: typeof fetch;
+  FETCH?: typeof fetch;
+  CF_BUILD_TOKEN?: string;
+  CF_ACCOUNT_ID?: string;
+  CF_BUILD_TRIGGER_ID?: string;
+  CF_BUILD_BRANCH?: string;
+  CF_DEPLOY_HOOK?: string;
 }
 
 export type PhotoStatus = 'pending' | 'approved' | 'rejected';
@@ -129,6 +137,7 @@ export interface PhotoRow {
   created_at: string;
   reviewed_at: string | null;
   ip_hash?: string | null;
+  maps_url?: string | null;
 }
 
 export interface PhotoItem {
@@ -148,6 +157,7 @@ export interface PhotoItem {
   reviewed_at: string | null;
   src: string;
   src600: string;
+  maps_url?: string | null;
 }
 
 export interface CoverItem {
@@ -199,12 +209,58 @@ export async function ensureSchema(db: D1Database): Promise<void> {
           source TEXT NOT NULL CHECK (source IN ('admin', 'public')),
           created_at TEXT NOT NULL,
           reviewed_at TEXT NULL,
-          ip_hash TEXT NULL
+          ip_hash TEXT NULL,
+          maps_url TEXT NULL
         )`,
       )
       .run();
   } catch {
     // Bỏ qua nếu mock D1 trong unit test không hỗ trợ DDL
+  }
+  try {
+    await db.prepare(`ALTER TABLE photos ADD COLUMN maps_url TEXT NULL`).run();
+  } catch {
+    // Bỏ qua nếu cột maps_url đã tồn tại
+  }
+  try {
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS flowers_extra (
+          slug TEXT PRIMARY KEY,
+          status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
+          source TEXT NOT NULL CHECK (source IN ('admin', 'public')),
+          data TEXT NOT NULL,
+          submitter TEXT NULL,
+          ip_hash TEXT NULL,
+          created_at TEXT NOT NULL,
+          reviewed_at TEXT NULL
+        )`,
+      )
+      .run();
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS places_extra (
+          slug TEXT PRIMARY KEY,
+          status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
+          source TEXT NOT NULL CHECK (source IN ('admin', 'public')),
+          data TEXT NOT NULL,
+          submitter TEXT NULL,
+          ip_hash TEXT NULL,
+          created_at TEXT NOT NULL,
+          reviewed_at TEXT NULL
+        )`,
+      )
+      .run();
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS build_state (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )`,
+      )
+      .run();
+  } catch {
+    // Bỏ qua nếu mock D1 không hỗ trợ DDL
   }
 }
 

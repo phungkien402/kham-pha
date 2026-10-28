@@ -9,6 +9,7 @@ export interface PublicPhoto {
   license: string;
   caption?: string | null;
   taken_on?: string | null;
+  maps_url?: string | null;
   width?: number;
   height?: number;
   created_at?: string;
@@ -314,6 +315,7 @@ export interface GridPhotoInput {
   caption?: string | null;
   place?: string | null;
   taken_on?: string | null;
+  maps_url?: string | null;
   status?: 'approved' | 'pending' | string;
   color?: string;
 }
@@ -333,6 +335,7 @@ export interface GridPhotoItem {
   caption?: string;
   place?: string;
   takenOn?: string;
+  mapsUrl?: string;
   color: string;
 }
 
@@ -388,6 +391,7 @@ export function publicPhotoToGridItem(
     caption: p.caption || undefined,
     place: p.place || undefined,
     takenOn: p.taken_on || undefined,
+    mapsUrl: sanitizeAuthorLink(p.maps_url),
     color,
   };
 }
@@ -416,6 +420,7 @@ function initialPhotoToGridItem(
     caption: p.caption || undefined,
     place: p.place || undefined,
     takenOn: p.taken_on || undefined,
+    mapsUrl: sanitizeAuthorLink(p.maps_url),
     color: p.color || fallbackColor,
   };
 }

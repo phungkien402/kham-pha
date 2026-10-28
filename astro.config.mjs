@@ -20,6 +20,8 @@ export default defineConfig({
         const pathname = new URL(url).pathname;
         if (pathname === '/admin' || pathname.startsWith('/admin/')) return false;
         if (pathname === '/gui-anh' || pathname.startsWith('/gui-anh/')) return false;
+        if (pathname === '/them-hoa' || pathname.startsWith('/them-hoa/')) return false;
+        if (pathname === '/them-dia-diem' || pathname.startsWith('/them-dia-diem/')) return false;
         return !draftPaths.some((path) => pathname === path);
       },
     }),

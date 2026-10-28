@@ -47,14 +47,22 @@ const initialGridPhotos = f.photos.map((p, i) => ({
 const realPhoto = f.photos.find((p) => p.src);
 const og = realPhoto?.src ? await ogImage(realPhoto.src) : undefined;
 const spots = places
-  .filter((p) => p.flowers.some((pf) => pf.slug === f.slug))
+  .filter(
+    (p) =>
+      p.flowers.some((pf) => pf.slug === f.slug) ||
+      f.places?.some((fp) => fp.slug === p.slug),
+  )
   .map((p) => {
-    const best = p.flowers.find((pf) => pf.slug === f.slug)!.best;
+    const best =
+      p.flowers.find((pf) => pf.slug === f.slug)?.best ??
+      f.places?.find((fp) => fp.slug === p.slug)?.best ??
+      'Đúng mùa nở';
     return {
       slug: p.slug,
       name: p.name,
       province: p.province,
       region: p.region,
+      maps_url: p.maps_url,
       pos: p.lat != null && p.lng != null ? toPercent(p.lat, p.lng) : undefined,
       best: typeof best === 'string' ? best : `T${best.start.month} – T${best.end.month}`,
     };
@@ -82,7 +90,7 @@ const seasonText = seasonPhrase(f);
 const placesMap = Object.fromEntries(places.map((p) => [p.slug, p.name]));
 const title = `${f.name} nở tháng mấy, ngắm ở đâu — Mùa Hoa Việt`;
 const description =
-  f.summary ?? `${f.name} (${f.scientificName}) nở ${seasonText}. Xem mùa nở, nơi ngắm đẹp và mẹo chụp.`;
+  f.summary ?? `${f.name}${f.scientificName ? ` (${f.scientificName})` : ''} nở ${seasonText}. Xem mùa nở, nơi ngắm đẹp và mẹo chụp.`;
 const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
 ---
 
@@ -113,7 +121,13 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
     </div>
     <div class="info">
       <h1>{f.name}</h1>
-      <p class="sci"><i>{f.scientificName}</i>{f.aka && <span> · {f.aka}</span>}</p>
+      {(f.scientificName || f.aka) && (
+        <p class="sci">
+          {f.scientificName && <i>{f.scientificName}</i>}
+          {f.scientificName && f.aka && <span> · </span>}
+          {f.aka && <span>{f.aka}</span>}
+        </p>
+      )}
       <p class="chips"><span class="chip">{f.regionLabel}</span></p>
       <FlowerNow client:load color={f.color} seasons={f.seasons} facts={f.facts} />
     </div>
@@ -142,7 +156,7 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
             region={initialRegion}
             spots={spots.flatMap((p) =>
               p.pos
-                ? [{ slug: p.slug, name: p.name, province: p.province, ...p.pos, flowers: [{ slug: f.slug, name: f.name, color: f.color, best: p.best }] }]
+                ? [{ slug: p.slug, name: p.name, province: p.province, maps_url: p.maps_url, ...p.pos, flowers: [{ slug: f.slug, name: f.name, color: f.color, best: p.best }] }]
                 : [],
             )}
           >
@@ -157,6 +171,14 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
               <li>
                 <span>
                   <strong>{s.name}</strong>, {s.province}
+                  {s.maps_url && (
+                    <>
+                      {' · '}
+                      <a class="maps-link" href={s.maps_url} target="_blank" rel="noopener noreferrer">
+                        Mở Google Maps
+                      </a>
+                    </>
+                  )}
                 </span>
                 <span class="best">{s.best}</span>
               </li>
@@ -263,7 +285,12 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
   </div>
 
   <div class="submit-photo-cta">
-    <p>Bạn có ảnh {f.name.toLowerCase()} tự chụp?</p>
+    <div>
+      <p>Bạn có ảnh {f.name.toLowerCase()} tự chụp?</p>
+      <p class="contribute-sub">
+        Biết thêm thông tin? <a href="/them-dia-diem">Thêm điểm ngắm</a> · <a href="/them-hoa">Thêm loài hoa</a>
+      </p>
+    </div>
     <a href={`/gui-anh?hoa=${f.slug}`} class="submit-photo-btn">Gửi ảnh của bạn</a>
   </div>
 
@@ -332,6 +359,22 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
     font-size: 0.9375rem;
     font-weight: 600;
     color: var(--color-text);
+  }
+  .submit-photo-cta .contribute-sub {
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    color: var(--color-text-muted);
+  }
+  .submit-photo-cta .contribute-sub a {
+    color: var(--color-text);
+    font-weight: 600;
+    text-decoration: underline;
+  }
+  .maps-link {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    text-decoration: underline;
   }
   .submit-photo-btn {
     display: inline-flex;

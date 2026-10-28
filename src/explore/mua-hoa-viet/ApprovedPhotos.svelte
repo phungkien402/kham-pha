@@ -127,6 +127,8 @@
               <span>{' · '}{placesMap[item.place] ?? item.place}</span>
             {/if}{#if item.takenOn}
               <span>{' · '}{item.takenOn}</span>
+            {/if}{#if item.mapsUrl}
+              <span>{' · '}<a href={item.mapsUrl} target="_blank" rel="noopener noreferrer">Chỗ chụp trên Google Maps</a></span>
             {/if}
           </small>
         </li>
@@ -223,6 +225,8 @@
           <span>{activeItem.author}</span>
         {/if}{#if activeItem.license}
           <span>{' · '}{activeItem.license}</span>
+        {/if}{#if activeItem.mapsUrl}
+          <span>{' · '}<a href={activeItem.mapsUrl} target="_blank" rel="noopener noreferrer">Chỗ chụp trên Google Maps</a></span>
         {/if}
       </figcaption>
     </figure>

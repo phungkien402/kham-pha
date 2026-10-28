@@ -147,6 +147,9 @@
         <div class="place">
           <strong>{s.name}</strong>
           <span class="prov">{s.province}</span>
+          {#if s.maps_url}
+            {' · '}<a class="maps-link" href={s.maps_url} target="_blank" rel="noopener noreferrer">Mở Google Maps</a>
+          {/if}
           <ul>
             {#each s.flowers as f (f.slug)}
               <li>
@@ -249,6 +252,11 @@
   .prov {
     margin-left: var(--space-2);
     color: var(--color-text-muted);
+  }
+  .maps-link {
+    font-size: 0.8125rem;
+    color: var(--color-text);
+    text-decoration: underline;
   }
   .pop ul {
     list-style: none;

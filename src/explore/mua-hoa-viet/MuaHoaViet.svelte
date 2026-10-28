@@ -71,12 +71,20 @@
   const spots = $derived(
     places
       .filter((p) => region === 'all' || p.region === region)
-      .map((p) => ({
-        ...p,
-        now: p.flowers
-          .map((pf) => flowerBySlug.get(pf.slug))
-          .filter((f): f is FlowerLite => !!f && bloomingSlugs.has(f.slug)),
-      }))
+      .map((p) => {
+        const directSlugs = new Set(p.flowers.map((pf) => pf.slug));
+        const reverseFlowers = resolvedFlowers.filter(
+          (f) => !directSlugs.has(f.slug) && f.places?.some((fp) => fp.slug === p.slug),
+        );
+        const allFlowersForPlace = [
+          ...p.flowers.map((pf) => flowerBySlug.get(pf.slug)),
+          ...reverseFlowers,
+        ];
+        return {
+          ...p,
+          now: allFlowersForPlace.filter((f): f is FlowerLite => !!f && bloomingSlugs.has(f.slug)),
+        };
+      })
       .filter((p) => p.now.length > 0),
   );
 
@@ -91,11 +99,15 @@
               province: p.province,
               x: p.x,
               y: p.y,
+              maps_url: p.maps_url,
               flowers: p.now.map((f) => ({
                 slug: f.slug,
                 name: f.name,
                 color: f.color,
-                best: p.flowers.find((pf) => pf.slug === f.slug)?.best ?? '',
+                best:
+                  p.flowers.find((pf) => pf.slug === f.slug)?.best ??
+                  f.places?.find((fp) => fp.slug === p.slug)?.best ??
+                  '',
               })),
             },
           ],
@@ -215,7 +227,13 @@
               <span class="dots">
                 {#each p.now as f (f.slug)}<span class="dot" style:background={f.color}></span>{/each}
               </span>
-              <span><strong>{p.name}</strong>, {p.province}<br /><small>{p.now.map((f) => f.name).join(', ')}</small></span>
+              <span>
+                <strong>{p.name}</strong>, {p.province}
+                {#if p.maps_url}
+                  {' · '}<a class="maps-link" href={p.maps_url} target="_blank" rel="noopener noreferrer">Mở Google Maps</a>
+                {/if}
+                <br /><small>{p.now.map((f) => f.name).join(', ')}</small>
+              </span>
             </li>
           {/each}
         </ul>
@@ -224,6 +242,15 @@
       {/if}
     </div>
   </div>
+
+  <p class="contribute-links">
+    Biết thêm mùa hoa hay chỗ ngắm đẹp?
+    <a href="/them-hoa">Thêm loài hoa</a>
+    <span aria-hidden="true">·</span>
+    <a href="/them-dia-diem">Thêm điểm ngắm</a>
+    <span aria-hidden="true">·</span>
+    <a href="/gui-anh">Gửi ảnh</a>
+  </p>
 </section>
 
 <style>
@@ -459,6 +486,25 @@
     display: flex;
     gap: 3px;
     padding-top: 7px;
+  }
+  .maps-link {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    text-decoration: underline;
+  }
+  .contribute-links {
+    margin-top: var(--space-6);
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .contribute-links a {
+    color: var(--color-text);
+    font-weight: 600;
+    text-decoration: underline;
   }
 
   @media (min-width: 1024px) {

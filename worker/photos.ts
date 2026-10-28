@@ -1,3 +1,4 @@
+import { isKnownFlowerSlug, isValidGoogleMapsUrl } from './extra';
 import {
   ensureSchema,
   getBucket,
@@ -8,7 +9,6 @@ import {
   type PhotoItem,
   type PhotoRow,
 } from './types';
-import { isValidFlowerSlug } from './upload';
 
 function rowToPhotoItem(row: PhotoRow, isAdmin = false): PhotoItem {
   const useAdminSrc = isAdmin && row.status === 'pending';
@@ -30,6 +30,7 @@ function rowToPhotoItem(row: PhotoRow, isAdmin = false): PhotoItem {
     reviewed_at: row.reviewed_at ?? null,
     src: `${basePath}/${row.id}.webp`,
     src600: `${basePath}/${row.id}-600.webp`,
+    maps_url: row.maps_url ?? null,
   };
 }
 
@@ -39,7 +40,7 @@ export async function listApprovedPhotos(env: Env, flower: string): Promise<Phot
   const { results } = await db
     .prepare(
       `SELECT id, flower, place, status, author, author_link, license,
-              caption, taken_on, width, height, source, created_at, reviewed_at
+              caption, taken_on, width, height, source, created_at, reviewed_at, maps_url
        FROM photos
        WHERE flower = ? AND status = 'approved'
        ORDER BY created_at DESC`,
@@ -53,7 +54,8 @@ export async function listApprovedPhotos(env: Env, flower: string): Promise<Phot
 export async function handleGetPublicPhotos(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const flower = url.searchParams.get('flower')?.trim() ?? '';
-  if (!flower || !isValidFlowerSlug(flower)) {
+  const db = getDb(env);
+  if (!flower || !(await isKnownFlowerSlug(db, flower))) {
     return jsonResponse({ error: 'Tham số flower không hợp lệ' }, 400);
   }
 
@@ -231,7 +233,7 @@ export async function listAdminPhotos(
     const { results } = await db
       .prepare(
         `SELECT id, flower, place, status, author, author_link, license,
-                caption, taken_on, width, height, source, created_at, reviewed_at
+                caption, taken_on, width, height, source, created_at, reviewed_at, maps_url
          FROM photos
          WHERE flower = ? AND status = ?
          ORDER BY created_at DESC`,
@@ -245,7 +247,7 @@ export async function listAdminPhotos(
     const { results } = await db
       .prepare(
         `SELECT id, flower, place, status, author, author_link, license,
-                caption, taken_on, width, height, source, created_at, reviewed_at
+                caption, taken_on, width, height, source, created_at, reviewed_at, maps_url
          FROM photos
          WHERE flower = ?
          ORDER BY created_at DESC`,
@@ -259,7 +261,7 @@ export async function listAdminPhotos(
     const { results } = await db
       .prepare(
         `SELECT id, flower, place, status, author, author_link, license,
-                caption, taken_on, width, height, source, created_at, reviewed_at
+                caption, taken_on, width, height, source, created_at, reviewed_at, maps_url
          FROM photos
          WHERE status = ?
          ORDER BY created_at DESC`,
@@ -272,7 +274,7 @@ export async function listAdminPhotos(
   const { results } = await db
     .prepare(
       `SELECT id, flower, place, status, author, author_link, license,
-              caption, taken_on, width, height, source, created_at, reviewed_at
+              caption, taken_on, width, height, source, created_at, reviewed_at, maps_url
        FROM photos
        ORDER BY created_at DESC`,
     )
@@ -283,7 +285,8 @@ export async function listAdminPhotos(
 export async function handleGetAdminPhotos(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const flower = url.searchParams.get('flower')?.trim() ?? '';
-  if (flower && !isValidFlowerSlug(flower)) {
+  const db = getDb(env);
+  if (flower && !(await isKnownFlowerSlug(db, flower))) {
     return jsonResponse({ error: 'Loài hoa không tồn tại trong flowers.json' }, 400);
   }
   const status = url.searchParams.get('status')?.trim() ?? '';
@@ -299,6 +302,7 @@ export interface ApprovePhotoUpdates {
   flower?: string | null;
   caption?: string | null;
   place?: string | null;
+  maps_url?: string | null;
 }
 
 export async function approveAdminPhoto(
@@ -313,7 +317,7 @@ export async function approveAdminPhoto(
   const existing = await db
     .prepare(
       `SELECT id, flower, place, status, author, author_link, license,
-              caption, taken_on, width, height, source, created_at, reviewed_at
+              caption, taken_on, width, height, source, created_at, reviewed_at, maps_url
        FROM photos
        WHERE id = ?`,
     )
@@ -359,15 +363,17 @@ export async function approveAdminPhoto(
     updates && 'caption' in updates ? (updates.caption ?? null) : (existing.caption ?? null);
   const nextPlace =
     updates && 'place' in updates ? (updates.place ?? null) : (existing.place ?? null);
+  const nextMapsUrl =
+    updates && 'maps_url' in updates ? (updates.maps_url ?? null) : (existing.maps_url ?? null);
   const nowIso = new Date().toISOString();
 
   await db
     .prepare(
       `UPDATE photos
-       SET status = 'approved', flower = ?, caption = ?, place = ?, reviewed_at = ?
+       SET status = 'approved', flower = ?, caption = ?, place = ?, maps_url = ?, reviewed_at = ?
        WHERE id = ?`,
     )
-    .bind(nextFlower, nextCaption, nextPlace, nowIso, id)
+    .bind(nextFlower, nextCaption, nextPlace, nextMapsUrl, nowIso, id)
     .run();
 
   return rowToPhotoItem(
@@ -377,6 +383,7 @@ export async function approveAdminPhoto(
       flower: nextFlower,
       caption: nextCaption,
       place: nextPlace,
+      maps_url: nextMapsUrl,
       reviewed_at: nowIso,
     },
     false,
@@ -411,6 +418,10 @@ export async function handleApproveAdminPhoto(
         const pl = fd.get('place');
         updates.place = typeof pl === 'string' && pl.trim() ? pl.trim() : null;
       }
+      if (fd.has('maps_url')) {
+        const mu = fd.get('maps_url');
+        updates.maps_url = typeof mu === 'string' && mu.trim() ? mu.trim() : null;
+      }
     }
   } else {
     const rawText = await request.text().catch(() => '');
@@ -431,6 +442,11 @@ export async function handleApproveAdminPhoto(
             updates.place =
               typeof body.place === 'string' && body.place.trim() ? body.place.trim() : null;
           }
+          if ('maps_url' in body || 'mapsUrl' in body) {
+            const rawMu = body.maps_url ?? body.mapsUrl;
+            updates.maps_url =
+              typeof rawMu === 'string' && rawMu.trim() ? rawMu.trim() : null;
+          }
         }
       } catch {
         // Bỏ qua nếu body không phải JSON
@@ -438,8 +454,12 @@ export async function handleApproveAdminPhoto(
     }
   }
 
-  if (updates.flower !== undefined && updates.flower !== null && !isValidFlowerSlug(updates.flower)) {
+  const db = getDb(env);
+  if (updates.flower !== undefined && updates.flower !== null && !(await isKnownFlowerSlug(db, updates.flower))) {
     return jsonResponse({ error: 'Loài hoa không tồn tại trong flowers.json' }, 400);
+  }
+  if (updates.maps_url !== undefined && updates.maps_url !== null && !isValidGoogleMapsUrl(updates.maps_url)) {
+    return jsonResponse({ error: 'Link Google Maps không hợp lệ' }, 400);
   }
 
   const approved = await approveAdminPhoto(env, id, updates);

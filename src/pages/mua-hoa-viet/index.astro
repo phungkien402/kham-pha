@@ -9,17 +9,21 @@ import type { FlowerLite, PlaceLite } from '../../explore/mua-hoa-viet/types';
 
 const flowers: FlowerLite[] = await Promise.all(
   (await getCollection('flowers')).map(async ({ data: f }) => {
-  const photo = f.photos.find((p) => p.src);
-  return {
-    slug: f.slug,
-    name: f.name,
-    color: f.color,
-    seasons: f.seasons,
-    regions: f.regions,
-    regionLabel: f.regionLabel,
-    photo: photo?.src ? await responsive(photo.src, SIZES.card) : undefined,
-    photoAlt: photo?.alt,
-  };
+    const photo = f.photos.find((p) => p.src);
+    return {
+      slug: f.slug,
+      name: f.name,
+      color: f.color,
+      seasons: f.seasons,
+      regions: f.regions,
+      regionLabel: f.regionLabel,
+      photo: photo?.src ? await responsive(photo.src, SIZES.card) : undefined,
+      photoAlt: photo?.alt,
+      places: f.places?.map((pf) => ({
+        slug: pf.slug,
+        best: typeof pf.best === 'string' ? pf.best : `T${pf.best.start.month} – T${pf.best.end.month}`,
+      })),
+    };
   }),
 );
 
@@ -29,6 +33,7 @@ const places: PlaceLite[] = (await getCollection('places')).map(({ data: p }) =>
   province: p.province,
   region: p.region,
   ...(p.lat != null && p.lng != null ? toPercent(p.lat, p.lng) : {}),
+  maps_url: p.maps_url,
   flowers: p.flowers.map((pf) => ({
     slug: pf.slug,
     best: typeof pf.best === 'string' ? pf.best : `T${pf.best.start.month} – T${pf.best.end.month}`,

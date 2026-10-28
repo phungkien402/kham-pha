@@ -1,4 +1,5 @@
 import flowersData from '../src/explore/mua-hoa-viet/data/flowers.json';
+import { isKnownFlowerSlug, isValidGoogleMapsUrl } from './extra';
 import {
   ensureSchema,
   getBucket,
@@ -168,11 +169,22 @@ export async function handleAdminUpload(request: Request, env: Env): Promise<Res
     return jsonResponse({ error: 'File ảnh rỗng' }, 400);
   }
 
+  const db = getDb(env);
+  await ensureSchema(db);
+
   const flowerRaw = cleanOptionalText(formData.get('flower'));
-  if (!flowerRaw || !isValidFlowerSlug(flowerRaw)) {
+  if (!flowerRaw || !(await isKnownFlowerSlug(db, flowerRaw))) {
     return jsonResponse({ error: 'Loài hoa không tồn tại trong flowers.json' }, 400);
   }
   const flower = flowerRaw;
+
+  const mapsUrlRaw =
+    cleanOptionalText(formData.get('maps_url')) ??
+    cleanOptionalText(formData.get('mapsUrl'));
+  if (mapsUrlRaw && !isValidGoogleMapsUrl(mapsUrlRaw)) {
+    return jsonResponse({ error: 'Link Google Maps không hợp lệ' }, 400);
+  }
+  const mapsUrl = mapsUrlRaw ?? null;
 
   const fileBytes = new Uint8Array(await fileBlob.arrayBuffer());
   if (fileBytes.byteLength > MAX_UPLOAD_BYTES) {
@@ -223,8 +235,6 @@ export async function handleAdminUpload(request: Request, env: Env): Promise<Res
   const nowIso = new Date().toISOString();
 
   const bucket = getBucket(env);
-  const db = getDb(env);
-  await ensureSchema(db);
 
   const keyMain = `approved/${id}.webp`;
   const key600 = `approved/${id}-600.webp`;
@@ -245,8 +255,8 @@ export async function handleAdminUpload(request: Request, env: Env): Promise<Res
     .prepare(
       `INSERT INTO photos (
         id, flower, place, status, author, author_link, license,
-        caption, taken_on, width, height, source, created_at, reviewed_at, ip_hash
-      ) VALUES (?, ?, ?, 'approved', ?, ?, ?, ?, ?, ?, ?, 'admin', ?, ?, NULL)`,
+        caption, taken_on, width, height, source, created_at, reviewed_at, ip_hash, maps_url
+      ) VALUES (?, ?, ?, 'approved', ?, ?, ?, ?, ?, ?, ?, 'admin', ?, ?, NULL, ?)`,
     )
     .bind(
       id,
@@ -261,6 +271,7 @@ export async function handleAdminUpload(request: Request, env: Env): Promise<Res
       height,
       nowIso,
       nowIso,
+      mapsUrl,
     )
     .run();
 
@@ -281,6 +292,7 @@ export async function handleAdminUpload(request: Request, env: Env): Promise<Res
     reviewed_at: nowIso,
     src: `/api/anh/${id}.webp`,
     src600: `/api/anh/${id}-600.webp`,
+    maps_url: mapsUrl,
   };
 
   return jsonResponse(
@@ -487,12 +499,24 @@ export async function handlePublicSubmit(request: Request, env: Env): Promise<Re
     return jsonResponse({ error: 'Vui lòng nhập tên hiển thị của tác giả' }, 400);
   }
 
-  // 4. Kiểm tra loài hoa
+  const db = getDb(env);
+  const bucket = getBucket(env);
+  await ensureSchema(db);
+
+  // 4. Kiểm tra loài hoa và link Google Maps (nếu có)
   const flowerRaw = cleanOptionalText(formData.get('flower'));
-  if (!flowerRaw || !isValidFlowerSlug(flowerRaw)) {
+  if (!flowerRaw || !(await isKnownFlowerSlug(db, flowerRaw))) {
     return jsonResponse({ error: 'Loài hoa không tồn tại trong flowers.json' }, 400);
   }
   const flower = flowerRaw;
+
+  const mapsUrlRaw =
+    cleanOptionalText(formData.get('maps_url')) ??
+    cleanOptionalText(formData.get('mapsUrl'));
+  if (mapsUrlRaw && !isValidGoogleMapsUrl(mapsUrlRaw)) {
+    return jsonResponse({ error: 'Link Google Maps không hợp lệ' }, 400);
+  }
+  const mapsUrl = mapsUrlRaw ?? null;
 
   // 5. Kiểm tra số lượng file (1–3 ảnh) và magic bytes WebP/JPEG
   if (rawFiles.length === 0) {
@@ -570,10 +594,6 @@ export async function handlePublicSubmit(request: Request, env: Env): Promise<Re
   }
 
   // 6. Giới hạn 10 lần gửi/ngày/IP: ip_hash = SHA-256(IP + IP_SALT), đếm trong D1
-  const db = getDb(env);
-  const bucket = getBucket(env);
-  await ensureSchema(db);
-
   const clientIp = getClientIp(request);
   const ipHash = await hashIp(clientIp, env.IP_SALT ?? '');
   const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -630,8 +650,8 @@ export async function handlePublicSubmit(request: Request, env: Env): Promise<Re
       .prepare(
         `INSERT INTO photos (
           id, flower, place, status, author, author_link, license,
-          caption, taken_on, width, height, source, created_at, reviewed_at, ip_hash
-        ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, 'public', ?, NULL, ?)`,
+          caption, taken_on, width, height, source, created_at, reviewed_at, ip_hash, maps_url
+        ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, 'public', ?, NULL, ?, ?)`,
       )
       .bind(
         id,
@@ -646,6 +666,7 @@ export async function handlePublicSubmit(request: Request, env: Env): Promise<Re
         item.height,
         nowIso,
         ipHash,
+        mapsUrl,
       )
       .run();
 
@@ -666,6 +687,7 @@ export async function handlePublicSubmit(request: Request, env: Env): Promise<Re
       reviewed_at: null,
       src: `/api/admin/anh/${id}.webp`,
       src600: `/api/admin/anh/${id}-600.webp`,
+      maps_url: mapsUrl,
     });
   }
 
