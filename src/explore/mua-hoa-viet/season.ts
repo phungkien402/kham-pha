@@ -177,3 +177,15 @@ export function daysUntilEnd(flower: SeasonFlower, date: Date): number | null {
   const current = occurrencesAround(flower, date).find((o) => t >= o.start && t <= o.end);
   return current ? current.end - t : null;
 }
+
+
+export {
+  formatDistanceKm,
+  haversineKm,
+  nearestBlooming,
+  type DateInput,
+  type NearestFlowerInfo,
+  type NearestInputFlower,
+  type NearestInputPlace,
+  type NearestPlaceResult,
+} from './nearest';

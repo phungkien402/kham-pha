@@ -7,6 +7,13 @@
   import MapCredit from './MapCredit.svelte';
   import RegionSeg from './RegionSeg.svelte';
   import Postcard from './Postcard.svelte';
+  import { nearestBlooming } from './nearest';
+  import {
+    PROVINCES_BY_REGION,
+    PROVINCE_COORDS,
+    REGION_LABELS,
+    getProvinceCoords,
+  } from './provinces';
   import { applyCoversToFlowers, fetchCovers, type CoversMap } from './publicPhotos';
   import type { Snippet } from 'svelte';
   import type { Filter, FlowerLite, MapSpot, PlaceLite } from './types';
@@ -35,9 +42,24 @@
   let monthRow: HTMLElement | undefined = $state();
   let covers = $state<CoversMap>({});
 
+  const PROVINCE_STORAGE_KEY = 'mua-hoa-viet:province';
+  let selectedProvince = $state('');
+  let userGeoCoords = $state<{ lat: number; lng: number } | null>(null);
+  let locating = $state(false);
+  let geoFallbackPrompt = $state(false);
+  let provinceSelectEl: HTMLSelectElement | undefined = $state();
+
   onMount(() => {
     today = vnParts(new Date());
     month = today.month;
+    try {
+      const savedProvince = localStorage.getItem(PROVINCE_STORAGE_KEY);
+      if (savedProvince && PROVINCE_COORDS[savedProvince]) {
+        selectedProvince = savedProvince;
+      }
+    } catch {
+      // Bỏ qua khi localStorage bị chặn
+    }
     // Đưa nút tháng đang chọn vào giữa hàng cuộn ngang (không cuộn cả trang).
     const btn = monthRow?.querySelector<HTMLElement>('[aria-pressed="true"]');
     if (monthRow && btn) {
@@ -116,6 +138,68 @@
   );
 
   const placeholder = (color: string) => `color-mix(in srgb, ${color} 72%, white)`;
+
+  const activeCoords = $derived.by(() => {
+    if (userGeoCoords) {
+      return { ...userGeoCoords, label: 'vị trí thiết bị của bạn' };
+    }
+    if (selectedProvince) {
+      const coords = getProvinceCoords(selectedProvince);
+      if (coords) {
+        return { ...coords, label: `trung tâm hành chính (tỉnh lỵ) ${selectedProvince}` };
+      }
+    }
+    return null;
+  });
+
+  const todayNoon = $derived(new Date(Date.UTC(today.year, today.month - 1, today.day, 5)));
+  const nearestSpots = $derived(
+    activeCoords
+      ? nearestBlooming(places, resolvedFlowers, activeCoords.lat, activeCoords.lng, todayNoon, 3)
+      : [],
+  );
+
+  function onProvinceSelectChange(e: Event) {
+    const val = (e.currentTarget as HTMLSelectElement).value;
+    selectedProvince = val;
+    userGeoCoords = null;
+    geoFallbackPrompt = false;
+    try {
+      if (val) {
+        localStorage.setItem(PROVINCE_STORAGE_KEY, val);
+      } else {
+        localStorage.removeItem(PROVINCE_STORAGE_KEY);
+      }
+    } catch {
+      // Bỏ qua khi localStorage bị chặn
+    }
+  }
+
+  function useMyLocation() {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      geoFallbackPrompt = true;
+      provinceSelectEl?.focus();
+      return;
+    }
+    locating = true;
+    geoFallbackPrompt = false;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        locating = false;
+        userGeoCoords = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        };
+      },
+      () => {
+        // Từ chối quyền vị trí hoặc lỗi định vị -> nhắc chọn tỉnh nhẹ nhàng, không báo lỗi đỏ
+        locating = false;
+        geoFallbackPrompt = true;
+        provinceSelectEl?.focus();
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+    );
+  }
 </script>
 
 <div class="top">
@@ -202,6 +286,109 @@
       />
     </li>
   </ul>
+</section>
+
+<section class="block where-today" aria-labelledby="hom-nay-di-dau">
+  <div class="where-today-box">
+    <div class="where-today-head">
+      <div class="where-today-intro">
+        <h2 id="hom-nay-di-dau">Hôm nay đi đâu?</h2>
+        <p class="where-today-sub">
+          Tìm tối đa 3 điểm ngắm gần bạn nhất có hoa đang nở hôm nay. Vị trí chỉ tính trên trình duyệt, không gửi lên máy chủ.
+        </p>
+      </div>
+      <div class="where-today-controls">
+        <button
+          type="button"
+          class="geo-btn"
+          onclick={useMyLocation}
+          disabled={locating}
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+            <circle cx="12" cy="12" r="7"></circle>
+          </svg>
+          {locating ? 'Đang lấy vị trí…' : 'Dùng vị trí của tôi'}
+        </button>
+        <div class="prov-select-wrap">
+          <label class="sr-only" for="where-province-select">Chọn tỉnh hoặc thành phố</label>
+          <select
+            id="where-province-select"
+            bind:this={provinceSelectEl}
+            value={selectedProvince}
+            onchange={onProvinceSelectChange}
+            aria-label="Chọn tỉnh hoặc thành phố"
+          >
+            <option value="">Chọn tỉnh / thành phố (34 tỉnh)…</option>
+            {#each ['bac', 'trung', 'nam'] as const as r}
+              <optgroup label={REGION_LABELS[r]}>
+                {#each PROVINCES_BY_REGION[r] as prov}
+                  <option value={prov}>{prov}</option>
+                {/each}
+              </optgroup>
+            {/each}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {#if geoFallbackPrompt}
+      <p class="where-today-hint" role="status">
+        Chưa lấy được vị trí thiết bị — bạn chọn tỉnh hoặc thành phố ở ô bên trên để xem điểm ngắm gần nhất nhé.
+      </p>
+    {/if}
+
+    {#if activeCoords}
+      {#if nearestSpots.length > 0}
+        <ul class="nearest-list" aria-label="Điểm ngắm hoa gần nhất hôm nay">
+          {#each nearestSpots as item (item.slug)}
+            <li class="nearest-item">
+              <div class="nearest-row-top">
+                <span class="nearest-place-name">
+                  <strong>{item.name}</strong>, <span class="nearest-prov">{item.province}</span>
+                </span>
+                <span class="nearest-meta">
+                  <span class="nearest-dist">{item.distanceLabel}</span>
+                  {#if item.maps_url}
+                    <a
+                      class="maps-link"
+                      href={item.maps_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >Mở Google Maps</a>
+                  {/if}
+                </span>
+              </div>
+              <ul class="nearest-flowers" aria-label="Các loài đang nở tại {item.name}">
+                {#each item.flowers as f (f.slug)}
+                  <li>
+                    <span class="dot" style:background={f.color}></span>
+                    <a href="/mua-hoa-viet/{f.slug}/">{f.name}</a>
+                  </li>
+                {/each}
+              </ul>
+            </li>
+          {/each}
+        </ul>
+        <p class="where-today-source">
+          Khoảng cách đường chim bay (Haversine) tính từ {activeCoords.label}. Nguồn toạ độ tỉnh: trung tâm hành chính 34 tỉnh/thành sau sáp nhập 2025 (Cục Đo đạc, Bản đồ và Thông tin địa lý VN / OpenStreetMap).
+        </p>
+      {:else}
+        <p class="empty where-today-empty">
+          Hôm nay chưa có điểm ngắm hoa nào đang nở trong dữ liệu. Nếu bạn biết một nơi đang vào mùa, ghim lại cho mọi người cùng ghé nhé!
+        </p>
+        <Postcard
+          variant="row"
+          stamp="pin"
+          title="Biết một chỗ ngắm hoa đẹp ít người tìm tới?"
+          body="Ghim lại cho người đi sau. Chỉ cần một link Google Maps."
+          cta="Ghim lên bản đồ"
+          href={`/them-dia-diem${region !== 'all' ? `?mien=${region}` : ''}`}
+        />
+      {/if}
+    {/if}
+  </div>
 </section>
 
 <section class="block" aria-labelledby="sap-no">
@@ -505,6 +692,178 @@
     font-size: 0.8125rem;
     color: var(--color-text-muted);
     text-decoration: underline;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .where-today-box {
+    background: #fff;
+    border: 1px solid #e7e2d9;
+    border-radius: 18px;
+    padding: var(--space-4);
+    display: grid;
+    gap: var(--space-3);
+  }
+  .where-today-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+  .where-today-intro {
+    flex: 1 1 240px;
+    min-width: 0;
+  }
+  .where-today-intro h2 {
+    margin-bottom: var(--space-1);
+  }
+  .where-today-sub {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    line-height: 1.45;
+  }
+  .where-today-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    flex: 1 1 280px;
+    min-width: 0;
+  }
+  .geo-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: 44px;
+    padding: 0 var(--space-4);
+    border: 1px solid var(--color-text);
+    border-radius: 999px;
+    background: var(--color-text);
+    color: #faf8f5;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .geo-btn:disabled {
+    opacity: 0.7;
+    cursor: wait;
+  }
+  .prov-select-wrap {
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+  .prov-select-wrap select {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 var(--space-3);
+    border: 1px solid #cfc9be;
+    border-radius: 999px;
+    background: #faf8f5;
+    color: var(--color-text);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-sizing: border-box;
+  }
+  .prov-select-wrap select:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
+  }
+  .where-today-hint {
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    border-radius: 12px;
+    background: #f5f1e8;
+    color: #4a453e;
+    font-size: 0.875rem;
+  }
+  .nearest-list {
+    display: grid;
+    gap: var(--space-2);
+    border-top: 1px solid #ece7de;
+    padding-top: var(--space-3);
+  }
+  .nearest-item {
+    display: grid;
+    gap: 6px;
+    padding: var(--space-3);
+    border-radius: 14px;
+    background: #faf8f5;
+    border: 1px solid #ece7de;
+  }
+  .nearest-row-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+  .nearest-place-name {
+    font-size: 0.9375rem;
+    min-width: 0;
+  }
+  .nearest-prov {
+    color: var(--color-text-muted);
+  }
+  .nearest-meta {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .nearest-dist {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: #efeae1;
+    color: #3a3630;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .nearest-flowers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+    font-size: 0.875rem;
+  }
+  .nearest-flowers li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .nearest-flowers a {
+    color: var(--color-text);
+    font-weight: 600;
+    text-decoration: underline;
+  }
+  .where-today-source {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    line-height: 1.4;
+  }
+  .where-today-empty {
+    margin: 0;
+    padding-top: var(--space-2);
+    border-top: 1px solid #ece7de;
   }
 
   @media (min-width: 1024px) {

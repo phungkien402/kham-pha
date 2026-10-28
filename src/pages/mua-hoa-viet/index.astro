@@ -32,7 +32,7 @@ const places: PlaceLite[] = (await getCollection('places')).map(({ data: p }) =>
   name: p.name,
   province: p.province,
   region: p.region,
-  ...(p.lat != null && p.lng != null ? toPercent(p.lat, p.lng) : {}),
+  ...(p.lat != null && p.lng != null ? { lat: p.lat, lng: p.lng, ...toPercent(p.lat, p.lng) } : {}),
   maps_url: p.maps_url,
   flowers: p.flowers.map((pf) => ({
     slug: pf.slug,

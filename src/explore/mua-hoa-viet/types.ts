@@ -23,6 +23,9 @@ export interface PlaceLite {
   province: string;
   region: Region;
   flowers: { slug: string; best: string }[];
+  /** Toạ độ địa lý (WGS84) để tính khoảng cách Haversine. */
+  lat?: number;
+  lng?: number;
   /** Vị trí trên bản đồ (phần trăm); bỏ qua nếu điểm chưa có toạ độ. */
   x?: number;
   y?: number;
