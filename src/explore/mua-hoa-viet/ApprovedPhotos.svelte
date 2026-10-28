@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Postcard from './Postcard.svelte';
   import {
     fetchPublicPhotos,
     mergeGridPhotos,
@@ -90,7 +91,10 @@
 
 {#if displayPhotos.length > 0}
   <section class="block" aria-labelledby="flower-photos-heading">
-    <h2 id="flower-photos-heading">Ảnh</h2>
+    <div class="photos-head">
+      <h2 id="flower-photos-heading">Ảnh</h2>
+      <span class="photos-count">{displayPhotos.length} tấm · từ người xem</span>
+    </div>
     <ul class="grid-photos">
       {#each displayPhotos as item, i (item.id)}
         <li>
@@ -133,6 +137,19 @@
           </small>
         </li>
       {/each}
+      {#if displayPhotos.length < 6 && flowerSlug}
+        <li class="tile-item">
+          <Postcard
+            variant="tile"
+            stamp="camera"
+            {color}
+            title="Mùa này bạn có ghé không?"
+            body="Mỗi tấm ảnh giữ lại một mùa hoa, kèm tên người chụp."
+            cta="Gửi bưu thiếp ảnh"
+            href={`/gui-anh?hoa=${flowerSlug}`}
+          />
+        </li>
+      {/if}
     </ul>
   </section>
 {/if}
@@ -237,9 +254,20 @@
   .block {
     margin-top: var(--space-8);
   }
+  .photos-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
   h2 {
     font-size: 1.25rem;
-    margin-bottom: var(--space-3);
+    margin: 0;
+  }
+  .photos-count {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
   }
   .grid-photos {
     list-style: none;

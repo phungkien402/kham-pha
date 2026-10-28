@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { compressPhotoFile } from '../compressImage';
+  import Postcard from '../Postcard.svelte';
+  import { vnParts } from '../season';
 
   interface FlowerOption {
     slug: string;
@@ -47,6 +49,10 @@
   const otherPlaces = $derived(
     places.filter((p) => !p.flowers.includes(flower)),
   );
+  const sentPostmark = $derived.by(() => {
+    const now = vnParts(new Date());
+    return `ĐÃ GỬI\n${now.day}·${now.month}`;
+  });
 
   onMount(() => {
     try {
@@ -314,7 +320,13 @@
       <p class="status error" role="alert">{errorMessage}</p>
     {/if}
     {#if successMessage}
-      <p class="status success" role="status">{successMessage}</p>
+      <Postcard
+        variant="thanks"
+        postmark={sentPostmark}
+        kicker="Cảm ơn bạn!"
+        title="Bưu thiếp đã lên đường ✉"
+        body={successMessage}
+      />
     {/if}
 
     <button type="submit" class="btn primary" disabled={submitting}>

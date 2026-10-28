@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Postcard from './Postcard.svelte';
   import {
     fetchPublicPhotos,
     formatCarouselCaption,
@@ -28,6 +29,9 @@
 
   const displayPhotos = $derived(
     mergeCarouselPhotos(photos, apiPhotos, color, flowerName),
+  );
+  const hasRealPhoto = $derived(
+    displayPhotos.some((p) => Boolean(p.img?.src)),
   );
 
   onMount(() => {
@@ -113,7 +117,22 @@
               fetchpriority={i === 0 ? 'high' : undefined}
             />
           {/if}
-          <figcaption>{formatCarouselCaption(p)}</figcaption>
+          {#if i === 0 && !hasRealPhoto && flowerSlug}
+            <div class="overlay-wrap">
+              <Postcard
+                variant="overlay"
+                stamp="camera"
+                color={p.color || color}
+                kicker="Chưa ai gửi về…"
+                title={`${flowerName || p.alt} mùa này chưa có tấm ảnh nào.`}
+                body="Tấm đầu tiên sẽ mang tên bạn."
+                cta="Gửi tấm đầu tiên"
+                href={`/gui-anh?hoa=${flowerSlug}`}
+              />
+            </div>
+          {:else}
+            <figcaption>{formatCarouselCaption(p)}</figcaption>
+          {/if}
         </figure>
       {/each}
     </div>
@@ -198,6 +217,15 @@
     background: rgb(31 29 26 / 0.7);
     color: #fff;
     font-size: 0.75rem;
+  }
+  .overlay-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    box-sizing: border-box;
   }
   .nav {
     position: absolute;

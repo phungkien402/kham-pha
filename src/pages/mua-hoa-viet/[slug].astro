@@ -6,6 +6,7 @@ import FlowerNow from '../../explore/mua-hoa-viet/FlowerNow.svelte';
 import DayMoments from '../../explore/mua-hoa-viet/DayMoments.svelte';
 import BloomingWith from '../../explore/mua-hoa-viet/BloomingWith.svelte';
 import ApprovedPhotos from '../../explore/mua-hoa-viet/ApprovedPhotos.svelte';
+import Postcard from '../../explore/mua-hoa-viet/Postcard.svelte';
 import { bloomingWith } from '../../explore/mua-hoa-viet/season';
 import { ogImage, responsive, SIZES } from '../../explore/mua-hoa-viet/images';
 import MapView from '../../explore/mua-hoa-viet/MapView.svelte';
@@ -143,50 +144,63 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
   }
 
   <div class="cols">
-    {
-      spots.length > 0 && (
-        <section class="block">
-          <h2>Ngắm ở đâu</h2>
-          <MapView
-            client:visible
-            currentSlug={f.slug}
-            ratio={WIDTH / HEIGHT}
-            views={VIEWS_PCT}
-            size={[WIDTH, HEIGHT]}
-            region={initialRegion}
-            spots={spots.flatMap((p) =>
-              p.pos
-                ? [{ slug: p.slug, name: p.name, province: p.province, maps_url: p.maps_url, ...p.pos, flowers: [{ slug: f.slug, name: f.name, color: f.color, best: p.best }] }]
-                : [],
-            )}
-          >
-            <MapSvg
+    <section class="block">
+      <h2>Ngắm ở đâu</h2>
+      {
+        spots.length > 0 ? (
+          <>
+            <MapView
+              client:visible
+              currentSlug={f.slug}
+              ratio={WIDTH / HEIGHT}
+              views={VIEWS_PCT}
+              size={[WIDTH, HEIGHT]}
               region={initialRegion}
-              label={`Bản đồ Việt Nam, gồm quần đảo Hoàng Sa và Trường Sa, đánh dấu các điểm ngắm ${f.name.toLowerCase()}. Danh sách điểm ngắm ở bên dưới.`}
-            />
-          </MapView>
-          <MapCredit />
-          <ul class="spots">
-            {spots.map((s) => (
-              <li>
-                <span>
-                  <strong>{s.name}</strong>, {s.province}
-                  {s.maps_url && (
-                    <>
-                      {' · '}
-                      <a class="maps-link" href={s.maps_url} target="_blank" rel="noopener noreferrer">
-                        Mở Google Maps
-                      </a>
-                    </>
-                  )}
-                </span>
-                <span class="best">{s.best}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )
-    }
+              spots={spots.flatMap((p) =>
+                p.pos
+                  ? [{ slug: p.slug, name: p.name, province: p.province, maps_url: p.maps_url, ...p.pos, flowers: [{ slug: f.slug, name: f.name, color: f.color, best: p.best }] }]
+                  : [],
+              )}
+            >
+              <MapSvg
+                region={initialRegion}
+                label={`Bản đồ Việt Nam, gồm quần đảo Hoàng Sa và Trường Sa, đánh dấu các điểm ngắm ${f.name.toLowerCase()}. Danh sách điểm ngắm ở bên dưới.`}
+              />
+            </MapView>
+            <MapCredit />
+            <ul class="spots">
+              {spots.map((s) => (
+                <li>
+                  <span>
+                    <strong>{s.name}</strong>, {s.province}
+                    {s.maps_url && (
+                      <>
+                        {' · '}
+                        <a class="maps-link" href={s.maps_url} target="_blank" rel="noopener noreferrer">
+                          Mở Google Maps
+                        </a>
+                      </>
+                    )}
+                  </span>
+                  <span class="best">{s.best}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p class="empty">Chưa có điểm ngắm được ghi nhận cho loài hoa này.</p>
+        )
+      }
+      <Postcard
+        variant="row"
+        stamp="pin"
+        color={f.color}
+        title={`Biết một chỗ ngắm ${f.name.toLowerCase()} ít người tìm tới?`}
+        body="Ghim lại cho người đi sau. Chỉ cần một link Google Maps."
+        cta="Ghim lên bản đồ"
+        href={`/them-dia-diem?hoa=${f.slug}`}
+      />
+    </section>
     <ApprovedPhotos
       client:idle
       flowerSlug={f.slug}
@@ -284,16 +298,6 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
     }
   </div>
 
-  <div class="submit-photo-cta">
-    <div>
-      <p>Bạn có ảnh {f.name.toLowerCase()} tự chụp?</p>
-      <p class="contribute-sub">
-        Biết thêm thông tin? <a href="/them-dia-diem">Thêm điểm ngắm</a> · <a href="/them-hoa">Thêm loài hoa</a>
-      </p>
-    </div>
-    <a href={`/gui-anh?hoa=${f.slug}`} class="submit-photo-btn">Gửi ảnh của bạn</a>
-  </div>
-
   {
     related.length > 0 && (
       <section class="block">
@@ -342,59 +346,14 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
     font-size: 0.8125rem;
     color: #6b655c;
   }
-  .submit-photo-cta {
-    margin-top: var(--space-6);
-    padding: var(--space-4);
-    border-radius: 16px;
-    background: #fff;
-    border: 1px solid #e7e2d9;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-  }
-  .submit-photo-cta p {
-    margin: 0;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    color: var(--color-text);
-  }
-  .submit-photo-cta .contribute-sub {
-    margin-top: 0.25rem;
-    font-size: 0.8125rem;
-    font-weight: 400;
-    color: var(--color-text-muted);
-  }
-  .submit-photo-cta .contribute-sub a {
-    color: var(--color-text);
-    font-weight: 600;
-    text-decoration: underline;
-  }
   .maps-link {
     font-size: 0.8125rem;
     color: var(--color-text-muted);
     text-decoration: underline;
   }
-  .submit-photo-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 40px;
-    padding: 0.5rem 1rem;
-    border-radius: 10px;
-    background: var(--color-text);
-    color: #faf8f5;
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-decoration: none;
-  }
-  .submit-photo-btn:hover {
-    opacity: 0.92;
-  }
-  .submit-photo-btn:focus-visible {
-    outline: 3px solid var(--color-text);
-    outline-offset: 2px;
+  .empty {
+    color: var(--color-text-muted);
+    font-size: 0.9375rem;
   }
   .photo-credits h2 {
     font-size: 0.875rem;

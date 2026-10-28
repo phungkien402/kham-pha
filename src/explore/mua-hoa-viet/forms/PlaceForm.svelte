@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import Postcard from '../Postcard.svelte';
+  import { vnParts } from '../season';
   import {
     PROVINCES_BY_REGION,
     REGION_LABELS,
@@ -83,6 +86,35 @@
   let submitting = $state(false);
   let errorMessage = $state('');
   let successMessage = $state('');
+
+  const sentPostmark = $derived.by(() => {
+    const now = vnParts(new Date());
+    return `ĐÃ GỬI\n${now.day}·${now.month}`;
+  });
+
+  onMount(() => {
+    if (mode !== 'public' || initialData) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const hoaParam = params.get('hoa')?.trim();
+      if (
+        hoaParam &&
+        flowers.some((f) => f.slug === hoaParam) &&
+        !selectedFlowerSlugs.includes(hoaParam)
+      ) {
+        selectedFlowerSlugs = [...selectedFlowerSlugs, hoaParam];
+      }
+      const mienParam = params.get('mien')?.trim();
+      if (mienParam === 'bac' || mienParam === 'trung' || mienParam === 'nam') {
+        region = mienParam;
+        if (!PROVINCES_BY_REGION[mienParam].includes(province)) {
+          province = PROVINCES_BY_REGION[mienParam][0];
+        }
+      }
+    } catch {
+      // Bỏ qua nếu không đọc được query string
+    }
+  });
 
   function onProvinceChange(e: Event) {
     const val = (e.currentTarget as HTMLSelectElement).value;
@@ -355,7 +387,17 @@
     <p class="status error" role="alert">{errorMessage}</p>
   {/if}
   {#if successMessage}
-    <p class="status success" role="status">{successMessage}</p>
+    {#if mode === 'public'}
+      <Postcard
+        variant="thanks"
+        postmark={sentPostmark}
+        kicker="Cảm ơn bạn!"
+        title="Bưu thiếp đã lên đường ✉"
+        body={successMessage}
+      />
+    {:else}
+      <p class="status success" role="status">{successMessage}</p>
+    {/if}
   {/if}
 
   <div class="form-actions">

@@ -6,6 +6,7 @@
   import MapView from './MapView.svelte';
   import MapCredit from './MapCredit.svelte';
   import RegionSeg from './RegionSeg.svelte';
+  import Postcard from './Postcard.svelte';
   import { applyCoversToFlowers, fetchCovers, type CoversMap } from './publicPhotos';
   import type { Snippet } from 'svelte';
   import type { Filter, FlowerLite, MapSpot, PlaceLite } from './types';
@@ -150,46 +151,57 @@
 
 <section class="block" aria-labelledby="dang-no">
   <h2 id="dang-no">Đang nở</h2>
-  {#if blooming.length}
-    <ul class="cards">
-      {#each blooming as f (f.slug)}
-        <li>
-          <a class="card" href="/mua-hoa-viet/{f.slug}/">
-            <div class="thumb" style:background={placeholder(f.color)}>
-              {#if f.photo}<img
-                  src={f.photo.src}
-                  srcset={f.photo.srcset}
-                  sizes="(min-width: 1024px) 360px, 88px"
-                  alt={f.photoAlt ?? f.name}
-                  loading="lazy"
-                  width="88"
-                  height="88"
-                />{/if}
-            </div>
-            <div class="body">
-              <div class="name-row">
-                <h3>{f.name}</h3>
-                {#if showEndingTag(f, month, today)}<span class="tag">Sắp tàn</span>{/if}
-              </div>
-              <p class="where">{f.regionLabel}</p>
-              <div class="strip" aria-hidden="true">
-                {#each MONTHS as m}
-                  <span
-                    class:on={inSeason(f, m)}
-                    class:cur={m === month}
-                    style:background={inSeason(f, m) ? f.color : undefined}
-                  ></span>
-                {/each}
-              </div>
-              <p class="when">Mùa nở: {monthRangeLabel(f)}</p>
-            </div>
-          </a>
-        </li>
-      {/each}
-    </ul>
-  {:else}
+  {#if !blooming.length}
     <p class="empty">Chưa có loài nào trong dữ liệu nở ở tháng {month}{region === 'all' ? '' : ' tại miền này'}.</p>
   {/if}
+  <ul class="cards" class:empty-cards={!blooming.length}>
+    {#each blooming as f (f.slug)}
+      <li>
+        <a class="card" href="/mua-hoa-viet/{f.slug}/">
+          <div class="thumb" style:background={placeholder(f.color)}>
+            {#if f.photo}<img
+                src={f.photo.src}
+                srcset={f.photo.srcset}
+                sizes="(min-width: 1024px) 360px, 88px"
+                alt={f.photoAlt ?? f.name}
+                loading="lazy"
+                width="88"
+                height="88"
+              />{/if}
+          </div>
+          <div class="body">
+            <div class="name-row">
+              <h3>{f.name}</h3>
+              {#if showEndingTag(f, month, today)}<span class="tag">Sắp tàn</span>{/if}
+            </div>
+            <p class="where">{f.regionLabel}</p>
+            <div class="strip" aria-hidden="true">
+              {#each MONTHS as m}
+                <span
+                  class:on={inSeason(f, m)}
+                  class:cur={m === month}
+                  style:background={inSeason(f, m) ? f.color : undefined}
+                ></span>
+              {/each}
+            </div>
+            <p class="when">Mùa nở: {monthRangeLabel(f)}</p>
+          </div>
+        </a>
+      </li>
+    {/each}
+    <li>
+      <Postcard
+        variant="card"
+        stamp="flower"
+        postmark={`THÁNG ${month}\n${today.year}`}
+        kicker="Gửi cuốn sổ hoa,"
+        title="Còn bông nào đang nở mà cuốn sổ chưa biết?"
+        body="Mỗi vùng một mùa hoa. Quê bạn có hoa đang nở mà ở đây chưa có thì kể mọi người nghe nhé."
+        cta="Kể về một loài hoa"
+        href={`/them-hoa?thang=${month}${region !== 'all' ? `&mien=${region}` : ''}`}
+      />
+    </li>
+  </ul>
 </section>
 
 <section class="block" aria-labelledby="sap-no">
@@ -240,17 +252,16 @@
       {:else}
         <p class="empty">Chưa có điểm ngắm cho tháng {month}{region === 'all' ? '' : ' ở miền này'}.</p>
       {/if}
+      <Postcard
+        variant="row"
+        stamp="pin"
+        title="Biết một chỗ ngắm hoa đẹp ít người tìm tới?"
+        body="Ghim lại cho người đi sau. Chỉ cần một link Google Maps."
+        cta="Ghim lên bản đồ"
+        href={`/them-dia-diem${region !== 'all' ? `?mien=${region}` : ''}`}
+      />
     </div>
   </div>
-
-  <p class="contribute-links">
-    Biết thêm mùa hoa hay chỗ ngắm đẹp?
-    <a href="/them-hoa">Thêm loài hoa</a>
-    <span aria-hidden="true">·</span>
-    <a href="/them-dia-diem">Thêm điểm ngắm</a>
-    <span aria-hidden="true">·</span>
-    <a href="/gui-anh">Gửi ảnh</a>
-  </p>
 </section>
 
 <style>
@@ -368,6 +379,9 @@
     display: grid;
     gap: var(--space-3);
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  }
+  .cards.empty-cards {
+    margin-top: var(--space-3);
   }
   .card {
     display: grid;
@@ -490,20 +504,6 @@
   .maps-link {
     font-size: 0.8125rem;
     color: var(--color-text-muted);
-    text-decoration: underline;
-  }
-  .contribute-links {
-    margin-top: var(--space-6);
-    font-size: 0.875rem;
-    color: var(--color-text-muted);
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    align-items: center;
-  }
-  .contribute-links a {
-    color: var(--color-text);
-    font-weight: 600;
     text-decoration: underline;
   }
 

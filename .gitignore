@@ -30,3 +30,6 @@ pnpm-debug.log*
 .claude-test-*.md
 AGY_DONE.md
 REVIEW.json
+AGY_UX.md
+AGY_REVIEW.md
+.agy-*.txt

@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import Postcard from '../Postcard.svelte';
+  import { vnParts } from '../season';
   import {
     FLOWER_COLOR_PALETTE,
     PROVINCES_BY_REGION,
@@ -183,6 +186,29 @@
   let submitting = $state(false);
   let errorMessage = $state('');
   let successMessage = $state('');
+
+  const sentPostmark = $derived.by(() => {
+    const now = vnParts(new Date());
+    return `ĐÃ GỬI\n${now.day}·${now.month}`;
+  });
+
+  onMount(() => {
+    if (mode !== 'public' || initialData) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const thangParam = Number(params.get('thang'));
+      if (Number.isInteger(thangParam) && thangParam >= 1 && thangParam <= 12 && seasons.length > 0) {
+        seasons[0].startMonth = thangParam;
+        seasons[0].endMonth = thangParam;
+      }
+      const mienParam = params.get('mien')?.trim();
+      if (mienParam === 'bac' || mienParam === 'trung' || mienParam === 'nam') {
+        regions = [mienParam];
+      }
+    } catch {
+      // Bỏ qua nếu không đọc được query string
+    }
+  });
 
   function toggleRegion(r: RegionCode) {
     if (regions.includes(r)) {
@@ -914,7 +940,17 @@
     <p class="status error" role="alert">{errorMessage}</p>
   {/if}
   {#if successMessage}
-    <p class="status success" role="status">{successMessage}</p>
+    {#if mode === 'public'}
+      <Postcard
+        variant="thanks"
+        postmark={sentPostmark}
+        kicker="Cảm ơn bạn!"
+        title="Bưu thiếp đã lên đường ✉"
+        body={successMessage}
+      />
+    {:else}
+      <p class="status success" role="status">{successMessage}</p>
+    {/if}
   {/if}
 
   <div class="form-actions">
