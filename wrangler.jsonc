@@ -1,31 +1,44 @@
-{
-  // Cấu hình Cloudflare Workers phục vụ web tĩnh từ thư mục dist/ kèm Worker xử lý /api/* và /admin*
-  "name": "kham-pha",
-  "main": "worker/index.ts",
-  "compatibility_date": "2026-10-27",
-  "assets": {
-    "directory": "./dist",
-    "binding": "ASSETS",
-    // Đường dẫn không tồn tại trả về dist/404.html với mã 404
-    "not_found_handling": "404-page",
-    "run_worker_first": ["/api/*", "/admin*"]
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "kham-pha-db",
-      "database_id": "THAY_BANG_ID_D1",
-      "migrations_dir": "migrations"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "BUCKET",
-      "bucket_name": "kham-pha-anh"
-    }
-  ],
-  "vars": {
-    "ACCESS_TEAM": "",
-    "ACCESS_AUD": ""
-  }
+﻿{
+	// Cấu hình Cloudflare Workers phục vụ web tĩnh từ thư mục dist/ kèm Worker xử lý /api/* và /admin*
+	"name": "kham-pha",
+	"main": "worker/index.ts",
+	"compatibility_date": "2026-10-27",
+	"assets": {
+		"directory": "./dist",
+		"binding": "ASSETS",
+		// Đường dẫn không tồn tại trả về dist/404.html với mã 404
+		"not_found_handling": "404-page",
+		"run_worker_first": [
+			"/api/*",
+			"/admin*"
+		]
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "kham-pha-db",
+			"database_id": "195f6db9-bf0f-4365-ae6c-b23d5b724a18",
+			"migrations_dir": "migrations"
+		},
+		{
+			"binding": "kham_pha_db",
+			"database_name": "kham-pha-db",
+			"database_id": "195f6db9-bf0f-4365-ae6c-b23d5b724a18"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "BUCKET",
+			"bucket_name": "kham-pha-anh"
+		},
+		{
+			"bucket_name": "kham-pha-anh",
+			"binding": "kham_pha_anh",
+			"remote": true
+		}
+	],
+	"vars": {
+		"ACCESS_TEAM": "autumn-band-205a.cloudflareaccess.com",
+		"ACCESS_AUD": "d52cb5bf3ffcac70d37d43fee24d4ebdf507c584e2d6f286a72f99148b058a4e"
+	}
 }
