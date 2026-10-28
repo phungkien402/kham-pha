@@ -3,6 +3,10 @@
   import Postcard from './Postcard.svelte';
   import {
     fetchPublicPhotos,
+    firstSentSummary,
+    formatTakenOn,
+    getDistinctYears,
+    groupByYear,
     mergeGridPhotos,
     type GridPhotoInput,
     type PublicPhoto,
@@ -24,12 +28,27 @@
 
   let apiPhotos = $state<PublicPhoto[]>([]);
   let activeIndex = $state<number | null>(null);
+  let selectedYear = $state<number | 'all'>('all');
 
   const displayPhotos = $derived(
     mergeGridPhotos(initialPhotos, apiPhotos, color, flowerName),
   );
+
+  const yearGroups = $derived(groupByYear(displayPhotos));
+  const availableYears = $derived(getDistinctYears(yearGroups));
+
+  const filteredPhotos = $derived(
+    availableYears.length >= 2 && selectedYear !== 'all'
+      ? (yearGroups[selectedYear] ?? [])
+      : displayPhotos,
+  );
+
+  const firstSentNote = $derived(
+    availableYears.length >= 2 ? firstSentSummary(yearGroups) : '',
+  );
+
   const activeItem = $derived(
-    activeIndex !== null ? (displayPhotos[activeIndex] ?? null) : null,
+    activeIndex !== null ? (filteredPhotos[activeIndex] ?? null) : null,
   );
 
   onMount(() => {
@@ -47,8 +66,13 @@
     };
   });
 
+  function selectYear(year: number | 'all') {
+    selectedYear = year;
+    activeIndex = null;
+  }
+
   function openLightbox(index: number) {
-    if (index < 0 || index >= displayPhotos.length) return;
+    if (index < 0 || index >= filteredPhotos.length) return;
     activeIndex = index;
   }
 
@@ -62,7 +86,7 @@
   }
 
   function nextPhoto() {
-    if (activeIndex === null || activeIndex >= displayPhotos.length - 1) return;
+    if (activeIndex === null || activeIndex >= filteredPhotos.length - 1) return;
     activeIndex = activeIndex + 1;
   }
 
@@ -93,10 +117,45 @@
   <section class="block" aria-labelledby="flower-photos-heading">
     <div class="photos-head">
       <h2 id="flower-photos-heading">Ảnh</h2>
-      <span class="photos-count">{displayPhotos.length} tấm · từ người xem</span>
+      <span class="photos-count">
+        {#if availableYears.length >= 2 && selectedYear !== 'all'}
+          {filteredPhotos.length} tấm ({selectedYear}) · từ người xem
+        {:else}
+          {displayPhotos.length} tấm · từ người xem
+        {/if}
+      </span>
     </div>
+
+    {#if availableYears.length >= 2}
+      <div class="year-chips" role="group" aria-label="Lọc ảnh theo năm">
+        <button
+          type="button"
+          class="year-chip"
+          class:active={selectedYear === 'all'}
+          aria-pressed={selectedYear === 'all'}
+          onclick={() => selectYear('all')}
+        >
+          Tất cả
+        </button>
+        {#each availableYears as year}
+          <button
+            type="button"
+            class="year-chip"
+            class:active={selectedYear === year}
+            aria-pressed={selectedYear === year}
+            onclick={() => selectYear(year)}
+          >
+            {year}
+          </button>
+        {/each}
+      </div>
+      {#if firstSentNote}
+        <p class="first-sent-note">{firstSentNote}</p>
+      {/if}
+    {/if}
+
     <ul class="grid-photos">
-      {#each displayPhotos as item, i (item.id)}
+      {#each filteredPhotos as item, i (item.id)}
         <li>
           <button
             type="button"
@@ -130,7 +189,7 @@
             {/if}{#if item.place}
               <span>{' · '}{placesMap[item.place] ?? item.place}</span>
             {/if}{#if item.takenOn}
-              <span>{' · '}{item.takenOn}</span>
+              <span>{' · '}{formatTakenOn(item.takenOn)}</span>
             {/if}{#if item.mapsUrl}
               <span>{' · '}<a href={item.mapsUrl} target="_blank" rel="noopener noreferrer">Chỗ chụp trên Google Maps</a></span>
             {/if}
@@ -183,7 +242,7 @@
       </svg>
     </button>
 
-    {#if displayPhotos.length > 1}
+    {#if filteredPhotos.length > 1}
       <button
         type="button"
         class="nav prev"
@@ -206,7 +265,7 @@
         type="button"
         class="nav next"
         aria-label="Ảnh sau"
-        disabled={activeIndex >= displayPhotos.length - 1}
+        disabled={activeIndex >= filteredPhotos.length - 1}
         onclick={nextPhoto}
       >
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -242,6 +301,8 @@
           <span>{activeItem.author}</span>
         {/if}{#if activeItem.license}
           <span>{' · '}{activeItem.license}</span>
+        {/if}{#if activeItem.takenOn}
+          <span>{' · '}{formatTakenOn(activeItem.takenOn)}</span>
         {/if}{#if activeItem.mapsUrl}
           <span>{' · '}<a href={activeItem.mapsUrl} target="_blank" rel="noopener noreferrer">Chỗ chụp trên Google Maps</a></span>
         {/if}
@@ -269,6 +330,50 @@
     font-size: 0.875rem;
     color: var(--color-text-muted);
   }
+
+  .year-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .year-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: #fff;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    line-height: 1.4;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .year-chip:hover {
+    color: var(--color-text);
+    border-color: #cfc8be;
+  }
+  .year-chip.active,
+  .year-chip[aria-pressed='true'] {
+    background: var(--color-text);
+    color: #faf8f5;
+    border-color: var(--color-text);
+  }
+  .year-chip:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
+  }
+  .first-sent-note {
+    margin: 0 0 var(--space-3);
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+  }
+
   .grid-photos {
     list-style: none;
     margin: 0;

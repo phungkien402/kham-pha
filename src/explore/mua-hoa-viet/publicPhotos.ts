@@ -1,4 +1,5 @@
 import type { ResponsiveImage } from './images';
+export * from './photoYear';
 
 export interface PublicPhoto {
   id: string;
@@ -315,6 +316,9 @@ export interface GridPhotoInput {
   caption?: string | null;
   place?: string | null;
   taken_on?: string | null;
+  takenOn?: string | null;
+  created_at?: string | null;
+  createdAt?: string | null;
   maps_url?: string | null;
   status?: 'approved' | 'pending' | string;
   color?: string;
@@ -335,6 +339,9 @@ export interface GridPhotoItem {
   caption?: string;
   place?: string;
   takenOn?: string;
+  taken_on?: string;
+  createdAt?: string;
+  created_at?: string;
   mapsUrl?: string;
   color: string;
 }
@@ -391,6 +398,9 @@ export function publicPhotoToGridItem(
     caption: p.caption || undefined,
     place: p.place || undefined,
     takenOn: p.taken_on || undefined,
+    taken_on: p.taken_on || undefined,
+    createdAt: p.created_at || undefined,
+    created_at: p.created_at || undefined,
     mapsUrl: sanitizeAuthorLink(p.maps_url),
     color,
   };
@@ -405,6 +415,8 @@ function initialPhotoToGridItem(
   const fullImg = p.fullImg ?? p.img;
   const thumbSrc = p.src600 || thumbImg?.src || p.src || '';
   const fullSrc = p.src || largestSrcFromResponsive(fullImg) || thumbSrc;
+  const taken = p.taken_on || p.takenOn || undefined;
+  const created = p.created_at || p.createdAt || undefined;
   return {
     id: `init-${index}-${thumbSrc}`,
     thumbSrc,
@@ -419,7 +431,10 @@ function initialPhotoToGridItem(
     license: p.license && p.license !== 'Chưa có' ? p.license : undefined,
     caption: p.caption || undefined,
     place: p.place || undefined,
-    takenOn: p.taken_on || undefined,
+    takenOn: taken,
+    taken_on: taken,
+    createdAt: created,
+    created_at: created,
     mapsUrl: sanitizeAuthorLink(p.maps_url),
     color: p.color || fallbackColor,
   };

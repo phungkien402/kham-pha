@@ -44,6 +44,8 @@ const initialGridPhotos = f.photos.map((p, i) => ({
   license: p.license,
   status: p.status,
   color: f.color,
+  taken_on: (p as any).taken_on ?? (p as any).takenOn,
+  created_at: (p as any).created_at ?? (p as any).createdAt,
 }));
 const realPhoto = f.photos.find((p) => p.src);
 const og = realPhoto?.src ? await ogImage(realPhoto.src) : undefined;
