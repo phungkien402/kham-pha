@@ -636,8 +636,8 @@ export function buildPosterSvg(
   const footerTextY = vh - padBottom - 8;
   svgParts.push(
     `<line x1="${padX}" y1="${r2(footerLineY)}" x2="${vw - padX}" y2="${r2(footerLineY)}" stroke="#E7E2D9" stroke-width="1.5" />`,
-    `<text x="${padX}" y="${r2(footerTextY)}" font-family="'Be Vietnam Pro', system-ui, sans-serif" font-size="${isLandscape ? 15 : 16}" font-weight="600" fill="#4A453E">${escapeXml(site.name)} · Mùa Hoa Việt</text>`,
-    `<text x="${vw - padX}" y="${r2(footerTextY)}" text-anchor="end" font-family="'Be Vietnam Pro', system-ui, sans-serif" font-size="${isLandscape ? 15 : 16}" font-weight="600" fill="#6B655C">${escapeXml(footerUrl)} (${escapeXml(siteUrlClean)})</text>`,
+    `<text x="${padX}" y="${r2(isLandscape ? footerTextY : footerTextY - 24)}" font-family="'Be Vietnam Pro', system-ui, sans-serif" font-size="${isLandscape ? 15 : 16}" font-weight="600" fill="#4A453E">${escapeXml(site.name)} · Mùa Hoa Việt</text>`,
+    `<text x="${vw - padX}" y="${r2(footerTextY)}" text-anchor="end" font-family="'Be Vietnam Pro', system-ui, sans-serif" font-size="${isLandscape ? 15 : 16}" font-weight="600" fill="#6B655C">${escapeXml(footerUrl.replace(/^https?:\/\//, ''))}</text>`,
     `</svg>`,
   );
 

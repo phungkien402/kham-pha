@@ -180,9 +180,16 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
             <MapCredit />
             <ul class="spots">
               {spots.map((s) => (
-                <li>
+                <li data-spot-slug={s.slug}>
                   <span>
                     <strong>{s.name}</strong>, {s.province}
+                    <span class="spot-weekly-pill" data-weekly-spot={s.slug} hidden>
+                      <svg class="camera-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                        <circle cx="12" cy="13" r="4"></circle>
+                      </svg>
+                      <span class="spot-weekly-count"></span>
+                    </span>
                     {s.maps_url && (
                       <>
                         {' · '}
@@ -457,6 +464,29 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
     font-weight: 600;
     color: #4a453e;
   }
+  .spot-weekly-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid #c8e6c9;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .spot-weekly-pill[hidden] {
+    display: none !important;
+  }
+  .spot-weekly-pill .camera-icon {
+    display: inline-block;
+    vertical-align: -1px;
+    flex: none;
+  }
 
   .grid-photos {
     display: grid;
@@ -610,3 +640,20 @@ const placeholder = `color-mix(in srgb, ${f.color} 72%, white)`;
     }
   }
 </style>
+
+<script>
+  import { fetchWeeklyPhotos } from '../../explore/mua-hoa-viet/publicPhotos';
+
+  fetchWeeklyPhotos().then((res) => {
+    if (!res?.places) return;
+    document.querySelectorAll<HTMLElement>('[data-weekly-spot]').forEach((el) => {
+      const slug = el.dataset.weeklySpot;
+      const count = slug ? res.places[slug] : 0;
+      if (count && count > 0) {
+        const countEl = el.querySelector('.spot-weekly-count');
+        if (countEl) countEl.textContent = String(count);
+        el.removeAttribute('hidden');
+      }
+    });
+  });
+</script>

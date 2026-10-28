@@ -22,7 +22,12 @@
     REGION_LABELS,
     getProvinceCoords,
   } from './provinces';
-  import { applyCoversToFlowers, fetchCovers, type CoversMap } from './publicPhotos';
+  import {
+    applyCoversToFlowers,
+    fetchCovers,
+    fetchWeeklyPhotos,
+    type CoversMap,
+  } from './publicPhotos';
   import type { Snippet } from 'svelte';
   import type { Filter, FlowerLite, MapSpot, PlaceLite } from './types';
 
@@ -49,6 +54,8 @@
   let region = $state<Filter>('all');
   let monthRow: HTMLElement | undefined = $state();
   let covers = $state<CoversMap>({});
+  let weeklyPlaces = $state<Record<string, number>>({});
+  let weeklyFlowers = $state<Record<string, number>>({});
 
   const PROVINCE_STORAGE_KEY = 'mua-hoa-viet:province';
   let selectedProvince = $state('');
@@ -100,6 +107,17 @@
     fetchCovers().then((map) => {
       if (!cancelled && Object.keys(map).length > 0) {
         covers = map;
+      }
+    });
+
+    fetchWeeklyPhotos().then((res) => {
+      if (!cancelled && res) {
+        if (res.places && Object.keys(res.places).length > 0) {
+          weeklyPlaces = res.places;
+        }
+        if (res.flowers && Object.keys(res.flowers).length > 0) {
+          weeklyFlowers = res.flowers;
+        }
       }
     });
     return () => {
@@ -358,6 +376,7 @@
           <div class="body">
             <div class="name-row">
               <h3>{f.name}</h3>
+              {#if (weeklyFlowers[f.slug] || 0) > 0}<span class="tag tag-new-photo">Mới có ảnh</span>{/if}
               {#if showEndingTag(f, month, today)}<span class="tag">Sắp tàn</span>{/if}
             </div>
             <p class="where">{f.regionLabel}</p>
@@ -527,7 +546,7 @@
   <h2 id="ngam">Ngắm ở đâu</h2>
   <div class="where-wrap">
     <div class="map">
-      <MapView spots={mapSpots} ratio={mapRatio} views={mapViews} size={mapSize} bind:region>
+      <MapView spots={mapSpots} ratio={mapRatio} views={mapViews} size={mapSize} bind:region {weeklyPlaces}>
         {@render children?.()}
       </MapView>
       <MapCredit />
@@ -542,6 +561,15 @@
               </span>
               <span>
                 <strong>{p.name}</strong>, {p.province}
+                {#if (weeklyPlaces[p.slug] || 0) > 0}
+                  <span class="spot-weekly-pill" aria-label="{(weeklyPlaces[p.slug])} ảnh tuần này" title="{(weeklyPlaces[p.slug])} ảnh tuần này">
+                    <svg class="camera-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                      <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
+                    <span>{weeklyPlaces[p.slug]}</span>
+                  </span>
+                {/if}
                 {#if p.maps_url}
                   {' · '}<a class="maps-link" href={p.maps_url} target="_blank" rel="noopener noreferrer">Mở Google Maps</a>
                 {/if}
@@ -852,6 +880,11 @@
     background: #efeae1;
     color: #4a453e;
   }
+  .tag.tag-new-photo {
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid #c8e6c9;
+  }
   .where {
     font-size: 0.8125rem;
     color: var(--color-text-muted);
@@ -945,6 +978,26 @@
   }
   .spots small {
     color: var(--color-text-muted);
+  }
+  .spot-weekly-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid #c8e6c9;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .spot-weekly-pill .camera-icon {
+    display: inline-block;
+    vertical-align: -1px;
+    flex: none;
   }
   .dots {
     display: flex;

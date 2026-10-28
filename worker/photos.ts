@@ -1,5 +1,9 @@
 import { isKnownFlowerSlug, isValidGoogleMapsUrl } from './extra';
 import {
+  countWeeklyPhotos,
+  type WeeklyPhotoCounts,
+} from '../src/explore/mua-hoa-viet/weeklyPhotos';
+import {
   ensureSchema,
   getBucket,
   getDb,
@@ -109,6 +113,33 @@ export async function handleGetPhotoCovers(_request: Request, env: Env): Promise
     200,
     { 'Cache-Control': 'no-cache' },
   );
+}
+
+export async function getWeeklyPhotosCount(
+  env: Env,
+  now: Date = new Date(),
+): Promise<WeeklyPhotoCounts> {
+  const db = getDb(env);
+  await ensureSchema(db);
+  const { results } = await db
+    .prepare(
+      `SELECT id, flower, place, status, created_at, taken_on
+       FROM photos
+       WHERE status = 'approved'`,
+    )
+    .all<PhotoRow>();
+
+  return countWeeklyPhotos(results ?? [], now, 7);
+}
+
+export async function handleGetWeeklyPhotos(
+  _request: Request,
+  env: Env,
+): Promise<Response> {
+  const counts = await getWeeklyPhotosCount(env);
+  return jsonResponse(counts, 200, {
+    'Cache-Control': 'public, max-age=300',
+  });
 }
 
 export async function handleGetPhotoFile(

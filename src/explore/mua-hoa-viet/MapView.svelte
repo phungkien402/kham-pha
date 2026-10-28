@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { untrack } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import RegionSeg from './RegionSeg.svelte';
+  import { fetchWeeklyPhotos } from './publicPhotos';
   import type { Filter, MapSpot } from './types';
 
   type View = number[];
@@ -16,11 +17,43 @@
     /** Kích thước SVG đầy đủ [rộng, cao], để đổi phần trăm sang viewBox. */
     size: [number, number];
     region?: Filter;
+    weeklyPlaces?: Record<string, number>;
     /** Bản đồ nền (SVG vẽ lúc build, truyền qua slot). */
     children?: Snippet;
   }
 
-  let { spots, currentSlug, ratio, views, size, region = $bindable('all'), children }: Props = $props();
+  let {
+    spots,
+    currentSlug,
+    ratio,
+    views,
+    size,
+    region = $bindable('all'),
+    weeklyPlaces = $bindable({}),
+    children,
+  }: Props = $props();
+
+  let internalWeeklyPlaces = $state<Record<string, number>>({});
+  const activeWeeklyPlaces = $derived(
+    weeklyPlaces && Object.keys(weeklyPlaces).length > 0 ? weeklyPlaces : internalWeeklyPlaces,
+  );
+
+  onMount(() => {
+    if (!weeklyPlaces || Object.keys(weeklyPlaces).length === 0) {
+      let cancelled = false;
+      fetchWeeklyPhotos().then((res) => {
+        if (!cancelled && res?.places && Object.keys(res.places).length > 0) {
+          internalWeeklyPlaces = res.places;
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+  });
+
+  const clusterWeeklyCount = (c: Cluster) =>
+    c.spots.reduce((sum, s) => sum + (activeWeeklyPlaces[s.slug] || 0), 0);
 
   // Các điểm gần nhau hơn MIN_GAP (px, tính trên khung ~300px SAU khi zoom) được GỘP thành một nút đặt ở vị trí
   // trung bình — không đẩy lệch chấm, vì đẩy lệch làm sai vị trí địa lý (vd Hồ Tây bị đẩy sang tận Thái Bình).
@@ -134,7 +167,12 @@
       aria-expanded={c.key === selectedKey}
       onclick={() => (selectedKey = c.key === selectedKey ? null : c.key)}
     >
-      <span class="dot" class:on={c.key === selectedKey} style:background={dotBg(c)}>
+      <span
+        class="dot"
+        class:on={c.key === selectedKey}
+        class:has-weekly={clusterWeeklyCount(c) > 0}
+        style:background={dotBg(c)}
+      >
         {#if c.spots.length > 1}<span class="count" aria-hidden="true">{c.spots.length}</span>{/if}
       </span>
     </button>
@@ -147,6 +185,9 @@
         <div class="place">
           <strong>{s.name}</strong>
           <span class="prov">{s.province}</span>
+          {#if (activeWeeklyPlaces[s.slug] || 0) > 0}
+            <span class="weekly-tag">{(activeWeeklyPlaces[s.slug])} ảnh tuần này</span>
+          {/if}
           {#if s.maps_url}
             {' · '}<a class="maps-link" href={s.maps_url} target="_blank" rel="noopener noreferrer">Mở Google Maps</a>
           {/if}
@@ -292,9 +333,49 @@
     outline: 3px solid var(--color-text);
     border-radius: 12px;
   }
+  .weekly-tag {
+    display: inline-block;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid #c8e6c9;
+    margin-left: var(--space-2);
+    vertical-align: middle;
+  }
+  .dot.has-weekly::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid #2e7d32;
+    box-shadow: 0 0 6px rgba(46, 125, 50, 0.5);
+    animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    pointer-events: none;
+  }
+  @keyframes pulse-ring {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 0.85;
+      box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.4);
+    }
+    50% {
+      transform: scale(1.35);
+      opacity: 0.25;
+      box-shadow: 0 0 8px 2px rgba(46, 125, 50, 0.6);
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     .dot {
       transition: none;
+    }
+    .dot.has-weekly::after {
+      animation: none;
+      opacity: 0.8;
+      transform: scale(1.15);
     }
   }
 </style>

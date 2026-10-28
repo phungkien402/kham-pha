@@ -62,6 +62,7 @@ import {
 import {
   approveAdminPhoto,
   deleteAdminPhoto,
+  getWeeklyPhotosCount,
   handleApproveAdminPhoto,
   handleDeleteAdminPhoto,
   handleGetAdminPhotoFile,
@@ -69,6 +70,7 @@ import {
   handleGetPhotoCovers,
   handleGetPhotoFile,
   handleGetPublicPhotos,
+  handleGetWeeklyPhotos,
   handleHideAdminPhoto,
   handleRejectAdminPhoto,
   hideAdminPhoto,
@@ -78,6 +80,12 @@ import {
   rejectAdminPhoto,
   type ApprovePhotoUpdates,
 } from './photos';
+import {
+  countWeeklyPhotos,
+  isPhotoInPast7Days,
+  isPhotoInPastDays,
+  type WeeklyPhotoCounts,
+} from '../src/explore/mua-hoa-viet/weeklyPhotos';
 import {
   ensureSchema,
   getBucket,
@@ -114,6 +122,7 @@ export {
   clearJwksCache,
   clearRemoteDataCache,
   computeDefaultPeak,
+  countWeeklyPhotos,
   deleteAdminPhoto,
   detectImageFormat,
   ensureSchema,
@@ -126,6 +135,7 @@ export {
   getClientIp,
   getDb,
   getRegionForProvince,
+  getWeeklyPhotosCount,
   handleAdminTriggerBuild,
   handleAdminUpload,
   handleApproveAdminFlower,
@@ -145,6 +155,7 @@ export {
   handleGetPhotoFile,
   handleGetPublicData,
   handleGetPublicPhotos,
+  handleGetWeeklyPhotos,
   handleHideAdminPhoto,
   handlePublicSubmit,
   handlePublicSubmitFlower,
@@ -159,6 +170,8 @@ export {
   hideAdminPhoto,
   isCloudflareBuildEnv,
   isKnownFlowerSlug,
+  isPhotoInPast7Days,
+  isPhotoInPastDays,
   isSkipRemoteDataEnabled,
   isValidFlowerSlug,
   isValidGoogleMapsUrl,
@@ -208,6 +221,7 @@ export {
   type PhotoRow,
   type PlaceExtraData,
   type RegionCode,
+  type WeeklyPhotoCounts,
 };
 
 export default {
@@ -443,6 +457,11 @@ export default {
     // 5. API công khai lấy ảnh bìa (approved mới nhất) của từng loài
     if (pathname === '/api/anh/bia' && method === 'GET') {
       return handleGetPhotoCovers(request, env);
+    }
+
+    // 5b. API công khai đếm ảnh trong 7 ngày gần nhất theo địa điểm và loài hoa (bước 32)
+    if ((pathname === '/api/anh/tuan' || pathname === '/api/anh/tuan/') && method === 'GET') {
+      return handleGetWeeklyPhotos(request, env);
     }
 
     // 6. API công khai phục vụ file ảnh approved (.webp và -600.webp)

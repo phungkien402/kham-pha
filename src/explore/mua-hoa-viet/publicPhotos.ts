@@ -1,5 +1,7 @@
 import type { ResponsiveImage } from './images';
+import { clearWeeklyPhotosCache } from './weeklyPhotos';
 export * from './photoYear';
+export * from './weeklyPhotos';
 
 export interface PublicPhoto {
   id: string;
@@ -67,6 +69,7 @@ export function clearCoversCache(): void {
 export function clearPublicPhotosCache(): void {
   getCache().clear();
   clearCoversCache();
+  clearWeeklyPhotosCache();
 }
 
 export function sortPublicPhotosNewestFirst(list: PublicPhoto[]): PublicPhoto[] {
