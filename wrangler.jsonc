@@ -19,22 +19,12 @@
 			"database_name": "kham-pha-db",
 			"database_id": "195f6db9-bf0f-4365-ae6c-b23d5b724a18",
 			"migrations_dir": "migrations"
-		},
-		{
-			"binding": "kham_pha_db",
-			"database_name": "kham-pha-db",
-			"database_id": "195f6db9-bf0f-4365-ae6c-b23d5b724a18"
 		}
 	],
 	"r2_buckets": [
 		{
 			"binding": "BUCKET",
 			"bucket_name": "kham-pha-anh"
-		},
-		{
-			"bucket_name": "kham-pha-anh",
-			"binding": "kham_pha_anh",
-			"remote": true
 		}
 	],
 	"vars": {
