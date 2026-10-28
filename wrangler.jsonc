@@ -29,6 +29,7 @@
 	],
 	"vars": {
 		"ACCESS_TEAM": "autumn-band-205a.cloudflareaccess.com",
-		"ACCESS_AUD": "d52cb5bf3ffcac70d37d43fee24d4ebdf507c584e2d6f286a72f99148b058a4e"
+		"ACCESS_AUD": "d52cb5bf3ffcac70d37d43fee24d4ebdf507c584e2d6f286a72f99148b058a4e",
+		"TURNSTILE_SITEKEY": "0x4AAAAAAFpG_KK7XNX_hIBU"
 	}
 }
