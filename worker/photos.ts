@@ -61,7 +61,7 @@ export async function handleGetPublicPhotos(request: Request, env: Env): Promise
   return jsonResponse(
     { photos },
     200,
-    { 'Cache-Control': 'public, max-age=60' },
+    { 'Cache-Control': 'no-cache' },
   );
 }
 
@@ -105,7 +105,7 @@ export async function handleGetPhotoCovers(_request: Request, env: Env): Promise
   return jsonResponse(
     { covers },
     200,
-    { 'Cache-Control': 'public, max-age=60' },
+    { 'Cache-Control': 'no-cache' },
   );
 }
 

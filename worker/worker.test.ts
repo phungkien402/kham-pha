@@ -307,9 +307,9 @@ describe('GET /api/anh/bia (ảnh bìa loài)', () => {
     expect(body).toEqual({ covers: {} });
   });
 
-  it('có Cache-Control chứa max-age=60', async () => {
+  it('có Cache-Control no-cache', async () => {
     const res = await call('/api/anh/bia');
-    expect(res.headers.get('Cache-Control') ?? '').toContain('max-age=60');
+    expect(res.headers.get('Cache-Control') ?? '').toContain('no-cache');
   });
 
   it('không bị hiểu nhầm là file ảnh id "bia"', async () => {
@@ -319,5 +319,34 @@ describe('GET /api/anh/bia (ảnh bìa loài)', () => {
     const body: any = await res.json();
     expect(body).toHaveProperty('covers');
     expect(assetsFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('Cache-Control của API ảnh (bước 24)', () => {
+  it('GET /api/anh?flower= trả no-cache, không còn max-age', async () => {
+    await insertRow('cache-1', 'approved');
+    const res = await call('/api/anh?flower=da-quy');
+    expect(res.status).toBe(200);
+    const cc = res.headers.get('Cache-Control') ?? '';
+    expect(cc).toContain('no-cache');
+    expect(cc).not.toContain('max-age');
+  });
+
+  it('GET /api/anh/bia trả no-cache, không còn max-age', async () => {
+    const res = await call('/api/anh/bia');
+    expect(res.status).toBe(200);
+    const cc = res.headers.get('Cache-Control') ?? '';
+    expect(cc).toContain('no-cache');
+    expect(cc).not.toContain('max-age');
+  });
+
+  it('GET /api/anh/<id>.webp của ảnh approved vẫn có max-age ≥ 1 ngày', async () => {
+    await insertRow('cache-2', 'approved');
+    await bucket.put('approved/cache-2.webp', makeWebp(), { httpMetadata: { contentType: 'image/webp' } });
+    const res = await call('/api/anh/cache-2.webp');
+    expect(res.status).toBe(200);
+    const m = /max-age=(\d+)/.exec(res.headers.get('Cache-Control') ?? '');
+    expect(m, 'thiếu max-age').not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThanOrEqual(86400);
   });
 });
