@@ -436,7 +436,8 @@
     const placement = calculateClusterPositions(clusterSizes, {
       baseGap: 4.0,
       rowGap: 6.0,
-      maxRowWidth: Math.max(maxSpan + 1, totalSpan / rows + 1),
+      // Ưu tiên 1 hàng ngang như neal.fun; chỉ xuống hàng khi quá dài so với khung
+      maxRowWidth: Math.max(maxSpan + 1, (totalSpan / rows) * 1.8 + 1),
       maxClustersPerRow: 8,
       minLabelDist: 9.0,
     });
