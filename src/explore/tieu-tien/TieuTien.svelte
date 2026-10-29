@@ -45,6 +45,36 @@
   let shareToast = $state<string | null>(null);
   let viewMode = $state<'3d' | '2d'>('3d');
   let showReceiptModal = $state(false);
+  let showMobileMenu = $state(false);
+
+  // Kích thước viewport cho insets camera fit
+  let windowInnerWidth = $state(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  let windowInnerHeight = $state(typeof window !== 'undefined' ? window.innerHeight : 800);
+
+  onMount(() => {
+    const onResize = () => {
+      windowInnerWidth = window.innerWidth;
+      windowInnerHeight = window.innerHeight;
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  });
+
+  const isMobile = $derived(windowInnerWidth <= 1024);
+
+  // Vùng fit trừ panel mua sắm (380px), khối số dư (trên ~135px), toast mốc (dưới ~90px), hoặc bottom-sheet trên mobile
+  const stageFitInsets = $derived({
+    top: 135,
+    right: isMobile ? 0 : 380,
+    bottom: isMobile
+      ? (sheetState === 'expanded'
+          ? Math.round(windowInnerHeight * 0.82)
+          : sheetState === 'half'
+            ? Math.round(windowInnerHeight * 0.45)
+            : 52) + 16
+      : 90,
+    left: isMobile ? 16 : 24,
+  });
 
   // Trạng thái Mobile Bottom Sheet (mặc định 'half' ~45svh, 'expanded' ~82svh, 'collapsed' ~64px)
   let sheetState = $state<'half' | 'expanded' | 'collapsed'>('half');
@@ -195,6 +225,7 @@
         bind:this={stageRef}
         {cart}
         {items}
+        fitInsets={stageFitInsets}
         onSelectCard={handleSelectFromStage}
       />
 
@@ -227,41 +258,109 @@
 
       <!-- CỤM NÚT CÔNG CỤ NỔI GÓC TRÊN PHẢI SÂN KHẤU -->
       <div class="top-overlay-right" role="toolbar" aria-label="Thanh công cụ sân khấu">
-        <button
-          type="button"
-          class="floating-btn action-btn recenter-btn"
-          onclick={handleRecenter}
-          title="Căn giữa toàn bộ mô hình (Fit)"
-        >
-          🎯 Căn giữa
-        </button>
+        <div class="desktop-actions">
+          <button
+            type="button"
+            class="floating-btn action-btn recenter-btn"
+            onclick={handleRecenter}
+            title="Căn giữa toàn bộ mô hình (Fit)"
+          >
+            🎯 Căn giữa
+          </button>
 
-        <button
-          type="button"
-          class="floating-btn action-btn"
-          onclick={handleShare}
-          title="Chia sẻ kết quả"
-        >
-          🔗 Chia sẻ
-        </button>
+          <button
+            type="button"
+            class="floating-btn action-btn"
+            onclick={handleShare}
+            title="Chia sẻ kết quả"
+          >
+            🔗 Chia sẻ
+          </button>
 
-        <button
-          type="button"
-          class="floating-btn action-btn receipt-btn"
-          onclick={handleOpenReceipt}
-          title="Xem hoá đơn cuộn giấy"
-        >
-          🧾 Hoá đơn
-        </button>
+          <button
+            type="button"
+            class="floating-btn action-btn receipt-btn"
+            onclick={handleOpenReceipt}
+            title="Xem hoá đơn cuộn giấy"
+          >
+            🧾 Hoá đơn
+          </button>
 
-        <button
-          type="button"
-          class="floating-btn action-btn view-toggle-btn"
-          onclick={() => (viewMode = '2d')}
-          title="Chuyển sang chế độ xem thẻ 2D"
-        >
-          📐 <span class="desktop-only-txt">Xem thẻ </span>2D
-        </button>
+          <button
+            type="button"
+            class="floating-btn action-btn view-toggle-btn"
+            onclick={() => (viewMode = '2d')}
+            title="Chuyển sang chế độ xem thẻ 2D"
+          >
+            📐 <span class="desktop-only-txt">Xem thẻ </span>2D
+          </button>
+        </div>
+
+        <div class="mobile-actions">
+          <button
+            type="button"
+            class="floating-btn mobile-menu-btn"
+            onclick={() => (showMobileMenu = !showMobileMenu)}
+            aria-label="Menu chức năng"
+            aria-expanded={showMobileMenu}
+          >
+            ⋯
+          </button>
+
+          {#if showMobileMenu}
+            <div
+              class="mobile-menu-backdrop"
+              onclick={() => (showMobileMenu = false)}
+              role="presentation"
+            ></div>
+            <div class="mobile-menu-dropdown" role="menu">
+              <button
+                type="button"
+                class="mobile-menu-item"
+                role="menuitem"
+                onclick={() => {
+                  handleRecenter();
+                  showMobileMenu = false;
+                }}
+              >
+                🎯 Căn giữa
+              </button>
+              <button
+                type="button"
+                class="mobile-menu-item"
+                role="menuitem"
+                onclick={() => {
+                  handleShare();
+                  showMobileMenu = false;
+                }}
+              >
+                🔗 Chia sẻ
+              </button>
+              <button
+                type="button"
+                class="mobile-menu-item"
+                role="menuitem"
+                onclick={() => {
+                  handleOpenReceipt();
+                  showMobileMenu = false;
+                }}
+              >
+                🧾 Hoá đơn
+              </button>
+              <button
+                type="button"
+                class="mobile-menu-item"
+                role="menuitem"
+                onclick={() => {
+                  viewMode = '2d';
+                  showMobileMenu = false;
+                }}
+              >
+                📐 Xem thẻ 2D
+              </button>
+            </div>
+          {/if}
+        </div>
       </div>
     </div>
 
@@ -448,12 +547,12 @@
     bottom: 0;
   }
 
-  /* Sân khấu chiếm toàn bộ không gian bên trái panel mua sắm */
+  /* Sân khấu chiếm toàn bộ không gian toàn màn hình */
   .stage-viewport-area {
     position: absolute;
     top: 0;
     left: 0;
-    right: 380px;
+    right: 0;
     bottom: 0;
     height: 100svh;
     overflow: hidden;
@@ -473,11 +572,11 @@
     color: #374151;
   }
 
-  /* OVERLAY SỐ DƯ & BẠN ĐÃ TIÊU NỔI Ở GIỮA TRÊN */
+  /* OVERLAY SỐ DƯ & BẠN ĐÃ TIÊU NỔI Ở GIỮA TRÊN (căn giữa vùng sân khấu desktop, trừ panel 380px) */
   .top-overlay-center {
     position: absolute;
     top: 0.85rem;
-    left: 50%;
+    left: calc((100% - 380px) / 2);
     transform: translateX(-50%);
     z-index: 25;
     pointer-events: none;
@@ -550,15 +649,85 @@
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* CỤM NÚT NỔI GÓC TRÊN PHẢI SÂN KHẤU */
+  /* CỤM NÚT NỔI GÓC TRÊN PHẢI SÂN KHẤU (sát mép trái của panel 380px) */
   .top-overlay-right {
     position: absolute;
     top: 0.85rem;
-    right: 1rem;
+    right: calc(380px + 1rem);
     z-index: 25;
     display: flex;
     align-items: center;
     gap: 0.4rem;
+  }
+
+  .desktop-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .mobile-actions {
+    display: none;
+    position: relative;
+  }
+
+  .mobile-menu-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+    border-radius: 50%;
+  }
+
+  .mobile-menu-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: transparent;
+    z-index: 55;
+  }
+
+  .mobile-menu-dropdown {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    background: #ffffff;
+    border: 1px solid #e2ded4;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+    padding: 0.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 175px;
+    z-index: 60;
+    animation: fadeIn 0.12s ease;
+  }
+
+  .mobile-menu-item {
+    padding: 0.55rem 0.75rem;
+    background: transparent;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.825rem;
+    font-weight: 700;
+    color: #1f1d1a;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background 0.12s ease;
+    white-space: nowrap;
+  }
+
+  .mobile-menu-item:hover,
+  .mobile-menu-item:active {
+    background: #f3efe8;
+    color: #059669;
   }
 
   .floating-btn {
@@ -883,6 +1052,8 @@
 
     .top-overlay-center {
       top: 0.5rem;
+      left: 50%;
+      transform: translateX(-50%);
       max-width: 360px;
     }
 
@@ -917,20 +1088,40 @@
       display: none;
     }
 
-    .recenter-btn {
+    .desktop-actions {
       display: none;
     }
 
+    .mobile-actions {
+      display: flex;
+    }
+
     .top-overlay-center {
-      width: 70%;
+      width: calc(100vw - 110px);
+      max-width: 270px;
     }
 
     .balance-pill-card {
-      padding: 0.45rem 0.75rem;
+      padding: 0.35rem 0.65rem 0.45rem;
+      border-radius: 0.85rem;
+    }
+
+    .balance-sub-label {
+      font-size: 0.55rem;
     }
 
     .balance-big-val {
-      font-size: 1.25rem;
+      font-size: 1.15rem;
+    }
+
+    .spent-info-row {
+      font-size: 0.675rem;
+      gap: 0.3rem;
+    }
+
+    .ratio-chip {
+      font-size: 0.6rem;
+      padding: 0.05rem 0.3rem;
     }
 
     .products-grid-2d {

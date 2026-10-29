@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import type { Milestone } from './types';
 
   interface Props {
@@ -7,29 +8,54 @@
   }
 
   let { milestones, onDismiss }: Props = $props();
+
+  // Chỉ hiển thị đúng 1 toast tại một thời điểm (lấy mốc mới nhất)
+  const currentMilestone = $derived(
+    milestones.length > 0 ? milestones[milestones.length - 1] : null
+  );
+
+  let dismissTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Tự ẩn sau 5 giây
+  $effect(() => {
+    if (dismissTimer) {
+      clearTimeout(dismissTimer);
+      dismissTimer = null;
+    }
+    if (currentMilestone) {
+      const id = currentMilestone.id;
+      dismissTimer = setTimeout(() => {
+        onDismiss(id);
+      }, 5000);
+    }
+  });
+
+  onDestroy(() => {
+    if (dismissTimer) {
+      clearTimeout(dismissTimer);
+    }
+  });
 </script>
 
-{#if milestones.length > 0}
-  <aside class="toast-stack" aria-label="Thông báo các cột mốc chi tiêu">
-    {#each milestones as milestone (milestone.id)}
-      <div class="toast-card" role="alert" aria-live="polite">
-        <div class="toast-icon">🎯</div>
-        <div class="toast-content">
-          <div class="toast-badge">{milestone.nhan}</div>
-          <h4 class="toast-title">{milestone.tieuDe}</h4>
-          <p class="toast-desc">{milestone.noiDung}</p>
-        </div>
-        <button
-          type="button"
-          class="close-btn"
-          onclick={() => onDismiss(milestone.id)}
-          title="Đóng thông báo"
-          aria-label="Đóng thông báo"
-        >
-          ✕
-        </button>
+{#if currentMilestone}
+  <aside class="toast-stack" aria-label="Thông báo cột mốc chi tiêu">
+    <div class="toast-card" role="alert" aria-live="polite">
+      <div class="toast-icon">🎯</div>
+      <div class="toast-content">
+        <div class="toast-badge">{currentMilestone.nhan}</div>
+        <h4 class="toast-title">{currentMilestone.tieuDe}</h4>
+        <p class="toast-desc">{currentMilestone.noiDung}</p>
       </div>
-    {/each}
+      <button
+        type="button"
+        class="close-btn"
+        onclick={() => onDismiss(currentMilestone.id)}
+        title="Đóng thông báo"
+        aria-label="Đóng thông báo"
+      >
+        ✕
+      </button>
+    </div>
   </aside>
 {/if}
 
@@ -37,12 +63,10 @@
   .toast-stack {
     position: fixed;
     bottom: 1.5rem;
-    right: 1.5rem;
+    left: 1.5rem;
+    right: auto;
     z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    max-width: 380px;
+    max-width: 360px;
     width: calc(100vw - 3rem);
     pointer-events: none; /* Không chặn tương tác ở vùng nền */
   }
@@ -129,13 +153,13 @@
     color: var(--color-text, #1f1d1a);
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 1024px) {
     .toast-stack {
-      bottom: 1rem;
-      right: 1rem;
+      bottom: calc(45svh + 1rem);
       left: 1rem;
+      right: auto;
+      max-width: calc(100vw - 2rem);
       width: auto;
-      max-width: none;
     }
   }
 </style>

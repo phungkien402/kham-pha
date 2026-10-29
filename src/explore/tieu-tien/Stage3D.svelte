@@ -19,9 +19,15 @@
     cart: GioHang;
     items: VatPham[];
     onSelectCard?: (itemId: string) => void;
+    fitInsets?: {
+      top?: number;
+      right?: number;
+      bottom?: number;
+      left?: number;
+    };
   }
 
-  let { cart, items, onSelectCard }: Props = $props();
+  let { cart, items, onSelectCard, fitInsets }: Props = $props();
 
   let containerEl = $state<HTMLDivElement | null>(null);
   let canvasEl = $state<HTMLCanvasElement | null>(null);
@@ -38,6 +44,7 @@
     shadowH: number;
     shadowAnchorX: number;
     shadowAnchorY: number;
+    scale?: number;
   }
   let manifest = $state<Record<string, ManifestItem>>({});
 
@@ -62,6 +69,8 @@
     line1: string;
     line2: string;
     badge: string;
+    fullText: string;
+    maxWidth: number;
     x: number;
     y: number;
     visible: boolean;
@@ -75,6 +84,16 @@
   let desiredPanX = 0;
   let desiredPanY = 0;
   let desiredZoom = 1.0;
+
+  // Quản lý tween camera tự động ~400 ms sau mỗi lần mua/bán hoặc nhấn "Căn giữa"
+  let tweenStartTime: number | null = null;
+  let tweenDuration = 400;
+  let startPanX = 0;
+  let startPanY = 0;
+  let startZoom = 1.0;
+  let targetPanX = 0;
+  let targetPanY = 0;
+  let targetZoom = 1.0;
 
   // Quản lý animation
   let animationFrameId: number | null = null;
@@ -199,10 +218,61 @@
     }
   }
 
-  // Khi giỏ hàng thay đổi từ component cha
+  function getEffectiveInsets() {
+    if (fitInsets) return fitInsets;
+    if (typeof window === 'undefined') {
+      return { top: 135, right: 380, bottom: 90, left: 24 };
+    }
+    const isMobile = window.innerWidth <= 1024;
+    return {
+      top: 135,
+      right: isMobile ? 0 : 380,
+      bottom: isMobile ? Math.round(window.innerHeight * 0.45) + 16 : 90,
+      left: isMobile ? 16 : 24,
+    };
+  }
+
+  function startFitTween(duration = 400) {
+    if (!containerEl) return;
+    const insets = getEffectiveInsets();
+    const fit = calculateStage2DFit(
+      currentBounds,
+      containerEl.clientWidth || 800,
+      containerEl.clientHeight || 600,
+      {
+        padding: 1.15,
+        insets,
+        minZoom: 0.05,
+        maxZoom: 1.6,
+      }
+    );
+
+    startPanX = panX;
+    startPanY = panY;
+    startZoom = zoom;
+    targetPanX = fit.targetX;
+    targetPanY = fit.targetY;
+    targetZoom = fit.zoom;
+    desiredPanX = fit.targetX;
+    desiredPanY = fit.targetY;
+    desiredZoom = fit.zoom;
+
+    tweenDuration = duration;
+    tweenStartTime = performance.now();
+    triggerRender();
+  }
+
+  // Khi giỏ hàng hoặc insets thay đổi từ component cha
   $effect(() => {
     const _ = activeCartItems;
     rebuildStage();
+  });
+
+  $effect(() => {
+    const _ = fitInsets;
+    if (activeCartItems.length > 0) {
+      startFitTween(400);
+    }
   });
 
   /**
@@ -216,6 +286,7 @@
       desiredPanX = 0;
       desiredPanY = 0;
       desiredZoom = 1.0;
+      tweenStartTime = null;
       triggerRender();
       return;
     }
@@ -233,7 +304,12 @@
         shadowH: 30,
         shadowAnchorX: 30,
         shadowAnchorY: 15,
+        scale: 1.0,
       };
+
+      const scale = mf.scale || 1.0;
+      const effectiveW = mf.w / scale;
+      const effectiveH = mf.h / scale;
 
       const disp = getDisplayCount(count, 1000);
       const isInfrastructure = mf.footprintW >= 12;
@@ -243,42 +319,41 @@
       // Kích thước ước tính cụm trên màn hình isometric
       const spanCols = (grid.cols - 1) * mf.footprintW * 31.18;
       const spanRows = (grid.rows - 1) * mf.footprintD * 31.18;
-      const clusterW = Math.max(mf.w, spanCols + spanRows + mf.w);
-      const clusterH = Math.max(mf.h, (grid.cols + grid.rows) * mf.footprintD * 18.0 + mf.h);
+      const clusterW = Math.max(effectiveW, spanCols + spanRows + effectiveW);
+      const clusterH = Math.max(effectiveH, (grid.cols + grid.rows) * mf.footprintD * 18.0 + effectiveH);
+
+      // Điểm đáy thấp nhất của các sprite/bóng trong cụm để đặt nhãn không đè
+      const maxPt = gridToIsometricPx((grid.cols - 1) / 2, (grid.rows - 1) / 2, mf.footprintW, mf.footprintD, 36);
+      const bottomOffsetY = Math.round(maxPt.y + Math.max(
+        (mf.h - mf.anchorY) / scale,
+        (mf.shadowH - mf.shadowAnchorY) / scale
+      ));
 
       const labelLines = formatClusterLabelLines(count, item);
-      const labelW = Math.max(140, labelLines.line1.length * 8 + 30);
+      const rawLabelW = Math.max(120, labelLines.line1.length * 8 + 30);
+      // Rộng nhãn tối đa = bề ngang cụm + 40px
+      const maxLabelW = Math.round(clusterW + 40);
+      const labelW = Math.min(rawLabelW, maxLabelW);
 
       return {
         id,
         width: Math.round(clusterW),
         height: Math.round(clusterH),
         labelWidth: labelW,
+        bottomOffsetY,
       };
     });
 
     // 2. Sắp xếp các cụm NGANG trên màn hình (đáy thẳng hàng y = 0, không chồng nhãn)
     const layout = calculateClusters2DLayout(clusterMetaList, {
       gap: 56,
-      labelGapY: 20,
+      labelGapY: 18,
     });
     currentLayoutClusters = layout.clusters;
     currentBounds = layout.totalBounds;
 
-    // 3. Tự động fit camera bao trọn sân khấu
-    if (containerEl) {
-      const fit = calculateStage2DFit(
-        currentBounds,
-        containerEl.clientWidth || 800,
-        containerEl.clientHeight || 600,
-        1.22
-      );
-      desiredPanX = fit.targetX;
-      desiredPanY = fit.targetY;
-      desiredZoom = fit.zoom;
-    }
-
-    triggerRender();
+    // 3. Tự động "Căn giữa" (tween ~400 ms) sau mỗi lần mua/bán
+    startFitTween(400);
   }
 
   /**
@@ -293,17 +368,34 @@
 
     let needsNextFrame = false;
 
-    // 1. Tween camera pan & zoom
-    const damping = 0.18;
-    const diffX = desiredPanX - panX;
-    const diffY = desiredPanY - panY;
-    const diffZ = desiredZoom - zoom;
+    // 1. Tween camera pan & zoom (~400 ms tự động) hoặc damping mượt khi kéo
+    if (tweenStartTime !== null) {
+      const elapsed = now - tweenStartTime;
+      if (elapsed < tweenDuration) {
+        const t = Math.min(1, elapsed / tweenDuration);
+        const ease = 1 - Math.pow(1 - t, 3); // cubic ease-out
+        panX = startPanX + (targetPanX - startPanX) * ease;
+        panY = startPanY + (targetPanY - startPanY) * ease;
+        zoom = startZoom + (targetZoom - startZoom) * ease;
+        needsNextFrame = true;
+      } else {
+        panX = targetPanX;
+        panY = targetPanY;
+        zoom = targetZoom;
+        tweenStartTime = null;
+      }
+    } else {
+      const damping = 0.2;
+      const diffX = desiredPanX - panX;
+      const diffY = desiredPanY - panY;
+      const diffZ = desiredZoom - zoom;
 
-    if (Math.abs(diffX) > 0.02 || Math.abs(diffY) > 0.02 || Math.abs(diffZ) > 0.002) {
-      panX += diffX * damping;
-      panY += diffY * damping;
-      zoom += diffZ * damping;
-      needsNextFrame = true;
+      if (Math.abs(diffX) > 0.02 || Math.abs(diffY) > 0.02 || Math.abs(diffZ) > 0.002) {
+        panX += diffX * damping;
+        panY += diffY * damping;
+        zoom += diffZ * damping;
+        needsNextFrame = true;
+      }
     }
 
     // 2. Render Canvas
@@ -363,6 +455,19 @@
       const dropDuration = 340;
       const lastBuyTime = dropTimers.get(cluster.id) || 0;
 
+      const scale = mf.scale || 1.0;
+      const spriteW = Math.round(mf.w / scale);
+      const spriteH = Math.round(mf.h / scale);
+      const anchorX = mf.anchorX / scale;
+      const anchorY = mf.anchorY / scale;
+
+      const shadowW = Math.round(mf.shadowW / scale);
+      const shadowH = Math.round(mf.shadowH / scale);
+      const shadowAnchorX = mf.shadowAnchorX / scale;
+      const shadowAnchorY = mf.shadowAnchorY / scale;
+
+      const drawFn = 'draw' + 'Image';
+
       // --- Pass A: Vẽ tất cả BÓNG của cụm trước ---
       if (shadowBmp) {
         for (const item of sortedOrder) {
@@ -374,11 +479,10 @@
             36
           );
 
-          const drawX = Math.round(cx + pt.x - mf.shadowAnchorX);
-          const drawY = Math.round(cy + pt.y - mf.shadowAnchorY);
+          const drawX = Math.round(cx + pt.x - shadowAnchorX);
+          const drawY = Math.round(cy + pt.y - shadowAnchorY);
 
-          const drawMethod = 'draw' + 'Image';
-          (ctx as any)[drawMethod](shadowBmp, drawX, drawY);
+          (ctx as any)[drawFn](shadowBmp, drawX, drawY, shadowW, shadowH);
         }
       }
 
@@ -410,11 +514,10 @@
             }
           }
 
-          const drawX = Math.round(cx + pt.x - mf.anchorX);
-          const drawY = Math.round(cy + pt.y - mf.anchorY + dropOffsetY);
+          const drawX = Math.round(cx + pt.x - anchorX);
+          const drawY = Math.round(cy + pt.y - anchorY + dropOffsetY);
 
-          const drawMethod = 'draw' + 'Image';
-          (ctx as any)[drawMethod](spriteBmp, drawX, drawY);
+          (ctx as any)[drawFn](spriteBmp, drawX, drawY, spriteW, spriteH);
         }
       }
     }
@@ -455,11 +558,16 @@
 
       const visible = screenX >= -200 && screenX <= w + 200 && screenY >= -100 && screenY <= h + 100;
 
+      const maxW = cluster.maxLabelWidth ?? (cluster.width + 40);
+      const screenMaxWidth = Math.max(90, Math.round(maxW * zoom));
+
       newLabels.push({
         id: cluster.id,
         line1: lines.line1,
         line2: lines.line2,
         badge: lines.badge,
+        fullText: `${lines.line1}${lines.badge ? ' (' + lines.badge + ')' : ''} — ${lines.line2}`,
+        maxWidth: screenMaxWidth,
         x: screenX,
         y: screenY,
         visible,
@@ -477,33 +585,26 @@
 
   // Nút "Căn giữa" (Fit All)
   export function recenter() {
-    if (!containerEl) return;
-    const fit = calculateStage2DFit(
-      currentBounds,
-      containerEl.clientWidth || 800,
-      containerEl.clientHeight || 600,
-      1.22
-    );
-    desiredPanX = fit.targetX;
-    desiredPanY = fit.targetY;
-    desiredZoom = fit.zoom;
-    triggerRender();
+    startFitTween(400);
   }
 
   // Nút Zoom +
   export function zoomIn() {
+    tweenStartTime = null;
     desiredZoom = Math.min(desiredZoom * 1.25, 2.5);
     triggerRender();
   }
 
   // Nút Zoom -
   export function zoomOut() {
-    desiredZoom = Math.max(desiredZoom / 1.25, 0.25);
+    tweenStartTime = null;
+    desiredZoom = Math.max(desiredZoom / 1.25, 0.05);
     triggerRender();
   }
 
   // Điều khiển chuột & cảm ứng: Pan và Pinch-to-zoom
   function handlePointerDown(e: PointerEvent) {
+    tweenStartTime = null;
     activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     (e.target as HTMLElement)?.setPointerCapture?.(e.pointerId);
 
@@ -538,7 +639,7 @@
       const pts = Array.from(activePointers.values());
       const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
       const ratio = currentDist / initialPinchDistance;
-      desiredZoom = Math.max(0.25, Math.min(initialPinchZoom * ratio, 2.5));
+      desiredZoom = Math.max(0.05, Math.min(initialPinchZoom * ratio, 2.5));
       triggerRender();
     }
   }
@@ -556,10 +657,11 @@
 
   function handleWheel(e: WheelEvent) {
     e.preventDefault();
+    tweenStartTime = null;
     if (e.deltaY < 0) {
       desiredZoom = Math.min(desiredZoom * 1.12, 2.5);
     } else {
-      desiredZoom = Math.max(desiredZoom / 1.12, 0.25);
+      desiredZoom = Math.max(desiredZoom / 1.12, 0.05);
     }
     triggerRender();
   }
@@ -584,7 +686,8 @@
       {#if label.visible}
         <div
           class="cluster-label-card"
-          style="transform: translate(-50%, 0) translate({label.x}px, {label.y}px);"
+          style="transform: translate(-50%, 0) translate({label.x}px, {label.y}px); max-width: {label.maxWidth}px;"
+          title={label.fullText}
           onclick={() => onSelectCard?.(label.id)}
         >
           <div class="label-line-1">
@@ -685,11 +788,13 @@
     backdrop-filter: blur(8px);
     border: 1px solid #e2ded4;
     border-radius: 0.75rem;
-    padding: 0.35rem 0.75rem;
+    padding: 0.35rem 0.65rem;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
     pointer-events: auto;
     cursor: pointer;
-    white-space: nowrap;
+    box-sizing: border-box;
+    text-align: center;
+    overflow: hidden;
     transition: transform 0.08s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   }
 
@@ -701,11 +806,21 @@
   .label-line-1 {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.3rem;
     font-size: 0.8rem;
     font-weight: 800;
     color: #1f1d1a;
     line-height: 1.25;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .label-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
   }
 
   .label-badge {
@@ -715,6 +830,7 @@
     padding: 0.05rem 0.35rem;
     font-size: 0.65rem;
     font-weight: 800;
+    flex-shrink: 0;
   }
 
   .label-line-2 {
@@ -723,6 +839,11 @@
     color: #059669;
     line-height: 1.2;
     margin-top: 0.1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    width: 100%;
   }
 
   .controls-overlay {

@@ -195,14 +195,45 @@ server.listen(0, async () => {
   const manifest = {};
   let totalBytes = 0;
 
+  function getItemScale(itemId) {
+    // Sprite nhỏ: phở, trà đá, xe máy, ô tô, iPhone… (~50–120px) -> ×2.5
+    const smallItems = [
+      'tra-da',
+      'pho',
+      've-phim',
+      'hoc-phi-thang',
+      'luong-toi-thieu',
+      'honda-vision',
+      'iphone',
+      'vf3',
+      'vf8',
+      'vf9',
+    ];
+    if (smallItems.includes(itemId)) {
+      return 2.5;
+    }
+    return 2.0;
+  }
+
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    console.log(`[${i + 1}/${items.length}] Rendering ${item.id} (${item.ten})...`);
+    const itemScale = getItemScale(item.id);
+    console.log(`[${i + 1}/${items.length}] Rendering ${item.id} (${item.ten}) at scale ×${itemScale}...`);
 
-    const renderResult = await page.evaluate(async (itemId) => {
-      const { renderer, scene, camera, shadowPlane, gltfLoader } = window.__ctx;
+    const renderResult = await page.evaluate(async ({ itemId, itemScale }) => {
+      const { renderer, scene, camera, shadowPlane, gltfLoader, width, height } = window.__ctx;
       const THREE = window.THREE;
       const { ITEM_3D_CONFIG, createProceduralMesh, createMetroTrainGroup, createBulletTrainGroup } = window.MODELS3D;
+
+      const BASE_SCALE = 36;
+      const currentScale = BASE_SCALE * itemScale;
+      const halfW = width / (2 * currentScale);
+      const halfH = height / (2 * currentScale);
+      camera.left = -halfW;
+      camera.right = halfW;
+      camera.top = halfH;
+      camera.bottom = -halfH;
+      camera.updateProjectionMatrix();
 
       const cfg = ITEM_3D_CONFIG[itemId] || { spacing: 2.0, scale: 1.0 };
       let model = null;
@@ -280,7 +311,7 @@ server.listen(0, async () => {
         footprintW: cfg.spacing,
         footprintD: cfg.spacing,
       };
-    }, item.id);
+    }, { itemId: item.id, itemScale });
 
     // Chuyển base64 sang Buffer
     const spriteBuf = Buffer.from(renderResult.spriteData.replace(/^data:image\/png;base64,/, ''), 'base64');
@@ -321,8 +352,8 @@ server.listen(0, async () => {
       shadowAnchorY = Math.round(C_Y + shadowTrim.info.trimOffsetTop);
 
       const shadowWebpBuf = await sharp(shadowTrim.data)
-        .blur(1.5)
-        .webp({ quality: 80, effort: 6 })
+        .blur(Math.max(1.5, 1.5 * (itemScale / 1.5)))
+        .webp({ quality: 85, effort: 6 })
         .toBuffer();
       fs.writeFileSync(path.join(OUTPUT_DIR, `${item.id}-shadow.webp`), shadowWebpBuf);
       totalBytes += shadowWebpBuf.length;
@@ -341,7 +372,7 @@ server.listen(0, async () => {
         <ellipse cx="${sw / 2}" cy="${sh / 2}" rx="${sw / 2}" ry="${sh / 2}" fill="url(#g)"/>
       </svg>`;
 
-      const shadowWebpBuf = await sharp(Buffer.from(svgShadow)).webp({ quality: 80 }).toBuffer();
+      const shadowWebpBuf = await sharp(Buffer.from(svgShadow)).webp({ quality: 85 }).toBuffer();
       shadowW = sw;
       shadowH = sh;
       shadowAnchorX = Math.round(sw / 2);
@@ -384,6 +415,7 @@ server.listen(0, async () => {
       shadowH,
       shadowAnchorX,
       shadowAnchorY,
+      scale: itemScale,
     };
   }
 

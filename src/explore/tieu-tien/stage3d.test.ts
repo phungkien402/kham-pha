@@ -448,6 +448,18 @@ describe('Sân khấu 3D — Hàm thuần (stage3d)', () => {
         const res = calculateClusters2DLayout(input);
         expect((res.totalBounds.minX + res.totalBounds.maxX) / 2).toBeCloseTo(0, 5);
       });
+
+      it('nhãn đặt dưới đáy cụm khi có bottomOffsetY và maxLabelWidth = width + 40 (SPR2)', () => {
+        const input = [
+          { id: 'pho', width: 200, height: 150, bottomOffsetY: 85, labelWidth: 180 },
+          { id: 'metro', width: 500, height: 260, bottomOffsetY: 120, labelWidth: 300 },
+        ];
+        const res = calculateClusters2DLayout(input, { labelGapY: 18 });
+        expect(res.clusters[0].labelY).toBe(85 + 18);
+        expect(res.clusters[0].maxLabelWidth).toBe(200 + 40);
+        expect(res.clusters[1].labelY).toBe(120 + 18);
+        expect(res.clusters[1].maxLabelWidth).toBe(500 + 40);
+      });
     });
 
     describe('7.4. Camera fit toàn bộ sân khấu 2D (calculateStage2DFit)', () => {
@@ -458,6 +470,68 @@ describe('Sân khấu 3D — Hàm thuần (stage3d)', () => {
         expect(fit.targetY).toBe(-100);
         expect(fit.zoom).toBeGreaterThan(0.3);
         expect(fit.zoom).toBeLessThanOrEqual(1.6);
+      });
+
+      it('vùng fit TRỪ phần bị panel Mua sắm (380px), khối số dư (trên) và toast mốc che (SPR2)', () => {
+        // Mô phỏng màn hình thật 1883×886
+        const vpW = 1883;
+        const vpH = 886;
+        const insets = { top: 135, right: 380, bottom: 90, left: 24 };
+
+        // 5 cụm: phở bên trái mép minX = -2000, sân bay bên phải mép maxX = 2500
+        const bounds = { minX: -2000, maxX: 2500, minY: -400, maxY: 300 };
+
+        const fit = calculateStage2DFit(bounds, vpW, vpH, {
+          insets,
+          padding: 1.15,
+          minZoom: 0.05,
+          maxZoom: 1.6,
+        });
+
+        // Zoom phải cho phép thu nhỏ < 0.3 để thấy toàn bộ các cụm
+        expect(fit.zoom).toBeLessThan(0.3);
+        expect(fit.zoom).toBeGreaterThanOrEqual(0.05);
+
+        // Chiếu biên trái và biên phải lên màn hình
+        const vpCenterX = vpW / 2;
+        const screenLeft = vpCenterX + (bounds.minX - fit.targetX) * fit.zoom;
+        const screenRight = vpCenterX + (bounds.maxX - fit.targetX) * fit.zoom;
+
+        // Mép trái (cụm phở) không bị cắt: screenLeft >= leftInset (24px)
+        expect(screenLeft).toBeGreaterThanOrEqual(insets.left - 1e-4);
+
+        // Mép phải (sân bay) không bị panel 380px che: screenRight <= vpW - rightInset (1503px)
+        expect(screenRight).toBeLessThanOrEqual(vpW - insets.right + 1e-4);
+
+        // Chiếu biên trên và biên dưới lên màn hình
+        const vpCenterY = vpH / 2;
+        const screenTop = vpCenterY + (bounds.minY - fit.targetY) * fit.zoom;
+        const screenBottom = vpCenterY + (bounds.maxY - fit.targetY) * fit.zoom;
+
+        // Biên trên không bị khối số dư che (>= 135px)
+        expect(screenTop).toBeGreaterThanOrEqual(insets.top - 1e-4);
+
+        // Biên dưới không bị toast mốc che (<= 886 - 90 = 796px)
+        expect(screenBottom).toBeLessThanOrEqual(vpH - insets.bottom + 1e-4);
+      });
+
+      it('Mobile 375px: sân khấu fit trong phần trên bottom-sheet (~45svh) (SPR2)', () => {
+        const vpW = 375;
+        const vpH = 667;
+        const sheetHeight = Math.round(vpH * 0.45); // ~300px
+        const insets = { top: 135, right: 0, bottom: sheetHeight + 16, left: 16 };
+
+        const bounds = { minX: -600, maxX: 600, minY: -200, maxY: 200 };
+        const fit = calculateStage2DFit(bounds, vpW, vpH, { insets, padding: 1.15 });
+
+        const vpCenterY = vpH / 2;
+        const screenTop = vpCenterY + (bounds.minY - fit.targetY) * fit.zoom;
+        const screenBottom = vpCenterY + (bounds.maxY - fit.targetY) * fit.zoom;
+
+        // Phía trên không đè khối số dư
+        expect(screenTop).toBeGreaterThanOrEqual(insets.top - 1e-4);
+        // Phía dưới không bị bottom-sheet che
+        expect(screenBottom).toBeLessThanOrEqual(vpH - insets.bottom + 1e-4);
       });
     });
 
@@ -497,6 +571,41 @@ describe('Sân khấu 3D — Hàm thuần (stage3d)', () => {
         const res = validateManifest(manifest, items, checkFiles);
         expect(res.errors).toEqual([]);
         expect(res.valid).toBe(true);
+      });
+
+      it('sprite nhỏ (phở, trà đá, xe máy, ô tô, iPhone…) render scale ×2–×3 và tổng dung lượng <= 3 MB (SPR2)', () => {
+        const spritesDir = path.join(process.cwd(), 'public/tieu-tien/sprites');
+        const manifest = JSON.parse(fs.readFileSync(path.join(spritesDir, 'manifest.json'), 'utf8'));
+
+        const smallItems = [
+          'tra-da',
+          'pho',
+          've-phim',
+          'hoc-phi-thang',
+          'luong-toi-thieu',
+          'honda-vision',
+          'iphone',
+          'vf3',
+          'vf8',
+          'vf9',
+        ];
+
+        for (const id of smallItems) {
+          const entry = manifest[id];
+          expect(entry).toBeDefined();
+          expect(entry.scale).toBeGreaterThanOrEqual(2.0);
+          expect(entry.scale).toBeLessThanOrEqual(3.0);
+        }
+
+        // Tính tổng dung lượng toàn bộ thư mục sprite
+        const files = fs.readdirSync(spritesDir);
+        let totalBytes = 0;
+        for (const file of files) {
+          const stats = fs.statSync(path.join(spritesDir, file));
+          totalBytes += stats.size;
+        }
+
+        expect(totalBytes).toBeLessThanOrEqual(3 * 1024 * 1024); // <= 3 MB
       });
     });
   });

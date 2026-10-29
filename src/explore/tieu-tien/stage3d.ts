@@ -616,6 +616,7 @@ export interface Cluster2DPlacement {
   labelX: number;
   labelY: number;
   labelWidth: number;
+  maxLabelWidth?: number;
   bounds: { minX: number; maxX: number; minY: number; maxY: number };
 }
 
@@ -627,11 +628,19 @@ export interface Clusters2DLayoutResult {
 /**
  * Sắp xếp các cụm 2D NGANG trên màn hình theo phong cách neal.fun:
  * - Đáy các cụm thẳng hàng tại y = 0
- * - Khoảng cách giữa các cụm đảm bảo không đè hình ảnh và không đè nhãn
+ * - Nhãn đặt dưới đáy cụm, không đè lên sprite của cụm khác
+ * - Nhãn dài thì cắt "…" có tooltip, rộng tối đa = bề ngang cụm + 40px
+ * - Nếu vẫn chồng nhãn thì nới khoảng cách cụm
  * - Căn giữa toàn bộ hàng cụm theo trục X
  */
 export function calculateClusters2DLayout(
-  clusters: Array<{ id: string; width: number; height: number; labelWidth?: number }>,
+  clusters: Array<{
+    id: string;
+    width: number;
+    height: number;
+    labelWidth?: number;
+    bottomOffsetY?: number;
+  }>,
   options?: { gap?: number; minLabelDist?: number; labelGapY?: number }
 ): Clusters2DLayoutResult {
   if (!clusters || clusters.length === 0) {
@@ -650,26 +659,36 @@ export function calculateClusters2DLayout(
 
   for (let i = 0; i < clusters.length; i++) {
     const c = clusters[i];
-    const lblW = c.labelWidth ?? 140;
+    const lblW = c.labelWidth ?? (c.width + 40);
     const effectiveHalfW = Math.max(c.width, lblW) / 2;
 
     if (i === 0) {
       curX = effectiveHalfW;
     } else {
       const prev = clusters[i - 1];
-      const prevLblW = prev.labelWidth ?? 140;
+      const prevLblW = prev.labelWidth ?? (prev.width + 40);
       const prevHalfW = Math.max(prev.width, prevLblW) / 2;
-      curX += prevHalfW + effectiveHalfW + gap;
+
+      // Khoảng cách cơ bản đảm bảo không đè ảnh và nhãn
+      const baseDist = prevHalfW + effectiveHalfW + gap;
+
+      // Nếu vẫn chồng nhãn thì nới thêm khoảng cách cụm
+      const minLabelDist = options?.minLabelDist ?? (prevLblW / 2 + lblW / 2 + 16);
+      const dist = Math.max(baseDist, minLabelDist);
+
+      curX += dist;
     }
     relativeX.push(curX);
   }
 
   // Căn giữa theo trục X (X = 0 là tâm ngang)
-  const firstHalf = Math.max(clusters[0].width, clusters[0].labelWidth ?? 140) / 2;
-  const lastHalf = Math.max(
-    clusters[clusters.length - 1].width,
-    clusters[clusters.length - 1].labelWidth ?? 140
-  ) / 2;
+  const firstLblW = clusters[0].labelWidth ?? (clusters[0].width + 40);
+  const firstHalf = Math.max(clusters[0].width, firstLblW) / 2;
+
+  const lastCluster = clusters[clusters.length - 1];
+  const lastLblW = lastCluster.labelWidth ?? (lastCluster.width + 40);
+  const lastHalf = Math.max(lastCluster.width, lastLblW) / 2;
+
   const minLineX = relativeX[0] - firstHalf;
   const maxLineX = relativeX[relativeX.length - 1] + lastHalf;
   const lineCenterX = (minLineX + maxLineX) / 2;
@@ -682,14 +701,20 @@ export function calculateClusters2DLayout(
 
   for (let i = 0; i < clusters.length; i++) {
     const c = clusters[i];
-    const lblW = c.labelWidth ?? 140;
+    const maxLabelW = c.width + 40;
+    const lblW = c.labelWidth ?? maxLabelW;
+
     const x = relativeX[i] - lineCenterX;
     const y = 0; // Đáy cụm thẳng hàng tại y = 0
+
+    // Đặt nhãn dưới đáy cụm (tính cả độ trải của lưới isometric và bóng)
+    const bottomOffsetY = c.bottomOffsetY ?? 0;
+    const labelY = y + bottomOffsetY + labelGapY;
 
     const minX = Math.min(x - c.width / 2, x - lblW / 2);
     const maxX = Math.max(x + c.width / 2, x + lblW / 2);
     const minY = y - c.height; // Phía trên đỉnh cụm
-    const maxY = y + labelGapY + 44; // Đáy nhãn 2 dòng
+    const maxY = labelY + 44; // Đáy nhãn 2 dòng
 
     if (minX < totalMinX) totalMinX = minX;
     if (maxX > totalMaxX) totalMaxX = maxX;
@@ -703,8 +728,9 @@ export function calculateClusters2DLayout(
       width: c.width,
       height: c.height,
       labelX: x,
-      labelY: y + labelGapY,
+      labelY,
       labelWidth: lblW,
+      maxLabelWidth: maxLabelW,
       bounds: { minX, maxX, minY, maxY },
     });
   }
@@ -720,30 +746,87 @@ export function calculateClusters2DLayout(
   };
 }
 
+export interface StageFitInsets {
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
+}
+
+export interface Stage2DFitOptions {
+  padding?: number;
+  insets?: StageFitInsets;
+  minZoom?: number;
+  maxZoom?: number;
+}
+
 /**
- * Tính toán góc nhìn và zoom fit toàn bộ sân khấu 2D (lấp ~80-85% viewport)
+ * Tính toán góc nhìn và zoom fit toàn bộ sân khấu 2D (lấp ~80-85% viewport an toàn)
+ * Hỗ trợ insets loại trừ các vùng bị UI che:
+ * - Panel Mua sắm (bên phải ~380px trên desktop, bottom-sheet trên mobile)
+ * - Khối số dư (phía trên ~135px)
+ * - Toast mốc % (góc dưới trái ~90px)
  */
 export function calculateStage2DFit(
   totalBounds: { minX: number; maxX: number; minY: number; maxY: number },
   viewportW: number,
   viewportH: number,
-  padding = 1.22
+  paddingOrOptions: number | Stage2DFitOptions = 1.22
 ): { targetX: number; targetY: number; zoom: number } {
+  let padding = 1.22;
+  let insets: StageFitInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+  let minZoom = 0.05;
+  let maxZoom = 1.6;
+
+  if (typeof paddingOrOptions === 'number') {
+    padding = paddingOrOptions;
+  } else if (paddingOrOptions) {
+    if (paddingOrOptions.padding !== undefined) padding = paddingOrOptions.padding;
+    if (paddingOrOptions.insets) insets = paddingOrOptions.insets;
+    if (paddingOrOptions.minZoom !== undefined) minZoom = paddingOrOptions.minZoom;
+    if (paddingOrOptions.maxZoom !== undefined) maxZoom = paddingOrOptions.maxZoom;
+  }
+
+  const topInset = insets.top ?? 0;
+  const rightInset = insets.right ?? 0;
+  const bottomInset = insets.bottom ?? 0;
+  const leftInset = insets.left ?? 0;
+
   const vpW = Math.max(100, viewportW);
   const vpH = Math.max(100, viewportH);
+
+  // Vùng nhìn thấy an toàn (không bị panel, balance card, toast mốc che)
+  const safeW = Math.max(50, vpW - leftInset - rightInset);
+  const safeH = Math.max(50, vpH - topInset - bottomInset);
 
   const spanX = Math.max(50, totalBounds.maxX - totalBounds.minX);
   const spanY = Math.max(50, totalBounds.maxY - totalBounds.minY);
 
-  const targetX = (totalBounds.minX + totalBounds.maxX) / 2;
-  const targetY = (totalBounds.minY + totalBounds.maxY) / 2;
-
-  const scaleX = vpW / (spanX * padding);
-  const scaleY = vpH / (spanY * padding);
+  const scaleX = safeW / (spanX * padding);
+  const scaleY = safeH / (spanY * padding);
   let zoom = Math.min(scaleX, scaleY);
 
-  // Kẹp zoom hợp lý
-  zoom = Math.max(0.3, Math.min(zoom, 1.6));
+  // Kẹp zoom hợp lý (không kẹp cứng ở 0.3 để tránh tràn màn hình khi nhiều cụm lớn)
+  zoom = Math.max(minZoom, Math.min(zoom, maxZoom));
+
+  // Tâm vùng an toàn tính từ toạ độ màn hình (0,0 là góc trên trái)
+  const safeCenterX = leftInset + safeW / 2;
+  const safeCenterY = topInset + safeH / 2;
+
+  // Tâm của toàn bộ canvas/viewport
+  const vpCenterX = vpW / 2;
+  const vpCenterY = vpH / 2;
+
+  // Độ lệch giữa tâm vùng an toàn và tâm canvas
+  const offsetX = safeCenterX - vpCenterX;
+  const offsetY = safeCenterY - vpCenterY;
+
+  const boundsCenterX = (totalBounds.minX + totalBounds.maxX) / 2;
+  const boundsCenterY = (totalBounds.minY + totalBounds.maxY) / 2;
+
+  // Camera pan (targetX, targetY) sao cho boundsCenterX/Y được chiếu đúng vào safeCenterX/Y
+  const targetX = boundsCenterX - offsetX / zoom;
+  const targetY = boundsCenterY - offsetY / zoom;
 
   return { targetX, targetY, zoom };
 }
@@ -805,6 +888,9 @@ export function validateManifest(
     }
     if (typeof entry.footprintD !== 'number' || entry.footprintD <= 0) {
       errors.push(`${item.id}: footprintD không hợp lệ`);
+    }
+    if (entry.scale !== undefined && (typeof entry.scale !== 'number' || entry.scale <= 0)) {
+      errors.push(`${item.id}: scale không hợp lệ`);
     }
 
     if (checkFilesCallback) {
