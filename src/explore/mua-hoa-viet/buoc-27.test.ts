@@ -36,7 +36,8 @@ d('HTML đã build (dist/)', () => {
     }
     for (const f of files) {
       const t = readFileSync(f, 'utf8');
-      expect(t, f).not.toContain('Caveat');
+      // Bỏ qua cờ WebGL "failIfMajorPerformanceCaveat" của three.js — không phải font
+      expect(t.replaceAll('PerformanceCaveat', ''), f).not.toContain('Caveat');
       expect(t, f).not.toContain('fonts.googleapis.com');
     }
   });
