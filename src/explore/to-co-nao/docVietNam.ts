@@ -335,12 +335,21 @@ export function milestonesCrossed(prevKm: number, currentKm: number): Milestone[
 
 /**
  * Lấy tỉnh hiện tại (dựa vào điểm dừng gần nhất phía trước) và danh sách tỉnh đã đi qua.
+ * Khi ở điểm cuối hành trình (isEnd = true hoặc segIndex trỏ tới/vượt quá điểm cuối),
+ * vị trí hiện tại là Cà Mau và danh sách đã qua có đủ Cà Mau.
  */
-export function getJourneyProvinces(segIndex: number): {
+export function getJourneyProvinces(
+  segIndex: number,
+  isEnd: boolean = false
+): {
   currentProvince: string;
   passedProvinces: string[];
 } {
-  const safeIdx = Math.max(0, Math.min(STOPS.length - 1, segIndex));
+  const lastIndex = STOPS.length - 1;
+  const isFinal = isEnd || segIndex >= lastIndex;
+  const safeIdx = isFinal
+    ? lastIndex
+    : Math.max(0, Math.min(lastIndex - 1, segIndex));
   const currentProvince = STOPS[safeIdx].province;
 
   const passed: string[] = [];

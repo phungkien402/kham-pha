@@ -178,6 +178,19 @@ describe('Bước E: Tính toán địa lý và tuyến hành trình dọc Việ
     expect(atEnd.passedProvinces).toContain('TP.HCM');
     expect(atEnd.passedProvinces).toContain('Cà Mau');
   });
+
+  it('ở điểm cuối hành trình (thanh trượt = 100% hoặc isEnd=true), getJourneyProvinces trả về Cà Mau và danh sách đã qua có Cà Mau', () => {
+    // segIndex ở điểm cuối từ positionAt(1) là STOPS.length - 2 (13)
+    const posAt100 = positionAt(1);
+    expect(posAt100.segIndex).toBe(13);
+
+    // Khi thanh trượt = 100% (isEnd = true), vị trí hiện tại phải là Cà Mau (điểm 15)
+    const atEnd = getJourneyProvinces(posAt100.segIndex, true);
+    expect(atEnd.currentProvince).toBe('Cà Mau');
+    expect(atEnd.passedProvinces).toContain('Cà Mau');
+    expect(atEnd.passedProvinces[atEnd.passedProvinces.length - 1]).toBe('Cà Mau');
+    expect(atEnd.passedProvinces).toContain('Cần Thơ');
+  });
 });
 
 describe('Bước E: Component DocVietNam.svelte và tích hợp ToCoNao.svelte', () => {
@@ -202,7 +215,7 @@ describe('Bước E: Component DocVietNam.svelte và tích hợp ToCoNao.svelte'
     expect(code).toContain('ontouchstart');
 
     // Màn tổng kết
-    expect(code).toContain('đường chim bay dọc tuyến');
+    expect(code).toContain('dọc tuyến các điểm dừng');
     expect(code).toContain('50 km');
     expect(code).toContain('So sánh Việt Nam với nước khác ↓');
     expect(code).toContain('Đi lại từ đầu');
@@ -212,6 +225,23 @@ describe('Bước E: Component DocVietNam.svelte và tích hợp ToCoNao.svelte'
 
     // prefers-reduced-motion
     expect(code).toContain('prefers-reduced-motion');
+  });
+
+  it('DocVietNam.svelte đáp ứng các yêu cầu bố cục desktop và mobile', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const code = fs.readFileSync(path.resolve(__dirname, 'DocVietNam.svelte'), 'utf8');
+
+    // Desktop slider: dọc, ≥ 60vh, núm kéo to
+    expect(code).toContain('writing-mode: vertical-lr');
+    expect(code).toContain('min-height: 60vh');
+    expect(code).toContain('28px'); // núm kéo to
+
+    // Mobile: bản đồ cao ~45svh, chip đã qua cuộn ngang 1 dòng, slider sticky đáy
+    expect(code).toContain('45svh');
+    expect(code).toContain('overflow-x: auto');
+    expect(code).toContain('position: sticky');
+    expect(code).toContain('bottom: 0');
   });
 
   it('ToCoNao.svelte tích hợp DocVietNam và đã loại bỏ IntroModal cùng tcn-intro-seen', async () => {

@@ -35,14 +35,17 @@
   // Vị trí hiện tại tính theo km
   const currentPos: JourneyPosition = $derived(positionAt(progress));
 
+  // Kiểm tra cuối hành trình (>= 99%)
+  const isFinished = $derived(progress >= 0.99);
+
   // Điểm dừng gần nhất
   const currentNearest = $derived(nearestStop(currentPos.km));
 
   // Vùng khí hậu / địa hình
   const currentRegion = $derived(regionAt(currentPos.segIndex));
 
-  // Thông tin tỉnh hiện tại và các tỉnh đã đi qua
-  const provinceInfo = $derived(getJourneyProvinces(currentPos.segIndex));
+  // Thông tin tỉnh hiện tại và các tỉnh đã đi qua (khi kết thúc là Cà Mau)
+  const provinceInfo = $derived(getJourneyProvinces(currentPos.segIndex, isFinished));
 
   // Mốc so sánh vừa vượt qua gần nhất
   let latestMilestone = $state<Milestone | null>(null);
@@ -69,9 +72,6 @@
     pts.push(`${currentPos.x},${currentPos.y}`);
     return pts.join(' ');
   });
-
-  // Kiểm tra cuối hành trình (>= 99%)
-  const isFinished = $derived(progress >= 0.99);
 
   // Aria valuetext cho thanh trượt
   const ariaValueText = $derived(
@@ -413,6 +413,7 @@
           class="desktop-slider"
           aria-label="Hành trình dọc Việt Nam"
           aria-valuetext={ariaValueText}
+          orient="vertical"
         />
       </div>
 
@@ -451,7 +452,7 @@
       <div class="summary-card" role="dialog" aria-modal="true" aria-labelledby="summary-title">
         <div class="summary-icon" aria-hidden="true">🎉</div>
         <h2 id="summary-title" class="summary-title">
-          Bạn vừa đi khoảng {formatNumberVi(Math.round(TOTAL_ROUTE_KM))} km đường chim bay dọc tuyến!
+          Bạn vừa đi khoảng {formatNumberVi(Math.round(TOTAL_ROUTE_KM))} km dọc tuyến các điểm dừng!
         </h2>
         <p class="summary-narrow-fact">
           Và Việt Nam chỗ hẹp nhất chỉ khoảng <strong>50 km</strong> (tại Quảng Bình / Quảng Trị, từ biển tới biên giới Lào).
@@ -485,13 +486,13 @@
   .doc-viet-nam {
     position: relative;
     width: 100%;
+    max-width: 100vw;
     min-height: 100svh;
-    max-height: 100svh;
-    overflow: hidden;
+    overflow-x: clip;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    padding: 1rem 1.5rem;
+    padding: 0.75rem 1.25rem 0;
     transition: background 0.8s ease;
     font-family: inherit;
     color: var(--color-text, #1f1d1a);
@@ -894,22 +895,35 @@
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    height: 75%;
-    max-height: 440px;
-    width: 68px;
+    height: 68vh;
+    min-height: 60vh;
+    max-height: calc(100svh - 130px);
+    width: 76px;
     padding: 0.5rem 0;
     box-sizing: border-box;
     z-index: 10;
+    flex-shrink: 0;
   }
 
   .slider-end-label {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.2rem;
+    gap: 0.25rem;
     font-size: 0.75rem;
     font-weight: 700;
     color: var(--color-text, #1f1d1a);
+    flex-shrink: 0;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .top-label {
+    margin-bottom: 0.5rem;
+  }
+
+  .bottom-label {
+    margin-top: 0.5rem;
   }
 
   .point-badge {
@@ -932,16 +946,86 @@
     align-items: center;
     justify-content: center;
     width: 100%;
+    min-height: 0;
     position: relative;
+    padding: 0.25rem 0;
+    box-sizing: border-box;
   }
 
-  /* Slider xoay 90 độ: Đỉnh = 0 (Lũng Cú), Đáy = 1 (Cà Mau) */
+  /* Slider dọc chuẩn: Đỉnh = 0 (Lũng Cú), Đáy = 1 (Cà Mau), núm kéo to (28px), dễ nắm */
   .desktop-slider {
-    width: 280px;
-    transform: rotate(90deg);
-    transform-origin: center;
+    -webkit-appearance: none;
+    appearance: none;
+    writing-mode: vertical-lr;
+    width: 32px;
+    height: 100%;
+    min-height: 260px;
+    background: transparent;
+    cursor: grab;
+    margin: 0;
     accent-color: #2563eb;
-    cursor: pointer;
+  }
+
+  .desktop-slider:active {
+    cursor: grabbing;
+  }
+
+  .desktop-slider::-webkit-slider-runnable-track {
+    width: 8px;
+    height: 100%;
+    background: #cbd5e1;
+    border-radius: 9999px;
+  }
+
+  .desktop-slider::-moz-range-track {
+    width: 8px;
+    height: 100%;
+    background: #cbd5e1;
+    border-radius: 9999px;
+  }
+
+  .desktop-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #2563eb;
+    border: 3px solid #ffffff;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.45);
+    margin-left: -10px;
+    cursor: grab;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .desktop-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.6);
+  }
+
+  .desktop-slider::-webkit-slider-thumb:active {
+    transform: scale(1.2);
+    cursor: grabbing;
+  }
+
+  .desktop-slider::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #2563eb;
+    border: 3px solid #ffffff;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.45);
+    cursor: grab;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .desktop-slider::-moz-range-thumb:hover {
+    transform: scale(1.15);
+  }
+
+  .desktop-slider::-moz-range-thumb:active {
+    transform: scale(1.2);
+    cursor: grabbing;
   }
 
   /* Thanh trượt mobile ở đáy */
@@ -1081,18 +1165,32 @@
   /* Responsive Mobile (≤ 640px) */
   @media (max-width: 640px) {
     .doc-viet-nam {
-      padding: 0.5rem 0.75rem;
+      padding: 0.5rem 0.75rem 0;
       max-height: none;
       min-height: 100svh;
-      height: 100svh;
+      height: auto;
+      overflow-x: clip;
+    }
+
+    .doc-header {
+      margin-bottom: 0.25rem;
+      padding: 0 0.25rem;
+    }
+
+    .header-badge {
+      padding: 0.15rem 0.5rem;
+      font-size: 0.6875rem;
+      margin-bottom: 0.2rem;
     }
 
     .doc-title {
-      font-size: 1.2rem;
+      font-size: 1.125rem;
+      line-height: 1.25;
     }
 
     .doc-hint {
       font-size: 0.75rem;
+      margin: 0.15rem 0 0;
     }
 
     .keyboard-hint {
@@ -1102,7 +1200,10 @@
     .doc-body {
       flex-direction: column;
       gap: 0.5rem;
-      overflow-y: auto;
+      align-items: stretch;
+      justify-content: flex-start;
+      overflow: visible;
+      padding-bottom: 0.5rem;
     }
 
     .desktop-only {
@@ -1113,25 +1214,196 @@
       display: flex !important;
     }
 
-    .doc-card {
+    /* Bố cục mobile: Tiêu đề gọn → Bản đồ (cao ~45svh) → Card gọn */
+    .map-container {
+      order: 1;
+      height: 45svh;
+      min-height: 220px;
+      max-height: 45svh;
       width: 100%;
       max-width: 100%;
-      padding: 0.75rem;
-      gap: 0.5rem;
+      margin: 0 auto;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .vn-svg {
+      height: 100%;
+      max-height: 45svh;
+      width: auto;
+      max-width: 100%;
+    }
+
+    .doc-card {
+      order: 2;
+      width: 100%;
+      max-width: 100%;
+      padding: 0.65rem 0.75rem;
+      gap: 0.45rem;
       border-radius: 0.85rem;
+      box-sizing: border-box;
+    }
+
+    .km-stat {
+      gap: 0.15rem;
+    }
+
+    .km-label {
+      font-size: 0.6875rem;
+    }
+
+    .km-number-row {
+      gap: 0.25rem;
     }
 
     .km-value {
-      font-size: 1.75rem;
+      font-size: 1.625rem;
+      line-height: 1;
     }
 
+    .km-unit {
+      font-size: 0.9375rem;
+    }
+
+    .current-province {
+      gap: 0.35rem;
+    }
+
+    .current-prov-tag {
+      font-size: 0.75rem;
+    }
+
+    .current-prov-name {
+      font-size: 0.9375rem;
+    }
+
+    .passed-chips-row {
+      gap: 0.2rem;
+      max-width: 100%;
+      overflow: hidden;
+    }
+
+    .chips-label {
+      font-size: 0.6875rem;
+    }
+
+    /* Chip "đã qua" cuộn ngang 1 dòng */
     .chips-list {
-      max-height: 2.5rem;
+      display: flex;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      gap: 0.25rem;
+      max-height: none;
+      padding-bottom: 3px;
+      width: 100%;
+      box-sizing: border-box;
+      scrollbar-width: thin;
     }
 
-    .map-container {
-      max-height: 48vh;
+    .province-chip {
+      flex-shrink: 0;
+      padding: 0.15rem 0.45rem;
+      font-size: 0.6875rem;
+      border-radius: 0.35rem;
+    }
+
+    .region-section {
+      padding: 0.35rem 0.55rem;
+    }
+
+    .region-badge {
+      font-size: 0.6875rem;
+      padding: 0.15rem 0.45rem;
+    }
+
+    .region-desc {
+      font-size: 0.71875rem;
+      line-height: 1.3;
+      margin: 0.15rem 0 0;
+    }
+
+    .landmark-section {
+      padding: 0.35rem 0.55rem;
+    }
+
+    .landmark-header {
+      font-size: 0.75rem;
+      gap: 0.25rem;
+    }
+
+    .landmark-desc {
+      font-size: 0.71875rem;
+      line-height: 1.3;
+    }
+
+    .milestone-callout {
+      padding: 0.4rem 0.6rem;
+      font-size: 0.75rem;
+    }
+
+    /* Thanh trượt ngang dính đáy màn hình trong section */
+    .mobile-slider-bar {
+      position: sticky;
+      bottom: 0;
+      left: 0;
+      right: 0;
       width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      z-index: 30;
+      padding: 0.45rem 0.75rem calc(0.45rem + env(safe-area-inset-bottom, 0px));
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-top: 1px solid var(--color-border, #e6e1d9);
+      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+      margin-top: auto;
+    }
+
+    .mobile-slider-labels {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--color-text-muted, #6b665f);
+      gap: 0.25rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .mobile-slider-label {
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .mobile-slider-current {
+      font-weight: 800;
+      color: #1d4ed8;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      padding: 0 0.25rem;
+    }
+
+    .mobile-slider {
+      width: 100%;
+      height: 28px;
+      accent-color: #2563eb;
+      cursor: pointer;
+      touch-action: pan-y;
+    }
+
+    .mobile-slider::-webkit-slider-thumb {
+      width: 24px;
+      height: 24px;
     }
   }
 
