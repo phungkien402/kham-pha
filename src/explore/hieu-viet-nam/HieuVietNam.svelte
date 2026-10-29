@@ -11,10 +11,14 @@
     scoreQuestion,
     computeGameSummary,
     exportSummaryImage,
+    shuffleQuestionOptions,
+    getStoredPlayedIds,
+    savePlayedIds,
     type Question,
     type QuestionResult,
     type GameSummary,
     type Region,
+    type ShuffledOption,
   } from './game';
 
   const allQuestions = questionsData as Question[];
@@ -30,6 +34,12 @@
   let isExporting = $state(false);
   let exportMessage = $state<string | null>(null);
   let hoveredProvince = $state<string | null>(null);
+
+  // Trạng thái gợi ý, xáo trộn lựa chọn và tỉ lệ cộng đồng
+  let showHint = $state(false);
+  let usedHintThisQuestion = $state(false);
+  let currentShuffledOptions = $state<ShuffledOption[]>([]);
+  let communityStats = $state<{ dem: number[] } | null>(null);
 
   const currentQuestion = $derived<Question | undefined>(
     currentQuestions[currentIndex]
@@ -79,23 +89,63 @@
   }
 
   function startGame() {
-    currentQuestions = pickRoundQuestions(allQuestions, 12);
+    let played = getStoredPlayedIds();
+    const unplayedCount = allQuestions.filter((q) => !played.includes(q.id)).length;
+    if (unplayedCount < 12) {
+      played = [];
+    }
+    currentQuestions = pickRoundQuestions(allQuestions, 12, Math.random, played);
+    savePlayedIds([...played, ...currentQuestions.map((q) => q.id)]);
+
     currentIndex = 0;
     results = [];
     selectedOption = null;
     hasAnswered = false;
+    showHint = false;
+    usedHintThisQuestion = false;
+    communityStats = null;
     exportMessage = null;
+
+    if (currentQuestions[0]) {
+      currentShuffledOptions = shuffleQuestionOptions(currentQuestions[0]);
+    }
     gameState = 'playing';
   }
 
-  function handleSelectOption(index: number) {
+  function handleRevealHint() {
+    showHint = true;
+    usedHintThisQuestion = true;
+  }
+
+  async function fetchCommunityStats(cauId: string, luaChon: number) {
+    try {
+      const res = await fetch('/api/hvn/tra-loi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cauId, luaChon }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.dem) && data.dem.length === 4) {
+          communityStats = data;
+        }
+      }
+    } catch {
+      // Lỗi mạng thì vẫn chơi bình thường, chỉ ẩn thanh tỉ lệ
+      communityStats = null;
+    }
+  }
+
+  function handleSelectOption(origIndex: number) {
     if (hasAnswered || !currentQuestion) return;
 
-    selectedOption = index;
+    selectedOption = origIndex;
     hasAnswered = true;
 
-    const res = scoreQuestion(currentQuestion, index);
+    const res = scoreQuestion(currentQuestion, origIndex, usedHintThisQuestion);
     results = [...results, res];
+
+    fetchCommunityStats(currentQuestion.id, origIndex);
   }
 
   function nextQuestion() {
@@ -103,6 +153,12 @@
       currentIndex += 1;
       selectedOption = null;
       hasAnswered = false;
+      showHint = false;
+      usedHintThisQuestion = false;
+      communityStats = null;
+      if (currentQuestions[currentIndex]) {
+        currentShuffledOptions = shuffleQuestionOptions(currentQuestions[currentIndex]);
+      }
     } else {
       gameState = 'result';
     }
@@ -268,13 +324,39 @@
               {currentQuestion.cauHoi}
             </h2>
 
-            <!-- 4 Lựa chọn -->
+            <!-- Gợi ý câu hỏi -->
+            {#if showHint && currentQuestion.goiY}
+              <div class="hint-card" role="region" aria-label="Gợi ý câu hỏi">
+                <span class="hint-icon">💡</span>
+                <div class="hint-content">
+                  <span class="hint-title">Gợi ý</span>
+                  <span class="hint-text">{currentQuestion.goiY}</span>
+                </div>
+              </div>
+            {:else if !hasAnswered && currentQuestion.goiY}
+              <div class="hint-action-bar">
+                <button
+                  type="button"
+                  class="btn-hint"
+                  onclick={handleRevealHint}
+                >
+                  💡 Gợi ý
+                </button>
+              </div>
+            {/if}
+
+            <!-- 4 Lựa chọn đã được xáo trộn -->
             <div class="options-grid" role="radiogroup">
-              {#each currentQuestion.luaChon as option, idx}
-                {@const isSelected = selectedOption === idx}
-                {@const isRightAnswer = currentQuestion.dapAn === idx}
+              {#each currentShuffledOptions as opt, displayIdx}
+                {@const origIdx = opt.originalIndex}
+                {@const isSelected = selectedOption === origIdx}
+                {@const isRightAnswer = currentQuestion.dapAn === origIdx}
                 {@const showCorrect = hasAnswered && isRightAnswer}
                 {@const showWrong = hasAnswered && isSelected && !isRightAnswer}
+
+                {@const totalVotes = communityStats ? communityStats.dem.reduce((a, b) => a + b, 0) : 0}
+                {@const voteCount = communityStats ? (communityStats.dem[origIdx] || 0) : 0}
+                {@const votePercent = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0}
 
                 <button
                   type="button"
@@ -283,17 +365,38 @@
                   class:is-correct={showCorrect}
                   class:is-wrong={showWrong}
                   disabled={hasAnswered}
-                  onclick={() => handleSelectOption(idx)}
+                  onclick={() => handleSelectOption(origIdx)}
                 >
-                  <span class="option-letter">
-                    {['A', 'B', 'C', 'D'][idx]}
-                  </span>
-                  <span class="option-label">{option}</span>
-                  {#if showCorrect}
-                    <span class="feedback-icon correct">✓</span>
-                  {:else if showWrong}
-                    <span class="feedback-icon wrong">✕</span>
+                  {#if hasAnswered && communityStats}
+                    <div
+                      class="stat-fill-bar"
+                      class:bar-correct={isRightAnswer}
+                      class:bar-selected={isSelected && !isRightAnswer}
+                      style="width: {votePercent}%"
+                    ></div>
                   {/if}
+
+                  <span class="option-content-row">
+                    <span class="option-letter">
+                      {['A', 'B', 'C', 'D'][displayIdx]}
+                    </span>
+                    <span class="option-label">{opt.text}</span>
+
+                    {#if hasAnswered && communityStats}
+                      <span class="community-stat-pill">
+                        <span class="stat-pct">{votePercent}% ({voteCount} lượt)</span>
+                        {#if totalVotes < 10}
+                          <span class="stat-few">ít dữ liệu</span>
+                        {/if}
+                      </span>
+                    {/if}
+
+                    {#if showCorrect}
+                      <span class="feedback-icon correct">✓</span>
+                    {:else if showWrong}
+                      <span class="feedback-icon wrong">✕</span>
+                    {/if}
+                  </span>
                 </button>
               {/each}
             </div>
@@ -451,6 +554,9 @@
                 </span>
                 <span class="fact-status">
                   {fact.wasCorrect ? '✓ Đã biết' : '💡 Điều mới'}
+                  {#if fact.usedHint}
+                    <span class="fact-hint-icon" title="Đã xem gợi ý">💡</span>
+                  {/if}
                 </span>
               </div>
               <p class="fact-content">{fact.giaiThich}</p>
@@ -464,6 +570,23 @@
                   Nguồn bài viết ↗
                 </a>
               </div>
+            </div>
+          {/each}
+        </div>
+      </div>
+
+      <!-- Tóm tắt 12 câu hỏi hành trình vừa qua -->
+      <div class="recap-section">
+        <h2 class="section-title">Hành trình 12 câu khám phá</h2>
+        <div class="recap-grid">
+          {#each results as r, i}
+            <div class="recap-pill" class:is-correct={r.isCorrect}>
+              <span class="recap-idx">#{i + 1}</span>
+              <span class="recap-status-icon">{r.isCorrect ? '✓' : '○'}</span>
+              <span class="recap-name">{r.question.chuDe}</span>
+              {#if r.usedHint}
+                <span class="recap-hint-icon" title="Đã dùng gợi ý">💡</span>
+              {/if}
             </div>
           {/each}
         </div>
@@ -868,6 +991,73 @@
     color: var(--hvn-text);
   }
 
+  /* Gợi ý câu hỏi */
+  .hint-action-bar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 0.85rem;
+  }
+
+  .btn-hint {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+    border-radius: 9999px;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.15s ease;
+  }
+
+  .btn-hint:hover {
+    background: #fef3c7;
+    border-color: #f59e0b;
+    transform: translateY(-1px);
+  }
+
+  .hint-card {
+    background: #fffbeb;
+    border: 1px solid #fef08a;
+    border-left: 4px solid #f59e0b;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .hint-icon {
+    font-size: 1.15rem;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .hint-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .hint-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #b45309;
+  }
+
+  .hint-text {
+    font-size: 0.92rem;
+    color: #78350f;
+    line-height: 1.4;
+  }
+
   .options-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -876,9 +1066,10 @@
   }
 
   .option-btn {
+    position: relative;
+    overflow: hidden;
     display: flex;
     align-items: center;
-    gap: 0.85rem;
     width: 100%;
     text-align: left;
     padding: 1rem 1.25rem;
@@ -890,6 +1081,40 @@
     color: #1f1d1a;
     cursor: pointer;
     transition: all 0.15s ease;
+  }
+
+  .option-content-row {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    width: 100%;
+  }
+
+  .stat-fill-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    background: rgba(209, 213, 219, 0.45);
+    transition: width 500ms ease-out;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .stat-fill-bar.bar-correct {
+    background: rgba(16, 185, 129, 0.25);
+  }
+
+  .stat-fill-bar.bar-selected {
+    background: rgba(59, 130, 246, 0.22);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stat-fill-bar {
+      transition: none !important;
+    }
   }
 
   .option-btn:hover:not(:disabled) {
@@ -922,6 +1147,33 @@
     line-height: 1.45;
   }
 
+  .community-stat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.55rem;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #374151;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .stat-pct {
+    line-height: 1.2;
+  }
+
+  .stat-few {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: #6b7280;
+    background: rgba(0, 0, 0, 0.06);
+    padding: 1px 4px;
+    border-radius: 4px;
+  }
+
   .feedback-icon {
     font-weight: 800;
     font-size: 1.1rem;
@@ -931,11 +1183,21 @@
   .feedback-icon.correct { color: #059669; }
   .feedback-icon.wrong { color: #dc2626; }
 
+  /* Lựa chọn của mình viền đậm */
+  .option-btn.is-selected {
+    border: 2.5px solid #2563eb !important;
+    box-shadow: 0 0 0 1px #2563eb;
+  }
+
   /* Trạng thái trả lời đúng / sai */
   .option-btn.is-correct {
     background: #ecfdf5;
     border-color: #10b981;
     color: #065f46;
+  }
+  .option-btn.is-correct.is-selected {
+    border: 2.5px solid #10b981 !important;
+    box-shadow: 0 0 0 1px #10b981;
   }
   .option-btn.is-correct .option-letter {
     background: #059669;
@@ -950,6 +1212,53 @@
   .option-btn.is-wrong .option-letter {
     background: #dc2626;
     color: #ffffff;
+  }
+
+  .fact-hint-icon,
+  .recap-hint-icon {
+    display: inline-block;
+    font-size: 0.85rem;
+    line-height: 1;
+    margin-left: 0.25rem;
+  }
+
+  /* Tổng kết hành trình 12 câu */
+  .recap-section {
+    margin-bottom: 2rem;
+  }
+
+  .recap-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .recap-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #4b5563;
+  }
+
+  .recap-pill.is-correct {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+    color: #065f46;
+  }
+
+  .recap-idx {
+    font-weight: 700;
+  }
+
+  .recap-status-icon {
+    font-weight: 700;
   }
 
   /* Khung giải thích & nguồn */

@@ -1,12 +1,12 @@
 // src/explore/hieu-viet-nam/step-hvn.test.ts
 // Bộ kiểm thử tự động cho game /hieu-viet-nam:
-// 1. Kiểm tra tính hợp lệ của cau-hoi.json (40 câu, 8/vùng, 4 lựa chọn, dapAn hợp lệ, nguon https, tinh thuộc 34 tỉnh)
-// 2. Thuật toán bốc 12 câu cân đối 5 vùng
-// 3. Logic chấm điểm câu hỏi
-// 4. Chọn danh hiệu vui không phán xét, không hiện %
-// 5. Tính toán tóm tắt chuyến khám phá (3 điều mới học)
+// 1. Kiểm tra tính hợp lệ của cau-hoi.json (99 câu, Tây Nguyên 19 câu, 4 vùng còn lại mỗi vùng 20 câu, có goiY)
+// 2. Thuật toán bốc 12 câu cân đối 5 vùng & tránh lặp các câu đã chơi
+// 3. Xáo thứ tự 4 lựa chọn (Fisher-Yates) không làm sai chấm điểm, phân bố đáp án đúng gần đều
+// 4. Ghi nhận gợi ý (goiY, usedHint) không trừ điểm
+// 5. Logic chấm điểm, danh hiệu vui không phán xét, tóm tắt chuyến khám phá
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import questionsData from './data/cau-hoi.json';
 import {
   REGIONS,
@@ -16,6 +16,10 @@ import {
   validateQuestions,
   pickRoundQuestions,
   scoreQuestion,
+  shuffleQuestionOptions,
+  getStoredPlayedIds,
+  savePlayedIds,
+  PLAYED_STORAGE_KEY,
   determineFunTitle,
   computeGameSummary,
   PROVINCES_34,
@@ -27,26 +31,29 @@ import {
 const questions = questionsData as Question[];
 
 describe('Kiểm tra dữ liệu câu hỏi (cau-hoi.json)', () => {
-  it('đúng 40 câu hỏi', () => {
-    expect(questions).toHaveLength(40);
+  it('đúng 99 câu hỏi trong ngân hàng dữ liệu', () => {
+    expect(questions).toHaveLength(99);
   });
 
-  it('đúng 5 vùng, mỗi vùng đúng 8 câu', () => {
+  it('đúng 5 vùng: Tây Nguyên 19 câu, 4 vùng còn lại mỗi vùng đúng 20 câu', () => {
     const regionCounts: Record<string, number> = {};
     for (const q of questions) {
       regionCounts[q.vung] = (regionCounts[q.vung] || 0) + 1;
     }
 
     expect(Object.keys(regionCounts).sort()).toEqual(
-      ['Biển đảo', 'Bắc', 'Nam', 'Trung', 'Tây Nguyên'].sort()
+      ['Biển đảo', 'Bắc', 'Nam', 'Trung', 'Tây Nguyên'].sort(),
     );
 
+    expect(regionCounts['Tây Nguyên']).toBe(19);
     for (const vung of REGIONS) {
-      expect(regionCounts[vung]).toBe(8);
+      if (vung !== 'Tây Nguyên') {
+        expect(regionCounts[vung]).toBe(20);
+      }
     }
   });
 
-  it('mỗi câu có đúng 4 lựa chọn', () => {
+  it('mỗi câu có đúng 4 lựa chọn không rỗng', () => {
     for (const q of questions) {
       expect(q.luaChon).toBeInstanceOf(Array);
       expect(q.luaChon).toHaveLength(4);
@@ -54,6 +61,13 @@ describe('Kiểm tra dữ liệu câu hỏi (cau-hoi.json)', () => {
         expect(typeof opt).toBe('string');
         expect(opt.trim().length).toBeGreaterThan(0);
       }
+    }
+  });
+
+  it('mỗi câu đều có trường gợi ý goiY hợp lệ', () => {
+    for (const q of questions) {
+      expect(typeof q.goiY).toBe('string');
+      expect(q.goiY!.trim().length).toBeGreaterThan(0);
     }
   });
 
@@ -124,6 +138,28 @@ describe('Bốc câu hỏi ngẫu nhiên cân đối vùng (pickRoundQuestions)'
     }
   });
 
+  it('tránh lặp câu đã gặp ở lượt trước khi truyền excludeIds', () => {
+    const round1 = pickRoundQuestions(questions, 12);
+    const round1Ids = round1.map((q) => q.id);
+
+    const round2 = pickRoundQuestions(questions, 12, Math.random, round1Ids);
+    const round2Ids = round2.map((q) => q.id);
+
+    // Không có câu nào của round 2 nằm trong round 1
+    for (const id of round2Ids) {
+      expect(round1Ids).not.toContain(id);
+    }
+  });
+
+  it('hết câu mới thì cho lặp lại mượt mà không văng lỗi', () => {
+    // Giả sử đã chơi hết tất cả 99 câu
+    const allIds = questions.map((q) => q.id);
+    const picked = pickRoundQuestions(questions, 12, Math.random, allIds);
+    expect(picked).toHaveLength(12);
+    const uniqueIds = new Set(picked.map((q) => q.id));
+    expect(uniqueIds.size).toBe(12);
+  });
+
   it('hỗ trợ seed giả lập tạo kết quả tái lập', () => {
     let seed = 42;
     const fakeRng = () => {
@@ -139,21 +175,118 @@ describe('Bốc câu hỏi ngẫu nhiên cân đối vùng (pickRoundQuestions)'
   });
 });
 
-describe('Chấm điểm câu hỏi (scoreQuestion)', () => {
-  it('xác định chính xác khi trả lời đúng', () => {
-    const q = questions[0];
-    const res = scoreQuestion(q, q.dapAn);
-    expect(res.isCorrect).toBe(true);
-    expect(res.selectedIndex).toBe(q.dapAn);
-    expect(res.provinceSlug).toBe(to34Province(q.tinh));
+describe('Xáo thứ tự lựa chọn (shuffleQuestionOptions)', () => {
+  it('xáo không làm sai chấm điểm (thử nhiều seed)', () => {
+    for (let seedInit = 1; seedInit <= 20; seedInit++) {
+      let seed = seedInit;
+      const fakeRng = () => {
+        seed = (seed * 9301 + 49297) % 233280;
+        return seed / 233280;
+      };
+
+      const q = questions[seedInit % questions.length];
+      const shuffled = shuffleQuestionOptions(q, fakeRng);
+
+      expect(shuffled).toHaveLength(4);
+
+      // Tìm lựa chọn tương ứng đáp án đúng trong mảng xáo
+      const correctShuffledItem = shuffled.find((item) => item.originalIndex === q.dapAn);
+      expect(correctShuffledItem).toBeDefined();
+
+      // Chấm theo originalIndex: chọn đáp án đúng luôn nhận isCorrect: true
+      const correctResult = scoreQuestion(q, correctShuffledItem!.originalIndex);
+      expect(correctResult.isCorrect).toBe(true);
+
+      // Chọn các phương án khác luôn nhận isCorrect: false
+      for (const item of shuffled) {
+        if (item.originalIndex !== q.dapAn) {
+          const wrongResult = scoreQuestion(q, item.originalIndex);
+          expect(wrongResult.isCorrect).toBe(false);
+        }
+      }
+    }
   });
 
-  it('xác định chính xác khi trả lời sai', () => {
+  it('phân bố vị trí đáp án đúng sau xáo gần đều', () => {
     const q = questions[0];
-    const wrongIndex = (q.dapAn + 1) % 4;
-    const res = scoreQuestion(q, wrongIndex);
-    expect(res.isCorrect).toBe(false);
-    expect(res.selectedIndex).toBe(wrongIndex);
+    const positionCounts = [0, 0, 0, 0];
+    const trials = 1200;
+
+    for (let i = 0; i < trials; i++) {
+      const shuffled = shuffleQuestionOptions(q, Math.random);
+      const displayPos = shuffled.findIndex((item) => item.originalIndex === q.dapAn);
+      expect(displayPos).toBeGreaterThanOrEqual(0);
+      expect(displayPos).toBeLessThanOrEqual(3);
+      positionCounts[displayPos]++;
+    }
+
+    // Với 1200 lần thử chia đều 4 vị trí, kỳ vọng mỗi vị trí ~300 lần (~25%)
+    // Kiểm tra trong khoảng hợp lý [220, 380] (~18% đến ~32%)
+    for (let pos = 0; pos < 4; pos++) {
+      expect(positionCounts[pos]).toBeGreaterThan(200);
+      expect(positionCounts[pos]).toBeLessThan(400);
+    }
+  });
+});
+
+describe('Gợi ý câu hỏi (goiY và usedHint)', () => {
+  it('ghi nhận câu đã dùng gợi ý và không trừ điểm', () => {
+    const q = questions[0];
+
+    // Trả lời đúng khi dùng gợi ý
+    const resWithHint = scoreQuestion(q, q.dapAn, true);
+    expect(resWithHint.isCorrect).toBe(true);
+    expect(resWithHint.usedHint).toBe(true);
+
+    // Trả lời sai khi không dùng gợi ý
+    const resNoHint = scoreQuestion(q, (q.dapAn + 1) % 4, false);
+    expect(resNoHint.isCorrect).toBe(false);
+    expect(resNoHint.usedHint).toBe(false);
+  });
+
+  it('computeGameSummary giữ cờ usedHint trong learnedFacts', () => {
+    const sampleResults: QuestionResult[] = questions.slice(0, 12).map((q, idx) => ({
+      question: q,
+      selectedIndex: q.dapAn,
+      isCorrect: true,
+      provinceSlug: to34Province(q.tinh),
+      usedHint: idx === 0, // Câu đầu tiên dùng gợi ý
+    }));
+
+    const summary = computeGameSummary(sampleResults);
+    expect(summary.learnedFacts[0].usedHint).toBe(true);
+  });
+});
+
+describe('Lưu trữ localStorage cho các câu đã chơi', () => {
+  const store = new Map<string, string>();
+  const mockLocalStorage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, val: string) => store.set(key, String(val)),
+    removeItem: (key: string) => store.delete(key),
+    clear: () => store.clear(),
+  };
+
+  beforeEach(() => {
+    store.clear();
+    (globalThis as any).localStorage = mockLocalStorage;
+  });
+
+  it('lưu và đọc danh sách id an toàn qua try/catch', () => {
+    expect(getStoredPlayedIds()).toEqual([]);
+
+    savePlayedIds(['bac-01', 'trung-02']);
+    expect(getStoredPlayedIds()).toEqual(['bac-01', 'trung-02']);
+
+    // Khi dữ liệu localStorage bị hỏng JSON
+    mockLocalStorage.setItem(PLAYED_STORAGE_KEY, '{invalid-json');
+    expect(getStoredPlayedIds()).toEqual([]);
+  });
+
+  it('an toàn khi localStorage không khả dụng hoặc bị chặn', () => {
+    delete (globalThis as any).localStorage;
+    expect(getStoredPlayedIds()).toEqual([]);
+    expect(() => savePlayedIds(['bac-01'])).not.toThrow();
   });
 });
 

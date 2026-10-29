@@ -16,6 +16,7 @@ export interface Question {
   giaiThich: string;
   nguon: string;
   ngayTruyCap: string;
+  goiY?: string;
 }
 
 export interface QuestionResult {
@@ -23,6 +24,7 @@ export interface QuestionResult {
   selectedIndex: number;
   isCorrect: boolean;
   provinceSlug: string; // mã tỉnh thuộc 34 tỉnh
+  usedHint?: boolean;
 }
 
 export interface FunTitle {
@@ -40,6 +42,7 @@ export interface LearnedFact {
   giaiThich: string;
   nguon: string;
   wasCorrect: boolean;
+  usedHint?: boolean;
 }
 
 export interface GameSummary {
@@ -173,8 +176,8 @@ export function validateQuestions(questions: unknown[]): {
     return { valid: false, errors: ['Dữ liệu không phải là mảng'] };
   }
 
-  if (questions.length !== 40) {
-    errors.push(`Số câu hỏi phải đúng 40 câu (hiện có: ${questions.length})`);
+  if (questions.length !== 99) {
+    errors.push(`Số câu hỏi phải đúng 99 câu (hiện có: ${questions.length})`);
   }
 
   const vungCount: Record<string, number> = {};
@@ -208,11 +211,16 @@ export function validateQuestions(questions: unknown[]): {
     if (!q?.tinh || !isValid34Province(q.tinh)) {
       errors.push(`Câu [${id}]: tỉnh "${q?.tinh}" không thuộc 34 tỉnh`);
     }
+
+    if (typeof q?.goiY !== 'string' || q.goiY.trim().length === 0) {
+      errors.push(`Câu [${id}]: thiếu gợi ý (goiY)`);
+    }
   });
 
   for (const vung of REGIONS) {
-    if (vungCount[vung] !== 8) {
-      errors.push(`Vùng "${vung}" phải có đúng 8 câu (hiện có: ${vungCount[vung] || 0})`);
+    const expected = vung === 'Tây Nguyên' ? 19 : 20;
+    if (vungCount[vung] !== expected) {
+      errors.push(`Vùng "${vung}" phải có đúng ${expected} câu (hiện có: ${vungCount[vung] || 0})`);
     }
   }
 
@@ -234,17 +242,69 @@ export function shuffleArray<T>(array: T[], rng: () => number = Math.random): T[
   return copy;
 }
 
+export interface ShuffledOption {
+  text: string;
+  originalIndex: number;
+}
+
+/**
+ * Xáo trộn 4 lựa chọn của câu hỏi bằng Fisher-Yates, giữ nguyên liên kết chỉ số gốc
+ */
+export function shuffleQuestionOptions(
+  question: Question,
+  rng: () => number = Math.random,
+): ShuffledOption[] {
+  const items: ShuffledOption[] = question.luaChon.map((text, originalIndex) => ({
+    text,
+    originalIndex,
+  }));
+  return shuffleArray(items, rng);
+}
+
+export const PLAYED_STORAGE_KEY = 'hvn_played_ids';
+
+/**
+ * Đọc danh sách ID câu hỏi đã chơi từ localStorage (bảo vệ bằng try/catch)
+ */
+export function getStoredPlayedIds(): string[] {
+  try {
+    if (typeof localStorage === 'undefined') return [];
+    const raw = localStorage.getItem(PLAYED_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Lưu danh sách ID câu hỏi đã chơi vào localStorage (bảo vệ bằng try/catch)
+ */
+export function savePlayedIds(ids: string[]): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(PLAYED_STORAGE_KEY, JSON.stringify(ids));
+  } catch {
+    // Bỏ qua lỗi quota hoặc chế độ ẩn danh
+  }
+}
+
 /**
  * Bốc ngẫu nhiên 12 câu cho mỗi lượt chơi, cân đối 5 vùng:
  * - Mỗi vùng có tối thiểu 2 câu (5 × 2 = 10 câu)
  * - 2 vùng ngẫu nhiên có thêm 1 câu (tổng 12 câu: phân bổ 3, 3, 2, 2, 2)
- * - Các câu được xáo đều, không trùng lặp
+ * - Ưu tiên tránh lặp các câu trong excludeIds; hết câu mới thì bù từ câu đã chơi
+ * - Các câu được xáo đều
  */
 export function pickRoundQuestions(
   allQuestions: Question[],
   count = 12,
-  rng: () => number = Math.random
+  rng: () => number = Math.random,
+  excludeIds: string[] | Set<string> = [],
 ): Question[] {
+  const excludeSet = excludeIds instanceof Set ? excludeIds : new Set(excludeIds);
+
   const byRegion: Record<Region, Question[]> = {
     Bắc: [],
     Trung: [],
@@ -259,19 +319,27 @@ export function pickRoundQuestions(
     }
   }
 
-  // Xáo trộn câu hỏi trong từng vùng
-  for (const r of REGIONS) {
-    byRegion[r] = shuffleArray(byRegion[r], rng);
-  }
-
   // Chọn 2 vùng ngẫu nhiên nhận thêm 1 câu
   const shuffledRegions = shuffleArray([...REGIONS], rng);
-  const extraRegions = new Set(shuffledRegions.slice(0, count - 10)); // 2 vùng
+  const extraCount = Math.max(0, count - REGIONS.length * 2);
+  const extraRegions = new Set(shuffledRegions.slice(0, extraCount)); // 2 vùng
 
   const picked: Question[] = [];
   for (const r of REGIONS) {
     const quota = extraRegions.has(r) ? 3 : 2;
-    picked.push(...byRegion[r].slice(0, quota));
+    const regionQuestions = byRegion[r];
+    const unplayed = regionQuestions.filter((q) => !excludeSet.has(q.id));
+    const played = regionQuestions.filter((q) => excludeSet.has(q.id));
+
+    const shuffledUnplayed = shuffleArray(unplayed, rng);
+    if (shuffledUnplayed.length >= quota) {
+      picked.push(...shuffledUnplayed.slice(0, quota));
+    } else {
+      // Hết câu mới trong vùng này thì bù từ các câu đã chơi
+      const shuffledPlayed = shuffleArray(played, rng);
+      const needed = quota - shuffledUnplayed.length;
+      picked.push(...shuffledUnplayed, ...shuffledPlayed.slice(0, needed));
+    }
   }
 
   // Xáo trộn ngẫu nhiên thứ tự 12 câu cuối cùng để các vùng đan xen tự nhiên
@@ -279,11 +347,12 @@ export function pickRoundQuestions(
 }
 
 /**
- * Chấm điểm câu trả lời và lưu thông tin tỉnh thành
+ * Chấm điểm câu trả lời và lưu thông tin tỉnh thành, cờ dùng gợi ý
  */
 export function scoreQuestion(
   question: Question,
-  selectedIndex: number
+  selectedIndex: number,
+  usedHint = false,
 ): QuestionResult {
   const isCorrect = selectedIndex === question.dapAn;
   const provinceSlug = to34Province(question.tinh);
@@ -293,6 +362,7 @@ export function scoreQuestion(
     selectedIndex,
     isCorrect,
     provinceSlug,
+    usedHint,
   };
 }
 
@@ -465,6 +535,7 @@ export function computeGameSummary(results: QuestionResult[]): GameSummary {
     giaiThich: r.question.giaiThich,
     nguon: r.question.nguon,
     wasCorrect: r.isCorrect,
+    usedHint: r.usedHint,
   }));
 
   const title = determineFunTitle(results);

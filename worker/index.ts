@@ -6,6 +6,10 @@ import {
   verifyBotToken,
 } from './auth';
 import {
+  handleHvnTraLoi,
+  handleHvnThongKe,
+} from './hvn';
+import {
   checkAndRecordBotRateLimit,
   handleApplyAdminSuggestion,
   handleBotGetSummary,
@@ -177,6 +181,8 @@ export {
   handleGetPublicData,
   handleGetPublicPhotos,
   handleGetWeeklyPhotos,
+  handleHvnTraLoi,
+  handleHvnThongKe,
   handleHideAdminPhoto,
   handlePublicSubmit,
   handlePublicSubmitFlower,
@@ -554,6 +560,21 @@ export default {
       const id = fileMatch[1];
       const is600 = Boolean(fileMatch[2]);
       return handleGetPhotoFile(request, env, id, is600);
+    }
+
+    // 7. API thống kê lượt chọn câu hỏi Hiểu Việt Nam
+    if (
+      (pathname === '/api/hvn/tra-loi' || pathname === '/api/hvn/tra-loi/') &&
+      method === 'POST'
+    ) {
+      return handleHvnTraLoi(request, env);
+    }
+
+    if (
+      (pathname === '/api/hvn/thong-ke' || pathname === '/api/hvn/thong-ke/') &&
+      method === 'GET'
+    ) {
+      return handleHvnThongKe(request, env);
     }
 
     if (pathname.startsWith('/api/')) {
