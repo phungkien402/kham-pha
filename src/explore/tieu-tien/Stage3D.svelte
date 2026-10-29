@@ -427,11 +427,17 @@
     });
 
     // 2. Tính toán vị trí không chồng lấn cho các cụm (xếp ngang hàng, wrap phía sau)
+    // Hàng rộng theo tỉ lệ khung: tổng bề ngang các cụm chia số hàng sao cho khối tổng gần tỉ lệ khung
+    const spans = clusterSizes.map((c) => (c.width + c.depth) / Math.SQRT2);
+    const totalSpan = spans.reduce((a, b) => a + b, 0) + 6 * Math.max(0, spans.length - 1);
+    const maxSpan = Math.max(0, ...spans);
+    const aspect = containerEl ? Math.max(0.5, containerEl.clientWidth / Math.max(1, containerEl.clientHeight)) : 1.4;
+    const rows = Math.max(1, Math.round(Math.sqrt(totalSpan / (aspect * Math.max(1, maxSpan * 0.6)))));
     const placement = calculateClusterPositions(clusterSizes, {
       baseGap: 4.0,
       rowGap: 6.0,
-      maxRowWidth: 70.0,
-      maxClustersPerRow: 4,
+      maxRowWidth: Math.max(maxSpan + 1, totalSpan / rows + 1),
+      maxClustersPerRow: 8,
       minLabelDist: 9.0,
     });
     currentClusters = placement.clusters;
