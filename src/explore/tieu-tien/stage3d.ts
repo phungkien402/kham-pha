@@ -568,3 +568,255 @@ export function isWebGLAvailable(): boolean {
     return false;
   }
 }
+
+/**
+ * 7. BỐ CỤC 2.5D SPRITE ISOMETRIC THEO ĐẶC TẢ docs/tieu-tien-sprite-dac-ta.md
+ */
+
+/**
+ * Chiếu toạ độ ô lưới isometric (col, row) sang toạ độ pixel (x, y) trên màn hình
+ * Góc isometric chuẩn 30 độ (cos 30° = √3/2, sin 30° = 0.5)
+ */
+export function gridToIsometricPx(
+  col: number,
+  row: number,
+  footprintW: number,
+  footprintD: number,
+  scale = 36
+): { x: number; y: number } {
+  const xw = col * footprintW;
+  const zw = row * footprintD;
+  const cos30 = Math.sqrt(3) / 2;
+  const sin30 = 0.5;
+  return {
+    x: (xw - zw) * cos30 * scale,
+    y: (xw + zw) * sin30 * scale,
+  };
+}
+
+/**
+ * Thứ tự vẽ Painter's Algorithm: sắp xếp các phần tử tăng dần theo (col + row)
+ * Phần tử phía sau vẽ trước, phần tử phía trước vẽ sau đè lên tự nhiên
+ */
+export function getSpriteDrawOrder<T extends { col: number; row: number }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const depthA = a.col + a.row;
+    const depthB = b.col + b.row;
+    if (depthA !== depthB) return depthA - depthB;
+    return a.col - b.col;
+  });
+}
+
+export interface Cluster2DPlacement {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  labelX: number;
+  labelY: number;
+  labelWidth: number;
+  bounds: { minX: number; maxX: number; minY: number; maxY: number };
+}
+
+export interface Clusters2DLayoutResult {
+  clusters: Cluster2DPlacement[];
+  totalBounds: { minX: number; maxX: number; minY: number; maxY: number };
+}
+
+/**
+ * Sắp xếp các cụm 2D NGANG trên màn hình theo phong cách neal.fun:
+ * - Đáy các cụm thẳng hàng tại y = 0
+ * - Khoảng cách giữa các cụm đảm bảo không đè hình ảnh và không đè nhãn
+ * - Căn giữa toàn bộ hàng cụm theo trục X
+ */
+export function calculateClusters2DLayout(
+  clusters: Array<{ id: string; width: number; height: number; labelWidth?: number }>,
+  options?: { gap?: number; minLabelDist?: number; labelGapY?: number }
+): Clusters2DLayoutResult {
+  if (!clusters || clusters.length === 0) {
+    return {
+      clusters: [],
+      totalBounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 },
+    };
+  }
+
+  const gap = options?.gap ?? 48;
+  const labelGapY = options?.labelGapY ?? 16;
+
+  // Tính vị trí tương đối dọc theo trục X
+  const relativeX: number[] = [];
+  let curX = 0;
+
+  for (let i = 0; i < clusters.length; i++) {
+    const c = clusters[i];
+    const lblW = c.labelWidth ?? 140;
+    const effectiveHalfW = Math.max(c.width, lblW) / 2;
+
+    if (i === 0) {
+      curX = effectiveHalfW;
+    } else {
+      const prev = clusters[i - 1];
+      const prevLblW = prev.labelWidth ?? 140;
+      const prevHalfW = Math.max(prev.width, prevLblW) / 2;
+      curX += prevHalfW + effectiveHalfW + gap;
+    }
+    relativeX.push(curX);
+  }
+
+  // Căn giữa theo trục X (X = 0 là tâm ngang)
+  const firstHalf = Math.max(clusters[0].width, clusters[0].labelWidth ?? 140) / 2;
+  const lastHalf = Math.max(
+    clusters[clusters.length - 1].width,
+    clusters[clusters.length - 1].labelWidth ?? 140
+  ) / 2;
+  const minLineX = relativeX[0] - firstHalf;
+  const maxLineX = relativeX[relativeX.length - 1] + lastHalf;
+  const lineCenterX = (minLineX + maxLineX) / 2;
+
+  const placed: Cluster2DPlacement[] = [];
+  let totalMinX = Infinity,
+    totalMaxX = -Infinity,
+    totalMinY = Infinity,
+    totalMaxY = -Infinity;
+
+  for (let i = 0; i < clusters.length; i++) {
+    const c = clusters[i];
+    const lblW = c.labelWidth ?? 140;
+    const x = relativeX[i] - lineCenterX;
+    const y = 0; // Đáy cụm thẳng hàng tại y = 0
+
+    const minX = Math.min(x - c.width / 2, x - lblW / 2);
+    const maxX = Math.max(x + c.width / 2, x + lblW / 2);
+    const minY = y - c.height; // Phía trên đỉnh cụm
+    const maxY = y + labelGapY + 44; // Đáy nhãn 2 dòng
+
+    if (minX < totalMinX) totalMinX = minX;
+    if (maxX > totalMaxX) totalMaxX = maxX;
+    if (minY < totalMinY) totalMinY = minY;
+    if (maxY > totalMaxY) totalMaxY = maxY;
+
+    placed.push({
+      id: c.id,
+      x,
+      y,
+      width: c.width,
+      height: c.height,
+      labelX: x,
+      labelY: y + labelGapY,
+      labelWidth: lblW,
+      bounds: { minX, maxX, minY, maxY },
+    });
+  }
+
+  return {
+    clusters: placed,
+    totalBounds: {
+      minX: totalMinX,
+      maxX: totalMaxX,
+      minY: totalMinY,
+      maxY: totalMaxY,
+    },
+  };
+}
+
+/**
+ * Tính toán góc nhìn và zoom fit toàn bộ sân khấu 2D (lấp ~80-85% viewport)
+ */
+export function calculateStage2DFit(
+  totalBounds: { minX: number; maxX: number; minY: number; maxY: number },
+  viewportW: number,
+  viewportH: number,
+  padding = 1.22
+): { targetX: number; targetY: number; zoom: number } {
+  const vpW = Math.max(100, viewportW);
+  const vpH = Math.max(100, viewportH);
+
+  const spanX = Math.max(50, totalBounds.maxX - totalBounds.minX);
+  const spanY = Math.max(50, totalBounds.maxY - totalBounds.minY);
+
+  const targetX = (totalBounds.minX + totalBounds.maxX) / 2;
+  const targetY = (totalBounds.minY + totalBounds.maxY) / 2;
+
+  const scaleX = vpW / (spanX * padding);
+  const scaleY = vpH / (spanY * padding);
+  let zoom = Math.min(scaleX, scaleY);
+
+  // Kẹp zoom hợp lý
+  zoom = Math.max(0.3, Math.min(zoom, 1.6));
+
+  return { targetX, targetY, zoom };
+}
+
+/**
+ * Định dạng nhãn 2 dòng cho cụm:
+ * Dòng 1: "<số lượng> × <tên>"
+ * Dòng 2: "<tổng tiền>"
+ */
+export function formatClusterLabelLines(
+  count: number,
+  item: { ten: string; gia: number }
+): { line1: string; line2: string; badge: string } {
+  const disp = getDisplayCount(count, 1000);
+  const countStr = count.toLocaleString('vi-VN');
+  const totalCost = count * item.gia;
+  const costStr = formatVietnameseCurrency(totalCost, true);
+  return {
+    line1: `${countStr} × ${item.ten}`,
+    line2: costStr,
+    badge: disp.label,
+  };
+}
+
+/**
+ * Kiểm tra tính hợp lệ của manifest.json và các file sprite
+ */
+export function validateManifest(
+  manifest: Record<string, any>,
+  items: Array<{ id: string }>,
+  checkFilesCallback?: (id: string) => { sprite: boolean; shadow: boolean; icon: boolean }
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (!manifest || typeof manifest !== 'object') {
+    return { valid: false, errors: ['Manifest rỗng hoặc không phải object'] };
+  }
+
+  for (const item of items) {
+    const entry = manifest[item.id];
+    if (!entry) {
+      errors.push(`Thiếu entry trong manifest cho vật phẩm: ${item.id}`);
+      continue;
+    }
+    if (typeof entry.w !== 'number' || entry.w <= 0) {
+      errors.push(`${item.id}: w không hợp lệ (${entry.w})`);
+    }
+    if (typeof entry.h !== 'number' || entry.h <= 0) {
+      errors.push(`${item.id}: h không hợp lệ (${entry.h})`);
+    }
+    if (typeof entry.anchorX !== 'number') {
+      errors.push(`${item.id}: anchorX không phải số`);
+    }
+    if (typeof entry.anchorY !== 'number') {
+      errors.push(`${item.id}: anchorY không phải số`);
+    }
+    if (typeof entry.footprintW !== 'number' || entry.footprintW <= 0) {
+      errors.push(`${item.id}: footprintW không hợp lệ`);
+    }
+    if (typeof entry.footprintD !== 'number' || entry.footprintD <= 0) {
+      errors.push(`${item.id}: footprintD không hợp lệ`);
+    }
+
+    if (checkFilesCallback) {
+      const files = checkFilesCallback(item.id);
+      if (!files.sprite) errors.push(`${item.id}: Thiếu file sprite`);
+      if (!files.shadow) errors.push(`${item.id}: Thiếu file shadow`);
+      if (!files.icon) errors.push(`${item.id}: Thiếu file icon`);
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}

@@ -10,8 +10,17 @@ import {
   formatClusterLabel,
   getHighestMilestone,
   getNewMilestonesGrouped,
+  gridToIsometricPx,
+  getSpriteDrawOrder,
+  calculateClusters2DLayout,
+  calculateStage2DFit,
+  formatClusterLabelLines,
+  validateManifest,
 } from './stage3d';
 import { MILESTONES } from './logic';
+import vatPhamData from './data/vat-pham.json';
+import fs from 'node:fs';
+import path from 'node:path';
 
 describe('Sân khấu 3D — Hàm thuần (stage3d)', () => {
   describe('1. Giới hạn hiển thị 400 bản / cụm (getDisplayCount)', () => {
@@ -334,6 +343,161 @@ describe('Sân khấu 3D — Hàm thuần (stage3d)', () => {
       const budget = 1000000000;
       const grouped = getNewMilestonesGrouped(budget * 0.0002, budget * 0.0003, budget);
       expect(grouped).toEqual([]);
+    });
+  });
+
+  describe('7. Sân khấu 2.5D Isometric Sprite (docs/tieu-tien-sprite-dac-ta.md)', () => {
+    describe('7.1. Chiếu lưới sang pixel (gridToIsometricPx)', () => {
+      it('gốc (0, 0) ánh xạ sang (0, 0)', () => {
+        const pt = gridToIsometricPx(0, 0, 2.0, 2.0);
+        expect(pt.x).toBe(0);
+        expect(pt.y).toBe(0);
+      });
+
+      it('tăng cột (col) đi chéo xuống phải theo góc 30 độ (x > 0, y > 0)', () => {
+        const pt = gridToIsometricPx(1, 0, 2.0, 2.0, 36);
+        expect(pt.x).toBeGreaterThan(0);
+        expect(pt.y).toBeGreaterThan(0);
+        // Tỷ lệ y / x đúng góc 30 độ (tan 30° ≈ 0.57735)
+        const ratio = pt.y / pt.x;
+        expect(ratio).toBeCloseTo(1 / Math.sqrt(3), 5);
+      });
+
+      it('tăng hàng (row) đi chéo xuống trái (x < 0, y > 0)', () => {
+        const pt = gridToIsometricPx(0, 1, 2.0, 2.0, 36);
+        expect(pt.x).toBeLessThan(0);
+        expect(pt.y).toBeGreaterThan(0);
+        const ratio = pt.y / -pt.x;
+        expect(ratio).toBeCloseTo(1 / Math.sqrt(3), 5);
+      });
+
+      it('col = 1, row = 1 nằm thẳng dưới gốc theo trục dọc (x = 0, y > 0)', () => {
+        const pt = gridToIsometricPx(1, 1, 2.0, 2.0, 36);
+        expect(pt.x).toBeCloseTo(0, 5);
+        expect(pt.y).toBeGreaterThan(0);
+      });
+    });
+
+    describe('7.2. Thứ tự vẽ Painter\'s Algorithm (getSpriteDrawOrder)', () => {
+      it('sắp xếp theo (col + row) tăng dần để hàng sau vẽ trước, hàng trước đè lên', () => {
+        const input = [
+          { id: 'c', col: 2, row: 1 }, // sum = 3
+          { id: 'a', col: 0, row: 0 }, // sum = 0
+          { id: 'b', col: 1, row: 0 }, // sum = 1
+          { id: 'd', col: 1, row: 1 }, // sum = 2
+        ];
+        const sorted = getSpriteDrawOrder(input);
+        expect(sorted.map((s) => s.id)).toEqual(['a', 'b', 'd', 'c']);
+      });
+
+      it('cùng độ sâu (col + row bằng nhau) sắp xếp theo col tăng dần', () => {
+        const input = [
+          { id: 'row1-col0', col: 0, row: 1 }, // sum = 1, col = 0
+          { id: 'row0-col1', col: 1, row: 0 }, // sum = 1, col = 1
+        ];
+        const sorted = getSpriteDrawOrder(input);
+        expect(sorted[0].id).toBe('row1-col0');
+        expect(sorted[1].id).toBe('row0-col1');
+      });
+    });
+
+    describe('7.3. Cụm không chồng & Nhãn không chồng (calculateClusters2DLayout)', () => {
+      it('danh sách cụm rỗng an toàn', () => {
+        const res = calculateClusters2DLayout([]);
+        expect(res.clusters).toEqual([]);
+        expect(res.totalBounds.minX).toBe(0);
+      });
+
+      it('các cụm xếp ngang màn hình, không chồng lấn hình ảnh và cách nhau >= gap', () => {
+        const input = [
+          { id: 'pho', width: 120, height: 90, labelWidth: 140 },
+          { id: 'vision', width: 160, height: 120, labelWidth: 150 },
+          { id: 'vf3', width: 220, height: 150, labelWidth: 160 },
+        ];
+        const gap = 40;
+        const res = calculateClusters2DLayout(input, { gap });
+        expect(res.clusters.length).toBe(3);
+
+        for (let i = 0; i < res.clusters.length - 1; i++) {
+          const c1 = res.clusters[i];
+          const c2 = res.clusters[i + 1];
+          // Khoảng cách giữa 2 biên x >= gap
+          const edgeDist = c2.bounds.minX - c1.bounds.maxX;
+          expect(edgeDist).toBeGreaterThanOrEqual(gap - 1e-6);
+        }
+      });
+
+      it('nhãn dưới mỗi cụm không chồng lấn nhau', () => {
+        const input = [
+          { id: 'a', width: 40, height: 40, labelWidth: 150 },
+          { id: 'b', width: 40, height: 40, labelWidth: 150 },
+        ];
+        const gap = 30;
+        const res = calculateClusters2DLayout(input, { gap });
+        const c1 = res.clusters[0];
+        const c2 = res.clusters[1];
+        const labelDist = c2.labelX - c1.labelX;
+        expect(labelDist).toBeGreaterThanOrEqual(150 + gap);
+      });
+
+      it('toàn bộ hàng cụm được căn giữa đối xứng qua x = 0', () => {
+        const input = [
+          { id: 'a', width: 100, height: 80, labelWidth: 120 },
+          { id: 'b', width: 100, height: 80, labelWidth: 120 },
+        ];
+        const res = calculateClusters2DLayout(input);
+        expect((res.totalBounds.minX + res.totalBounds.maxX) / 2).toBeCloseTo(0, 5);
+      });
+    });
+
+    describe('7.4. Camera fit toàn bộ sân khấu 2D (calculateStage2DFit)', () => {
+      it('tính đúng tâm target và zoom lấp ~80-85% viewport', () => {
+        const bounds = { minX: -400, maxX: 400, minY: -300, maxY: 100 };
+        const fit = calculateStage2DFit(bounds, 1200, 800, 1.2);
+        expect(fit.targetX).toBe(0);
+        expect(fit.targetY).toBe(-100);
+        expect(fit.zoom).toBeGreaterThan(0.3);
+        expect(fit.zoom).toBeLessThanOrEqual(1.6);
+      });
+    });
+
+    describe('7.5. Nhãn 2 dòng cho cụm (formatClusterLabelLines)', () => {
+      it('tạo đúng dòng 1: số lượng × tên, dòng 2: tổng tiền rút gọn', () => {
+        const item = { ten: 'Bát phở', gia: 40000 };
+        const res = formatClusterLabelLines(100, item);
+        expect(res.line1).toBe('100 × Bát phở');
+        expect(res.line2).toBe('4 triệu đ');
+        expect(res.badge).toBe('');
+      });
+
+      it('số lượng vượt 1.000 có badge ×N', () => {
+        const item = { ten: 'Cốc trà đá vỉa hè', gia: 4000 };
+        const res = formatClusterLabelLines(2500, item);
+        expect(res.line1).toBe('2.500 × Cốc trà đá vỉa hè');
+        expect(res.badge).toBe('×2.5');
+      });
+    });
+
+    describe('7.6. Kiểm tra tính hợp lệ của manifest.json và file sprite (validateManifest)', () => {
+      it('manifest.json hợp lệ: mọi id trong vat-pham.json có sprite, shadow, icon và file tồn tại', () => {
+        const spritesDir = path.join(process.cwd(), 'public/tieu-tien/sprites');
+        const manifestPath = path.join(spritesDir, 'manifest.json');
+        expect(fs.existsSync(manifestPath)).toBe(true);
+
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        const items = vatPhamData.vatPham;
+
+        const checkFiles = (id: string) => {
+          const sprite = fs.existsSync(path.join(spritesDir, `${id}.webp`));
+          const shadow = fs.existsSync(path.join(spritesDir, `${id}-shadow.webp`));
+          const icon = fs.existsSync(path.join(spritesDir, `${id}-icon.webp`));
+          return { sprite, shadow, icon };
+        };
+
+        const res = validateManifest(manifest, items, checkFiles);
+        expect(res.errors).toEqual([]);
+        expect(res.valid).toBe(true);
+      });
     });
   });
 });

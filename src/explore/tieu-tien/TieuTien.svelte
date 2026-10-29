@@ -1,3 +1,6 @@
+<!-- src/explore/tieu-tien/TieuTien.svelte -->
+<!-- Trò chơi "1 ngày làm PNV" — Sân khấu toàn màn hình 2.5D Sprite Isometric phong cách neal.fun -->
+
 <script lang="ts">
   import { onMount } from 'svelte';
   import vatPhamData from './data/vat-pham.json';
@@ -20,7 +23,7 @@
     formatVietnameseCurrency,
     formatVietnameseNumber,
   } from './logic';
-  import { getNewMilestonesGrouped, isWebGLAvailable } from './stage3d';
+  import { getNewMilestonesGrouped } from './stage3d';
   import { soundManager } from './audio';
 
   import Stage3D from './Stage3D.svelte';
@@ -41,9 +44,13 @@
   let highlightedShopItemId = $state<string | null>(null);
   let shareToast = $state<string | null>(null);
   let viewMode = $state<'3d' | '2d'>('3d');
+  let showReceiptModal = $state(false);
 
-  // Tham chiếu đến Sân khấu 3D
-  let stage3dRef = $state<any>(null);
+  // Trạng thái Mobile Bottom Sheet (mặc định 'half' ~45svh, 'expanded' ~82svh, 'collapsed' ~64px)
+  let sheetState = $state<'half' | 'expanded' | 'collapsed'>('half');
+
+  // Tham chiếu đến Sân khấu
+  let stageRef = $state<any>(null);
 
   // Tính toán phái sinh
   const totalSpent = $derived(calculateTotalSpent(cart, items));
@@ -54,13 +61,6 @@
     spentRatio >= 1 ? spentRatio.toFixed(1).replace('.0', '') : spentRatio.toFixed(3).replace(/\.?0+$/, '')
   );
 
-  onMount(() => {
-    // Nếu thiết bị không hỗ trợ WebGL thì chuyển về 2D
-    if (!isWebGLAvailable()) {
-      viewMode = '2d';
-    }
-  });
-
   function handleBuy(item: VatPham, count: number) {
     const prevSpent = totalSpent;
     const res = buyItem(cart, item, count, balance, totalBudget);
@@ -69,6 +69,9 @@
       cart = res.newCart;
       history = [...history, { itemId: item.id, count: res.actualCount, gia: item.gia }];
       deltaAmount = -res.cost;
+
+      // Kích hoạt animation rơi nhẹ vào chỗ
+      stageRef?.notifyItemBought?.(item.id);
 
       // Gộp thẻ mốc %: chỉ hiện thẻ của mốc cao nhất
       const nextSpent = prevSpent + res.cost;
@@ -104,7 +107,7 @@
     history = [];
     deltaAmount = null;
     activeMilestones = [];
-    stage3dRef?.recenter?.();
+    stageRef?.recenter?.();
   }
 
   function dismissMilestone(id: string) {
@@ -112,14 +115,14 @@
   }
 
   function handleRecenter() {
-    stage3dRef?.recenter?.();
+    stageRef?.recenter?.();
   }
 
   function handleShare() {
     const shareText = `Tôi đã tiêu ${formatVietnameseCurrency(totalSpent, true)} trên ngân sách ${formatVietnameseCurrency(totalBudget, true)} tại trò chơi "1 ngày làm PNV"!`;
     if (typeof navigator !== 'undefined' && navigator.share) {
       navigator.share({
-        title: '1 ngày làm PNV — Sân khấu 3D',
+        title: '1 ngày làm PNV — Sân khấu Sprite Isometric',
         text: shareText,
         url: window.location.href,
       }).catch(() => {});
@@ -136,17 +139,27 @@
     }, 2800);
   }
 
-  function scrollToReceipt() {
-    if (typeof document !== 'undefined') {
-      const el = document.getElementById('hoa-don');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth' });
+  function handleOpenReceipt() {
+    if (viewMode === '3d') {
+      showReceiptModal = true;
+    } else {
+      if (typeof document !== 'undefined') {
+        const el = document.getElementById('hoa-don-2d');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
       }
     }
   }
 
-  function handleSelectFrom3D(itemId: string) {
+  function handleCloseReceipt() {
+    showReceiptModal = false;
+  }
+
+  function handleSelectFromStage(itemId: string) {
     highlightedShopItemId = itemId;
+    // Trên mobile, mở panel lên nếu đang collapsed
+    if (sheetState === 'collapsed') {
+      sheetState = 'half';
+    }
     if (typeof document !== 'undefined') {
       const el = document.getElementById(`shop-item-${itemId}`);
       if (el) {
@@ -157,47 +170,75 @@
       if (highlightedShopItemId === itemId) {
         highlightedShopItemId = null;
       }
-    }, 2000);
+    }, 2200);
+  }
+
+  function toggleSheetState() {
+    if (sheetState === 'half') {
+      sheetState = 'expanded';
+    } else if (sheetState === 'expanded') {
+      sheetState = 'collapsed';
+    } else {
+      sheetState = 'half';
+    }
   }
 </script>
 
-<div class="tieu-tien-page">
-  <!-- THANH SỐ DƯ & ĐIỀU KHIỂN CHÍNH (Đỉnh trang kiểu neal.fun) -->
-  <header class="stage-top-bar" aria-label="Bảng tổng quan số dư và thanh điều khiển">
-    <div class="top-bar-inner">
-      <!-- Cụm số dư lớn ở giữa -->
-      <div class="balance-display-block">
-        <div class="balance-label">SỐ DƯ CÒN LẠI</div>
-        <div class="balance-amount" aria-live="polite">
-          {formatVietnameseCurrency(balance, true)}
-        </div>
-        <div class="spent-progress-info">
-          <span>Bạn đã tiêu <strong>{formatVietnameseCurrency(totalSpent, true)}</strong></span>
-          <span class="ratio-badge">{spentRatioFormatted}% ngân sách</span>
-        </div>
+<div class="tieu-tien-app {viewMode === '3d' ? 'mode-fullscreen-3d' : 'mode-cards-2d'}">
+  {#if viewMode === '3d'}
+    <!-- ========================================== -->
+    <!-- CHẾ ĐỘ 1: TOÀN MÀN HÌNH 2.5D SPRITE NEAL.FUN -->
+    <!-- ========================================== -->
+    <div class="stage-viewport-area">
+      <!-- SÂN KHẤU 2.5D SPRITE ISOMETRIC -->
+      <Stage3D
+        bind:this={stageRef}
+        {cart}
+        {items}
+        onSelectCard={handleSelectFromStage}
+      />
 
-        <!-- Thanh đo % đã tiêu -->
-        <div class="progress-bar-bg" aria-hidden="true">
-          <div class="progress-bar-fill" style="width: {Math.min(100, spentRatio)}%;"></div>
+      <!-- NÚT TRANG CHỦ GÓC TRÊN TRÁI -->
+      <a href="/" class="floating-btn home-corner-btn" title="Quay về Trang chủ">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+        <span>Trang chủ</span>
+      </a>
+
+      <!-- OVERLAY TRUNG TÂM TRÊN: SỐ DƯ & BẠN ĐÃ TIÊU -->
+      <div class="top-overlay-center" role="region" aria-label="Bảng số dư nổi">
+        <div class="balance-pill-card">
+          <div class="balance-sub-label">SỐ DƯ CÒN LẠI</div>
+          <div class="balance-big-val" aria-live="polite">
+            {formatVietnameseCurrency(balance, true)}
+          </div>
+          <div class="spent-info-row">
+            <span>Bạn đã tiêu <strong>{formatVietnameseCurrency(totalSpent, true)}</strong></span>
+            <span class="ratio-chip">{spentRatioFormatted}%</span>
+          </div>
+
+          <!-- Thanh tiến trình % -->
+          <div class="progress-track" aria-hidden="true">
+            <div class="progress-fill" style="width: {Math.min(100, spentRatio)}%;"></div>
+          </div>
         </div>
       </div>
 
-      <!-- Cụm nút công cụ: Căn giữa, Chia sẻ, Hoá đơn, Chuyển 3D/2D -->
-      <div class="top-actions-cluster">
-        {#if viewMode === '3d'}
-          <button
-            type="button"
-            class="top-btn recenter-action"
-            onclick={handleRecenter}
-            title="Căn giữa góc nhìn sân khấu 3D"
-          >
-            🎯 Căn giữa
-          </button>
-        {/if}
+      <!-- CỤM NÚT CÔNG CỤ NỔI GÓC TRÊN PHẢI SÂN KHẤU -->
+      <div class="top-overlay-right" role="toolbar" aria-label="Thanh công cụ sân khấu">
+        <button
+          type="button"
+          class="floating-btn action-btn recenter-btn"
+          onclick={handleRecenter}
+          title="Căn giữa toàn bộ mô hình (Fit)"
+        >
+          🎯 Căn giữa
+        </button>
 
         <button
           type="button"
-          class="top-btn share-action"
+          class="floating-btn action-btn"
           onclick={handleShare}
           title="Chia sẻ kết quả"
         >
@@ -206,98 +247,144 @@
 
         <button
           type="button"
-          class="top-btn receipt-action"
-          onclick={scrollToReceipt}
+          class="floating-btn action-btn receipt-btn"
+          onclick={handleOpenReceipt}
           title="Xem hoá đơn cuộn giấy"
         >
           🧾 Hoá đơn
         </button>
 
-        <!-- Chuyển đổi linh hoạt giữa Sân khấu 3D và Lưới 2D -->
         <button
           type="button"
-          class="top-btn toggle-view-btn"
-          onclick={() => (viewMode = viewMode === '3d' ? '2d' : '3d')}
-          title="Chuyển chế độ xem"
+          class="floating-btn action-btn view-toggle-btn"
+          onclick={() => (viewMode = '2d')}
+          title="Chuyển sang chế độ xem thẻ 2D"
         >
-          {viewMode === '3d' ? '📐 Xem thẻ 2D' : '🌐 Xem 3D'}
+          📐 <span class="desktop-only-txt">Xem thẻ </span>2D
         </button>
       </div>
     </div>
-  </header>
 
-  <!-- KHÔNG GIAN CHƠI CHÍNH (Bố cục 2 cột Desktop / 2 hàng Mobile) -->
-  <main class="game-main-layout">
-    {#if viewMode === '3d'}
-      <!-- CỘT GIỮA: SÂN KHẤU 3D ISOMETRIC -->
-      <section class="stage-column" aria-label="Sân khấu 3D mô phỏng quy mô tài sản">
-        <Stage3D
-          bind:this={stage3dRef}
-          {cart}
-          {items}
-          onSelectCard={handleSelectFrom3D}
-        />
-      </section>
+    <!-- THANH MUA SẮM PANEL CỐ ĐỊNH BÊN PHẢI (DESKTOP) / BOTTOM SHEET (MOBILE) -->
+    <aside
+      class="shop-panel-wrapper sheet-{sheetState}"
+      aria-label="Bảng điều khiển danh mục mua sắm"
+    >
+      <!-- Grab handle chỉ hiện trên mobile -->
+      <button
+        type="button"
+        class="sheet-grab-handle-bar"
+        onclick={toggleSheetState}
+        aria-label="Kéo lên/xuống thanh mua sắm"
+      >
+        <span class="sheet-grab-pill"></span>
+      </button>
 
-      <!-- CỘT PHẢI: THANH MUA SẮM CUỘN DỌC -->
-      <aside class="sidebar-column" aria-label="Thanh danh mục mua sắm vật phẩm">
-        <ShopSidebar
-          {items}
-          {cart}
-          {balance}
-          {totalBudget}
-          highlightedId={highlightedShopItemId}
-          onBuy={handleBuy}
-          onSell={handleSell}
-        />
-      </aside>
-    {:else}
-      <!-- CHẾ ĐỘ DỰ PHÒNG THẺ 2D TRUYỀN THỐNG -->
-      <section class="fallback-2d-container" aria-label="Giao diện thẻ 2D">
-        <div class="products-grid">
-          {#each items as item (item.id)}
-            <ItemCard
-              {item}
-              quantity={cart[item.id] || 0}
-              {balance}
+      <ShopSidebar
+        {items}
+        {cart}
+        {balance}
+        {totalBudget}
+        highlightedId={highlightedShopItemId}
+        onBuy={handleBuy}
+        onSell={handleSell}
+      />
+    </aside>
+
+    <!-- MODAL HOÁ ĐƠN NỔI (KHI Ở CHẾ ĐỘ 3D) -->
+    {#if showReceiptModal}
+      <div class="modal-backdrop" onclick={handleCloseReceipt} role="presentation">
+        <div
+          class="receipt-modal-window"
+          onclick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Hoá đơn chi tiết"
+        >
+          <div class="modal-header">
+            <h2 class="modal-title">🧾 Hoá đơn chi tiêu</h2>
+            <button
+              type="button"
+              class="modal-close-btn"
+              onclick={handleCloseReceipt}
+              aria-label="Đóng hoá đơn"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div class="modal-body-scroll">
+            <Receipt
+              {cart}
+              {items}
               {totalBudget}
-              onBuy={handleBuy}
-              onSell={handleSell}
+              {totalSpent}
+              {balance}
+              {breakdown}
+              canUndo={history.length > 0}
+              onUndo={handleUndo}
+              onReset={handleReset}
             />
-          {/each}
-        </div>
-      </section>
-    {/if}
-  </main>
 
-  <!-- KHUNG THÔNG TIN SNAPSHOT & TUYÊN BỐ MIỄN TRỪ PHÁP LÝ -->
-  <footer class="game-footer-info">
-    <div class="footer-container">
-      <div class="snapshot-details-card">
-        <div class="snap-header">
-          <strong>KHÁM PHÁ QUY MÔ TÀI CHÍNH</strong> — 1 ngày làm PNV
-        </div>
-        <div class="snap-metrics">
-          <div class="metric">
-            <span class="m-label">Ngân sách snapshot:</span>
-            <span class="m-val">35,2 tỷ USD (Forbes 10/10/2026)</span>
+            <div class="disclaimer-in-modal">
+              ⚖️ <strong>Tuyên bố miễn trừ:</strong> Trò chơi minh hoạ độc lập, không liên kết/tài trợ/đại diện cho cá nhân hay doanh nghiệp được nhắc tới. Dữ liệu là con số ước tính công khai trên báo chí, không phản ánh dòng tiền mặt hay tài khoản cá nhân thực tế.
+            </div>
           </div>
-          <div class="metric">
-            <span class="m-label">Tỷ giá Vietcombank:</span>
-            <span class="m-val">25.660 VND/USD (29/10/2026)</span>
-          </div>
-          <div class="metric">
-            <span class="m-label">Tổng quy đổi:</span>
-            <span class="m-val highlight">{formatVietnameseNumber(totalBudget)} đ</span>
-          </div>
-        </div>
-        <div class="disclaimer-text">
-          ⚖️ <strong>Tuyên bố miễn trừ:</strong> Trò chơi minh hoạ độc lập, không liên kết/tài trợ/đại diện cho cá nhân hay doanh nghiệp được nhắc tới. Dữ liệu là con số ước tính công khai trên báo chí, không phản ánh dòng tiền mặt hay tài khoản cá nhân thực tế.
         </div>
       </div>
+    {/if}
 
-      <!-- HOÁ ĐƠN CUỘN GIẤY Ở CUỐI TRANG -->
-      <div id="hoa-don" class="receipt-section">
+  {:else}
+    <!-- ========================================== -->
+    <!-- CHẾ ĐỘ 2: XEM THẺ 2D TRUYỀN THỐNG GIỮ NGUYÊN -->
+    <!-- ========================================== -->
+    <header class="header-2d-bar">
+      <div class="header-2d-inner">
+        <a href="/" class="floating-btn home-btn">
+          ← Trang chủ
+        </a>
+
+        <div class="balance-2d-block">
+          <div class="bal-label">SỐ DƯ CÒN LẠI</div>
+          <div class="bal-val">{formatVietnameseCurrency(balance, true)}</div>
+        </div>
+
+        <div class="actions-2d-group">
+          <button
+            type="button"
+            class="floating-btn view-toggle-btn"
+            onclick={() => (viewMode = '3d')}
+            title="Quay lại sân khấu 3D"
+          >
+            🌐 Xem 3D
+          </button>
+          <button
+            type="button"
+            class="floating-btn"
+            onclick={handleShare}
+          >
+            🔗 Chia sẻ
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="content-2d-container">
+      <div class="products-grid-2d">
+        {#each items as item (item.id)}
+          <ItemCard
+            {item}
+            quantity={cart[item.id] || 0}
+            {balance}
+            {totalBudget}
+            onBuy={handleBuy}
+            onSell={handleSell}
+          />
+        {/each}
+      </div>
+
+      <!-- HOÁ ĐƠN DƯỚI LƯỚI THẺ 2D -->
+      <div id="hoa-don-2d" class="receipt-section-2d">
         <Receipt
           {cart}
           {items}
@@ -310,8 +397,18 @@
           onReset={handleReset}
         />
       </div>
-    </div>
-  </footer>
+
+      <!-- FOOTER THÔNG TIN & MIỄN TRỪ PHÁP LÝ -->
+      <footer class="footer-2d-notes">
+        <div class="disclaimer-text-2d">
+          ⚖️ <strong>Tuyên bố miễn trừ:</strong> Trò chơi minh hoạ độc lập, không liên kết/tài trợ/đại diện cho cá nhân hay doanh nghiệp được nhắc tới. Dữ liệu là con số ước tính công khai trên báo chí, không phản ánh dòng tiền mặt hay tài khoản cá nhân thực tế.
+        </div>
+        <p class="source-item-2d">
+          <strong>Ngân sách mô phỏng:</strong> Ước tính tài sản ròng 35,2 tỷ USD theo Forbes ghi nhận ngày 10/10/2026. Tỷ giá quy đổi 25.660 VND/USD (Vietcombank 29/10/2026).
+        </p>
+      </footer>
+    </main>
+  {/if}
 
   <!-- THÔNG BÁO TOAST MỐC % (ĐÃ GỘP MỐC CAO NHẤT) -->
   <MilestoneToast
@@ -328,250 +425,388 @@
 </div>
 
 <style>
-  .tieu-tien-page {
-    min-height: 100vh;
-    background: var(--color-bg, #faf8f5);
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    max-width: 100vw;
+  /* GỐC CẢ ỨNG DỤNG */
+  .tieu-tien-app {
+    width: 100vw;
+    min-height: 100svh;
+    background: #faf8f5;
     overflow-x: hidden;
+    position: relative;
     box-sizing: border-box;
+    font-family: inherit;
   }
 
-  /* THANH ĐỈNH ĐIỀU KHIỂN & SỐ DƯ KIỂU NEAL.FUN */
-  .stage-top-bar {
-    position: sticky;
+  /* --- BỐ CỤC TOÀN MÀN HÌNH 3D (CHẾ ĐỘ CHÍNH) --- */
+  .mode-fullscreen-3d {
+    width: 100vw;
+    height: 100svh;
+    overflow: hidden;
+    position: fixed;
     top: 0;
-    z-index: 50;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--color-border, #e6e1d9);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
-    padding: 0.85rem 1.25rem;
-    width: 100%;
-    box-sizing: border-box;
+    left: 0;
+    right: 0;
+    bottom: 0;
   }
 
-  .top-bar-inner {
-    max-width: 1440px;
-    margin: 0 auto;
-    width: 100%;
-    box-sizing: border-box;
-    display: flex;
+  /* Sân khấu chiếm toàn bộ không gian bên trái panel mua sắm */
+  .stage-viewport-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 380px;
+    bottom: 0;
+    height: 100svh;
+    overflow: hidden;
+    background: #faf8f5;
+  }
+
+  /* NÚT GÓC TRÊN TRÁI: QUAY LẠI TRANG CHỦ */
+  .home-corner-btn {
+    position: absolute;
+    top: 0.85rem;
+    left: 1rem;
+    z-index: 25;
+    text-decoration: none;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 1.5rem;
+    gap: 0.35rem;
+    color: #374151;
   }
 
-  .balance-display-block {
-    flex: 1;
+  /* OVERLAY SỐ DƯ & BẠN ĐÃ TIÊU NỔI Ở GIỮA TRÊN */
+  .top-overlay-center {
+    position: absolute;
+    top: 0.85rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 25;
+    pointer-events: none;
+    width: auto;
+    min-width: 260px;
+    max-width: 380px;
+  }
+
+  .balance-pill-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(226, 222, 212, 0.95);
+    border-radius: 1.15rem;
+    padding: 0.5rem 1.15rem 0.65rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    max-width: 600px;
-    margin: 0 auto;
+    pointer-events: auto;
   }
 
-  .balance-label {
-    font-size: 0.7rem;
-    font-weight: 700;
+  .balance-sub-label {
+    font-size: 0.625rem;
+    font-weight: 800;
     letter-spacing: 0.08em;
     color: #6b7280;
-    margin-bottom: 0.15rem;
+    margin-bottom: 0.1rem;
   }
 
-  .balance-amount {
-    font-size: 2.15rem;
+  .balance-big-val {
+    font-size: 1.65rem;
     font-weight: 900;
     letter-spacing: -0.03em;
     color: #059669;
-    line-height: 1.1;
+    line-height: 1.15;
   }
 
-  .spent-progress-info {
+  .spent-info-row {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8rem;
+    gap: 0.45rem;
+    font-size: 0.75rem;
     color: #4b5563;
-    margin-top: 0.25rem;
+    margin-top: 0.15rem;
   }
 
-  .ratio-badge {
+  .ratio-chip {
     background: #ecfdf5;
     color: #059669;
-    font-weight: 700;
-    padding: 0.1rem 0.45rem;
+    font-weight: 800;
+    padding: 0.08rem 0.4rem;
     border-radius: 999px;
-    font-size: 0.725rem;
+    font-size: 0.675rem;
   }
 
-  .progress-bar-bg {
+  .progress-track {
     width: 100%;
-    height: 5px;
+    height: 4px;
     background: #f0ebe4;
     border-radius: 999px;
-    margin-top: 0.45rem;
+    margin-top: 0.35rem;
     overflow: hidden;
   }
 
-  .progress-bar-fill {
+  .progress-fill {
     height: 100%;
     background: linear-gradient(90deg, #10b981, #059669);
     border-radius: 999px;
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .top-actions-cluster {
+  /* CỤM NÚT NỔI GÓC TRÊN PHẢI SÂN KHẤU */
+  .top-overlay-right {
+    position: absolute;
+    top: 0.85rem;
+    right: 1rem;
+    z-index: 25;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    flex-shrink: 0;
+    gap: 0.4rem;
   }
 
-  .top-btn {
-    padding: 0.45rem 0.85rem;
-    background: #ffffff;
-    border: 1px solid var(--color-border, #e6e1d9);
-    border-radius: 0.5rem;
-    font-size: 0.8rem;
+  .floating-btn {
+    padding: 0.4rem 0.75rem;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(8px);
+    border: 1px solid #e2ded4;
+    border-radius: 0.6rem;
+    font-size: 0.75rem;
     font-weight: 700;
     color: #374151;
     cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
     transition: all 0.15s ease;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .top-btn:hover {
-    background: #f9fafb;
+  .floating-btn:hover {
+    background: #ffffff;
     border-color: #059669;
     color: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
   }
 
-  .recenter-action {
+  .recenter-btn {
     background: #ecfdf5;
     color: #047857;
     border-color: #a7f3d0;
   }
 
-  .recenter-action:hover {
+  .recenter-btn:hover {
     background: #d1fae5;
   }
 
-  /* KHÔNG GIAN BỐ CỤC CHÍNH (SÂN KHẤU + THANH MUA SẮM) */
-  .game-main-layout {
-    flex: 1;
-    max-width: 1440px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 1.25rem;
-    display: grid;
-    grid-template-columns: 1fr 380px;
-    gap: 1.25rem;
-    align-items: start;
-    min-height: calc(100vh - 120px);
+  .receipt-btn {
+    font-weight: 800;
   }
 
-  .stage-column {
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 110px);
-    position: sticky;
-    top: 96px;
-    min-height: 520px;
-  }
-
-  .sidebar-column {
-    height: calc(100vh - 110px);
-    position: sticky;
-    top: 96px;
-  }
-
-  .fallback-2d-container {
-    grid-column: 1 / -1;
-    width: 100%;
-  }
-
-  .products-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1.15rem;
-  }
-
-  /* PHẦN DƯỚI: SNAPSHOT & HOÁ ĐƠN */
-  .game-footer-info {
+  /* THANH MUA SẮM PANEL CỐ ĐỊNH BÊN PHẢI */
+  .shop-panel-wrapper {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 380px;
+    height: 100svh;
     background: #ffffff;
-    border-top: 1px solid var(--color-border, #e6e1d9);
-    margin-top: 2rem;
-    padding: 2.5rem 1.25rem 4rem;
-  }
-
-  .footer-container {
-    max-width: 1100px;
-    margin: 0 auto;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.06);
+    z-index: 30;
     display: flex;
     flex-direction: column;
-    gap: 2.5rem;
+    overflow: hidden;
   }
 
-  .snapshot-details-card {
-    background: #faf8f5;
-    border: 1px solid var(--color-border, #e6e1d9);
-    border-radius: var(--radius, 1rem);
-    padding: 1.25rem 1.5rem;
+  .sheet-grab-handle-bar {
+    display: none;
+    width: 100%;
+    padding: 0.5rem 0 0.35rem;
+    background: #ffffff;
+    border: none;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
   }
 
-  .snap-header {
-    font-size: 0.85rem;
+  .sheet-grab-pill {
+    width: 38px;
+    height: 4px;
+    background: #d1d5db;
+    border-radius: 999px;
+  }
+
+  /* MODAL HOÁ ĐƠN NỔI */
+  .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(17, 24, 39, 0.45);
+    backdrop-filter: blur(4px);
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    animation: fadeIn 0.15s ease;
+  }
+
+  .receipt-modal-window {
+    background: #ffffff;
+    border-radius: 1.25rem;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 620px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: popModal 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #f0ebe4;
+  }
+
+  .modal-title {
+    font-size: 1.15rem;
     font-weight: 800;
     color: #1f1d1a;
-    margin-bottom: 0.75rem;
-    letter-spacing: 0.02em;
+    margin: 0;
   }
 
-  .snap-metrics {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.5rem;
-    padding-bottom: 0.85rem;
-    border-bottom: 1px solid #e6e1d9;
-    font-size: 0.825rem;
-  }
-
-  .metric {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-  }
-
-  .m-label {
-    font-size: 0.725rem;
-    font-weight: 600;
-    color: #6b7280;
-  }
-
-  .m-val {
+  .modal-close-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #f3efe8;
+    border: none;
+    font-size: 1rem;
     font-weight: 700;
-    color: #1f1d1a;
+    color: #6b7280;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
   }
 
-  .m-val.highlight {
-    color: #059669;
+  .modal-close-btn:hover {
+    background: #e5e0d6;
+    color: #111827;
   }
 
-  .disclaimer-text {
-    margin-top: 0.85rem;
-    font-size: 0.775rem;
+  .modal-body-scroll {
+    overflow-y: auto;
+    padding: 1.25rem 1.5rem 2rem;
+  }
+
+  .disclaimer-in-modal {
+    margin-top: 1.5rem;
+    padding: 0.85rem 1rem;
+    background: #faf8f5;
+    border: 1px solid #e6e1d9;
+    border-radius: 0.75rem;
+    font-size: 0.75rem;
     line-height: 1.5;
     color: #6b7280;
   }
 
-  .receipt-section {
-    width: 100%;
+  /* --- CHẾ ĐỘ 2: THẺ 2D TRUYỀN THỐNG --- */
+  .mode-cards-2d {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
   }
 
+  .header-2d-bar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #e6e1d9;
+    padding: 0.85rem 1.5rem;
+  }
+
+  .header-2d-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .balance-2d-block {
+    text-align: center;
+  }
+
+  .bal-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+  }
+
+  .bal-val {
+    font-size: 1.85rem;
+    font-weight: 900;
+    color: #059669;
+  }
+
+  .actions-2d-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .content-2d-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .products-grid-2d {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.25rem;
+  }
+
+  .receipt-section-2d {
+    margin-top: 2.5rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .footer-2d-notes {
+    margin-top: 3rem;
+    padding: 1.5rem;
+    background: #ffffff;
+    border: 1px solid #e6e1d9;
+    border-radius: 1rem;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: #6b7280;
+  }
+
+  .disclaimer-text-2d {
+    margin-bottom: 0.5rem;
+    color: #1f1d1a;
+  }
+
+  .source-item-2d {
+    margin: 0.25rem 0 0;
+  }
+
+  /* TOAST THÔNG BÁO SAO CHÉP */
   .share-toast-bubble {
     position: fixed;
     bottom: 2rem;
@@ -583,85 +818,123 @@
     border-radius: 999px;
     font-size: 0.825rem;
     font-weight: 600;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
     z-index: 100;
     animation: popUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes popModal {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
   @keyframes popUp {
-    from {
-      opacity: 0;
-      transform: translate(-50%, 10px);
-    }
-    to {
-      opacity: 1;
-      transform: translate(-50%, 0);
+    from { opacity: 0; transform: translate(-50%, 10px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+
+  @media (max-width: 1200px) {
+    .desktop-only-txt {
+      display: none;
     }
   }
 
-  /* RESPONSIVE TRÊN MOBILE & TABLET */
+  /* RESPONSIVE MOBILE & TABLET */
   @media (max-width: 1024px) {
-    .game-main-layout {
-      grid-template-columns: 1fr;
-      padding: 0.75rem;
-      gap: 1rem;
+    .stage-viewport-area {
+      right: 0;
+      height: 100svh;
     }
 
-    .stage-column {
-      min-height: 48svh;
-      height: 48svh;
+    .shop-panel-wrapper {
+      left: 0;
+      right: 0;
+      width: 100%;
+      top: auto;
+      border-radius: 1.5rem 1.5rem 0 0;
+      box-shadow: 0 -6px 25px rgba(0, 0, 0, 0.12);
+      transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 40;
     }
 
-    .sidebar-column {
-      height: 52svh;
-      position: static;
+    .shop-panel-wrapper.sheet-half {
+      height: 45svh;
+      bottom: 0;
     }
 
-    .products-grid {
+    .shop-panel-wrapper.sheet-expanded {
+      height: 82svh;
+      bottom: 0;
+    }
+
+    .shop-panel-wrapper.sheet-collapsed {
+      height: 52px;
+      bottom: 0;
+    }
+
+    .sheet-grab-handle-bar {
+      display: flex;
+    }
+
+    .top-overlay-center {
+      top: 0.5rem;
+      max-width: 360px;
+    }
+
+    .balance-big-val {
+      font-size: 1.45rem;
+    }
+
+    .top-overlay-right {
+      top: 0.65rem;
+      right: 0.65rem;
+      gap: 0.35rem;
+    }
+
+    .floating-btn {
+      padding: 0.35rem 0.55rem;
+      font-size: 0.7rem;
+    }
+
+    .home-corner-btn {
+      top: 0.65rem;
+      left: 0.65rem;
+      padding: 0.35rem 0.55rem;
+    }
+
+    .products-grid-2d {
       grid-template-columns: repeat(2, 1fr);
     }
   }
 
   @media (max-width: 640px) {
-    .stage-top-bar {
-      padding: 0.65rem 0.5rem;
+    .home-corner-btn span {
+      display: none;
     }
 
-    .top-bar-inner {
-      flex-direction: column;
-      gap: 0.5rem;
-      width: 100%;
-      max-width: 100%;
+    .recenter-btn {
+      display: none;
     }
 
-    .balance-amount {
-      font-size: 1.65rem;
+    .top-overlay-center {
+      width: 70%;
     }
 
-    .top-actions-cluster {
-      width: 100%;
-      max-width: 100%;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 0.35rem;
-      padding: 0.1rem 0;
-      box-sizing: border-box;
+    .balance-pill-card {
+      padding: 0.45rem 0.75rem;
     }
 
-    .top-btn {
-      padding: 0.35rem 0.55rem;
-      font-size: 0.725rem;
-      white-space: nowrap;
+    .balance-big-val {
+      font-size: 1.25rem;
     }
 
-    .products-grid {
+    .products-grid-2d {
       grid-template-columns: 1fr;
-    }
-
-    .snap-metrics {
-      flex-direction: column;
-      gap: 0.5rem;
     }
   }
 </style>

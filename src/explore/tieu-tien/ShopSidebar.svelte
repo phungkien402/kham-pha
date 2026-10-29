@@ -202,10 +202,13 @@
         class="shop-card {isUnbuyable ? 'unbuyable-card' : ''} {count > 0 ? 'in-cart' : ''} {isHighlighted ? 'highlighted' : ''}"
       >
         <div class="card-main">
-          <!-- Ảnh đại diện 3D nhỏ / Emoji biểu trưng -->
-          <div class="thumb-box" title={item.ten}>
-            <span class="thumb-emoji">{item.emoji}</span>
-          </div>
+          <!-- Ảnh đại diện isometric 2.5D nhỏ cho vật phẩm -->
+          <div
+            class="thumb-box"
+            title={item.ten}
+            style="background-image: url('/tieu-tien/sprites/{item.id}-icon.webp'); background-size: 88% 88%; background-repeat: no-repeat; background-position: center;"
+            aria-label={item.ten}
+          ></div>
 
           <div class="item-info">
             <div class="item-title-line">

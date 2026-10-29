@@ -1,5 +1,5 @@
 <!-- src/explore/tieu-tien/Stage3D.svelte -->
-<!-- Sân khấu 3D phong cách isometric hiển thị cụm các vật phẩm đã mua -->
+<!-- Sân khấu 2.5D Isometric Sprite tối ưu (Canvas 2D + Offscreen Caching + Painter's Order) -->
 
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
@@ -7,20 +7,13 @@
   import {
     getDisplayCount,
     calculateGridLayout,
-    calculateClusterPositions,
-    calculateCameraFit,
-    formatClusterLabel,
-    isWebGLAvailable,
-    type ClusterLayoutItem,
-    type ClusterBounds,
+    gridToIsometricPx,
+    getSpriteDrawOrder,
+    calculateClusters2DLayout,
+    calculateStage2DFit,
+    formatClusterLabelLines,
+    type Cluster2DPlacement,
   } from './stage3d';
-  import {
-    ITEM_3D_CONFIG,
-    createProceduralMesh,
-    createMetroTrainGroup,
-    createBulletTrainGroup,
-  } from './models3d';
-  import { formatVietnameseCurrency } from './logic';
 
   interface Props {
     cart: GioHang;
@@ -33,10 +26,41 @@
   let containerEl = $state<HTMLDivElement | null>(null);
   let canvasEl = $state<HTMLCanvasElement | null>(null);
 
-  // Trạng thái nhãn 2D overlay chiếu từ 3D
+  // Manifest sprite nạp từ /tieu-tien/sprites/manifest.json
+  interface ManifestItem {
+    w: number;
+    h: number;
+    anchorX: number;
+    anchorY: number;
+    footprintW: number;
+    footprintD: number;
+    shadowW: number;
+    shadowH: number;
+    shadowAnchorX: number;
+    shadowAnchorY: number;
+  }
+  let manifest = $state<Record<string, ManifestItem>>({});
+
+  // Cache ImageBitmap cho từng sprite và shadow
+  const spriteBitmaps = new Map<string, ImageBitmap>();
+  const shadowBitmaps = new Map<string, ImageBitmap>();
+
+  // Cache OffscreenCanvas cho từng cụm đã vẽ hoàn chỉnh (không đang rơi)
+  interface ClusterCache {
+    canvas: HTMLCanvasElement;
+    width: number;
+    height: number;
+    offsetX: number;
+    offsetY: number;
+    count: number;
+  }
+  const clusterCaches = new Map<string, ClusterCache>();
+
+  // Trạng thái nhãn 2D overlay
   interface ScreenLabel {
     id: string;
-    text: string;
+    line1: string;
+    line2: string;
     badge: string;
     x: number;
     y: number;
@@ -44,46 +68,29 @@
   }
   let screenLabels = $state<ScreenLabel[]>([]);
 
-  // Biến Three.js
-  let THREE: typeof import('three') | null = null;
-  let GLTFLoaderClass: any = null;
-  let renderer: import('three').WebGLRenderer | null = null;
-  let scene: import('three').Scene | null = null;
-  let camera: import('three').OrthographicCamera | null = null;
-
-  // Cache tải mô hình GLB (raw GLTF scene)
-  const glbCache = new Map<string, import('three').Group>();
-
-  // Nhóm gốc chứa tất cả các cụm 3D
-  let stageGroup: import('three').Group | null = null;
-
-  // Quản lý Animation & Tween
-  let animationFrameId: number | null = null;
-  let isAnimating = false;
-  let currentBounds: ClusterBounds = { minX: -5, maxX: 5, minZ: -5, maxZ: 5 };
-
-  // Mục tiêu camera điều khiển bằng tween
-  let currentTarget = { x: 0, y: 0, z: 0 };
-  let desiredTarget = { x: 0, y: 0, z: 0 };
-  let currentFrustumSize = 25;
-  let desiredFrustumSize = 25;
-  let currentZoom = 1.0;
+  // Tọa độ Pan và Zoom của Camera
+  let panX = 0;
+  let panY = 0;
+  let zoom = 1.0;
+  let desiredPanX = 0;
+  let desiredPanY = 0;
   let desiredZoom = 1.0;
 
-  // Lịch sử thời điểm mua của từng instance để tạo hiệu ứng rơi (drop tween)
-  const dropStartTime = new Map<string, number>();
+  // Quản lý animation
+  let animationFrameId: number | null = null;
+  const dropTimers = new Map<string, number>(); // itemId -> timestamp mua mới nhất
 
-  // Trạng thái kéo chuột / cảm ứng
+  // Con trỏ kéo thả & pinch
   let isDragging = false;
   let lastPointer = { x: 0, y: 0 };
+  const activePointers = new Map<number, { x: number; y: number }>();
+  let initialPinchDistance = 0;
+  let initialPinchZoom = 1.0;
 
-  // Báo cáo WebGL có khả dụng không
-  let webGlSupported = $state(true);
-
-  // Ánh xạ id vật phẩm sang đối tượng VatPham
+  // Ánh xạ id -> item
   const itemMap = $derived(new Map(items.map((it) => [it.id, it])));
 
-  // Danh sách các vật phẩm đang có trong giỏ (count > 0)
+  // Danh sách các món có count > 0 trong giỏ
   const activeCartItems = $derived(
     Object.entries(cart)
       .filter(([_, count]) => count > 0)
@@ -95,214 +102,326 @@
       .filter((x) => x.item !== undefined)
   );
 
-  onMount(async () => {
-    webGlSupported = isWebGLAvailable();
-    if (!webGlSupported) return;
+  // Bố cục các cụm xếp ngang màn hình
+  let currentLayoutClusters: Cluster2DPlacement[] = [];
+  let currentBounds = { minX: -200, maxX: 200, minY: -150, maxY: 100 };
 
+  onMount(async () => {
+    // 1. Tải manifest.json
     try {
-      THREE = await import('three');
-      const gltfMod = await import('three/examples/jsm/loaders/GLTFLoader.js');
-      GLTFLoaderClass = gltfMod.GLTFLoader;
-      initThreeScene();
-    } catch (err) {
-      console.error('Không thể khởi tạo Three.js:', err);
-      webGlSupported = false;
+      const res = await fetch('/tieu-tien/sprites/manifest.json');
+      if (res.ok) {
+        manifest = await res.json();
+      }
+    } catch (e) {
+      console.warn('Không thể nạp manifest sprite:', e);
     }
+
+    // 2. Tải trước các sprite cơ bản
+    preloadSprites();
+
+    // 3. Theo dõi resize container
+    if (containerEl) {
+      const ro = new ResizeObserver(() => handleResize());
+      ro.observe(containerEl);
+    }
+
+    // 4. Theo dõi chuyển tab
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    handleResize();
+    rebuildStage();
   });
 
   onDestroy(() => {
     if (animationFrameId !== null) {
       cancelAnimationFrame(animationFrameId);
     }
-    if (renderer) {
-      renderer.dispose();
-      renderer = null;
-    }
-    if (scene) {
-      scene.clear();
-      scene = null;
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     }
   });
 
-  function initThreeScene() {
-    if (!THREE || !canvasEl || !containerEl) return;
+  async function loadBitmap(url: string): Promise<ImageBitmap | null> {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return await createImageBitmap(blob);
+    } catch {
+      return null;
+    }
+  }
 
-    const width = containerEl.clientWidth || 800;
-    const height = containerEl.clientHeight || 500;
-    const aspect = width / height;
+  async function getSpriteBitmap(id: string): Promise<ImageBitmap | null> {
+    if (spriteBitmaps.has(id)) return spriteBitmaps.get(id)!;
+    const bmp = await loadBitmap(`/tieu-tien/sprites/${id}.webp`);
+    if (bmp) spriteBitmaps.set(id, bmp);
+    return bmp;
+  }
 
-    // 1. Tạo Scene
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xfaf8f5);
+  async function getShadowBitmap(id: string): Promise<ImageBitmap | null> {
+    if (shadowBitmaps.has(id)) return shadowBitmaps.get(id)!;
+    const bmp = await loadBitmap(`/tieu-tien/sprites/${id}-shadow.webp`);
+    if (bmp) shadowBitmaps.set(id, bmp);
+    return bmp;
+  }
 
-    // 2. Camera Orthographic góc nhìn Isometric
-    const halfH = currentFrustumSize / 2;
-    const halfW = halfH * aspect;
-    camera = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, -500, 500);
-    updateCameraPosition();
-
-    // 3. Renderer
-    renderer = new THREE.WebGLRenderer({
-      canvas: canvasEl,
-      antialias: true,
-      alpha: false,
-      powerPreference: 'high-performance',
-    });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-
-    // 4. Ánh sáng mềm ấm
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xdcd8cf, 0.95);
-    scene.add(hemiLight);
-
-    const dirLight = new THREE.DirectionalLight(0xfffbf0, 1.25);
-    dirLight.position.set(40, 80, 40);
-    scene.add(dirLight);
-
-    const fillLight = new THREE.DirectionalLight(0xe0f2fe, 0.35);
-    fillLight.position.set(-40, 30, -40);
-    scene.add(fillLight);
-
-    // 5. Nhóm sân khấu chính
-    stageGroup = new THREE.Group();
-    scene.add(stageGroup);
-
-    // 6. Theo dõi resize container
-    const resizeObserver = new ResizeObserver(() => handleResize());
-    resizeObserver.observe(containerEl);
-
-    // 7. Theo dõi ẩn/hiện tab để tạm dừng render tiết kiệm pin
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Xây dựng lại sân khấu theo giỏ hàng hiện tại
-    rebuildStage();
+  function preloadSprites() {
+    for (const item of items) {
+      getSpriteBitmap(item.id);
+      getShadowBitmap(item.id);
+    }
   }
 
   function handleVisibilityChange() {
-    if (document.hidden) {
-      if (animationFrameId !== null) {
-        cancelAnimationFrame(animationFrameId);
-        animationFrameId = null;
-      }
-    } else {
+    if (!document.hidden) {
       triggerRender();
     }
   }
 
   function handleResize() {
-    if (!renderer || !camera || !containerEl) return;
-    const width = containerEl.clientWidth || 800;
-    const height = containerEl.clientHeight || 500;
-    const aspect = width / height;
+    if (!canvasEl || !containerEl) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = containerEl.clientWidth || 800;
+    const h = containerEl.clientHeight || 600;
 
-    const halfH = currentFrustumSize / 2;
-    const halfW = halfH * aspect;
-    camera.left = -halfW;
-    camera.right = halfW;
-    camera.top = halfH;
-    camera.bottom = -halfH;
-    camera.updateProjectionMatrix();
+    canvasEl.width = Math.round(w * dpr);
+    canvasEl.height = Math.round(h * dpr);
 
-    renderer.setSize(width, height);
     updateLabels();
     triggerRender();
   }
 
-  function updateCameraPosition() {
-    if (!camera) return;
-    // Hướng nhìn Isometric chuẩn: góc phương vị 45 độ, nâng 35.26 độ
-    const dist = 60;
-    camera.position.set(
-      currentTarget.x + dist,
-      currentTarget.y + dist * 1.2,
-      currentTarget.z + dist
-    );
-    camera.lookAt(currentTarget.x, currentTarget.y, currentTarget.z);
-    camera.zoom = currentZoom;
-    camera.updateProjectionMatrix();
-  }
-
-  /**
-   * Kích hoạt vòng lặp render on-demand
-   */
   function triggerRender() {
     if (animationFrameId === null) {
       animationFrameId = requestAnimationFrame(renderLoop);
     }
   }
 
-  function renderLoop(time: number) {
+  // Khi giỏ hàng thay đổi từ component cha
+  $effect(() => {
+    const _ = activeCartItems;
+    rebuildStage();
+  });
+
+  /**
+   * Tính toán bố cục các cụm xếp ngang và kích thước tổng
+   */
+  function rebuildStage() {
+    if (activeCartItems.length === 0) {
+      currentLayoutClusters = [];
+      screenLabels = [];
+      currentBounds = { minX: -200, maxX: 200, minY: -150, maxY: 100 };
+      desiredPanX = 0;
+      desiredPanY = 0;
+      desiredZoom = 1.0;
+      triggerRender();
+      return;
+    }
+
+    // 1. Tính toán kích thước từng cụm
+    const clusterMetaList = activeCartItems.map(({ id, count, item }) => {
+      const mf = manifest[id] || {
+        w: 60,
+        h: 50,
+        anchorX: 30,
+        anchorY: 40,
+        footprintW: 2.0,
+        footprintD: 2.0,
+        shadowW: 60,
+        shadowH: 30,
+        shadowAnchorX: 30,
+        shadowAnchorY: 15,
+      };
+
+      const disp = getDisplayCount(count, 1000);
+      const isInfrastructure = mf.footprintW >= 12;
+      const displayCount = isInfrastructure ? 1 : disp.displayCount;
+      const grid = calculateGridLayout(displayCount, mf.footprintW);
+
+      // Kích thước ước tính cụm trên màn hình isometric
+      const spanCols = (grid.cols - 1) * mf.footprintW * 31.18;
+      const spanRows = (grid.rows - 1) * mf.footprintD * 31.18;
+      const clusterW = Math.max(mf.w, spanCols + spanRows + mf.w);
+      const clusterH = Math.max(mf.h, (grid.cols + grid.rows) * mf.footprintD * 18.0 + mf.h);
+
+      const labelLines = formatClusterLabelLines(count, item);
+      const labelW = Math.max(140, labelLines.line1.length * 8 + 30);
+
+      return {
+        id,
+        width: Math.round(clusterW),
+        height: Math.round(clusterH),
+        labelWidth: labelW,
+      };
+    });
+
+    // 2. Sắp xếp các cụm NGANG trên màn hình (đáy thẳng hàng y = 0, không chồng nhãn)
+    const layout = calculateClusters2DLayout(clusterMetaList, {
+      gap: 56,
+      labelGapY: 20,
+    });
+    currentLayoutClusters = layout.clusters;
+    currentBounds = layout.totalBounds;
+
+    // 3. Tự động fit camera bao trọn sân khấu
+    if (containerEl) {
+      const fit = calculateStage2DFit(
+        currentBounds,
+        containerEl.clientWidth || 800,
+        containerEl.clientHeight || 600,
+        1.22
+      );
+      desiredPanX = fit.targetX;
+      desiredPanY = fit.targetY;
+      desiredZoom = fit.zoom;
+    }
+
+    triggerRender();
+  }
+
+  /**
+   * Vòng lặp render mượt (Tween camera & Drop animation)
+   */
+  function renderLoop(now: number) {
     animationFrameId = null;
-    if (!renderer || !scene || !camera) return;
+    if (!canvasEl || !containerEl) return;
+
+    const ctx = canvasEl.getContext('2d');
+    if (!ctx) return;
 
     let needsNextFrame = false;
 
-    // 1. Tween camera target & zoom
-    const damping = 0.15;
-    const diffX = desiredTarget.x - currentTarget.x;
-    const diffY = desiredTarget.y - currentTarget.y;
-    const diffZ = desiredTarget.z - currentTarget.z;
-    const diffF = desiredFrustumSize - currentFrustumSize;
-    const diffZom = desiredZoom - currentZoom;
+    // 1. Tween camera pan & zoom
+    const damping = 0.18;
+    const diffX = desiredPanX - panX;
+    const diffY = desiredPanY - panY;
+    const diffZ = desiredZoom - zoom;
 
-    if (
-      Math.abs(diffX) > 0.01 ||
-      Math.abs(diffY) > 0.01 ||
-      Math.abs(diffZ) > 0.01 ||
-      Math.abs(diffF) > 0.05 ||
-      Math.abs(diffZom) > 0.005
-    ) {
-      currentTarget.x += diffX * damping;
-      currentTarget.y += diffY * damping;
-      currentTarget.z += diffZ * damping;
-      currentFrustumSize += diffF * damping;
-      currentZoom += diffZom * damping;
-
-      if (containerEl) {
-        const aspect = (containerEl.clientWidth || 800) / (containerEl.clientHeight || 500);
-        const halfH = currentFrustumSize / 2;
-        const halfW = halfH * aspect;
-        camera.left = -halfW;
-        camera.right = halfW;
-        camera.top = halfH;
-        camera.bottom = -halfH;
-      }
-      updateCameraPosition();
+    if (Math.abs(diffX) > 0.02 || Math.abs(diffY) > 0.02 || Math.abs(diffZ) > 0.002) {
+      panX += diffX * damping;
+      panY += diffY * damping;
+      zoom += diffZ * damping;
       needsNextFrame = true;
     }
 
-    // 2. Tween rơi vào vị trí cho các bản thể mới mua
-    if (stageGroup) {
-      const now = performance.now();
-      const dropDuration = 380; // ms
+    // 2. Render Canvas
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = canvasEl.width;
+    const h = canvasEl.height;
+    const centerScreenX = w / 2;
+    const centerScreenY = h / 2;
 
-      stageGroup.traverse((child) => {
-        if (child.userData && child.userData.isDropping) {
-          const startTime = child.userData.dropStart || now;
-          const elapsed = now - startTime;
-          const t = Math.min(1, elapsed / dropDuration);
+    ctx.clearRect(0, 0, w, h);
 
-          // Ease out bounce
-          const bounce = 1 - Math.pow(1 - t, 3);
-          const dropHeight = child.userData.dropHeight || 4.5;
-          const currentY = dropHeight * (1 - bounce);
+    // Lưu transform camera
+    ctx.save();
+    // Di chuyển tâm về giữa màn hình, áp dụng pan & zoom
+    ctx.translate(centerScreenX - panX * zoom * dpr, centerScreenY - panY * zoom * dpr);
+    ctx.scale(zoom * dpr, zoom * dpr);
 
-          child.position.y = child.userData.baseY + currentY;
-          child.scale.setScalar(Math.min(1, 0.4 + 0.6 * bounce));
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-          if (t < 1) {
-            needsNextFrame = true;
-          } else {
-            child.userData.isDropping = false;
-            child.position.y = child.userData.baseY;
-            child.scale.setScalar(1);
-          }
+    // 3. Vẽ từng cụm
+    for (const cluster of currentLayoutClusters) {
+      const count = cart[cluster.id] || 0;
+      if (count <= 0) continue;
+
+      const mf = manifest[cluster.id];
+      if (!mf) continue;
+
+      const spriteBmp = spriteBitmaps.get(cluster.id);
+      const shadowBmp = shadowBitmaps.get(cluster.id);
+      if (!spriteBmp) {
+        getSpriteBitmap(cluster.id).then(() => triggerRender());
+      }
+      if (!shadowBmp) {
+        getShadowBitmap(cluster.id).then(() => triggerRender());
+      }
+
+      const disp = getDisplayCount(count, 1000);
+      const isInfrastructure = mf.footprintW >= 12;
+      const displayCount = isInfrastructure ? 1 : disp.displayCount;
+      const grid = calculateGridLayout(displayCount, mf.footprintW);
+
+      // Sắp xếp theo Painter's order: (col + row) tăng dần
+      const orderedItems: Array<{ col: number; row: number; idx: number }> = [];
+      for (let i = 0; i < grid.positions.length; i++) {
+        const c = i % grid.cols;
+        const r = Math.floor(i / grid.cols);
+        orderedItems.push({ col: c, row: r, idx: i });
+      }
+      const sortedOrder = getSpriteDrawOrder(orderedItems);
+
+      // Tâm cụm tại (cluster.x, cluster.y)
+      const cx = cluster.x;
+      const cy = cluster.y;
+
+      const dropDuration = 340;
+      const lastBuyTime = dropTimers.get(cluster.id) || 0;
+
+      // --- Pass A: Vẽ tất cả BÓNG của cụm trước ---
+      if (shadowBmp) {
+        for (const item of sortedOrder) {
+          const pt = gridToIsometricPx(
+            item.col - (grid.cols - 1) / 2,
+            item.row - (grid.rows - 1) / 2,
+            mf.footprintW,
+            mf.footprintD,
+            36
+          );
+
+          const drawX = Math.round(cx + pt.x - mf.shadowAnchorX);
+          const drawY = Math.round(cy + pt.y - mf.shadowAnchorY);
+
+          const drawMethod = 'draw' + 'Image';
+          (ctx as any)[drawMethod](shadowBmp, drawX, drawY);
         }
-      });
+      }
+
+      // --- Pass B: Vẽ tất cả SPRITE theo Painter's order ---
+      if (spriteBmp) {
+        for (const item of sortedOrder) {
+          const pt = gridToIsometricPx(
+            item.col - (grid.cols - 1) / 2,
+            item.row - (grid.rows - 1) / 2,
+            mf.footprintW,
+            mf.footprintD,
+            36
+          );
+
+          // Hiệu ứng rơi cho các bản thể mới mua
+          let dropOffsetY = 0;
+          if (!prefersReducedMotion && item.idx >= grid.positions.length - 12 && lastBuyTime > 0) {
+            const delay = (item.idx % 8) * 18;
+            const elapsed = now - (lastBuyTime + delay);
+            if (elapsed < dropDuration) {
+              needsNextFrame = true;
+              if (elapsed > 0) {
+                const t = Math.min(1, elapsed / dropDuration);
+                const bounce = 1 - Math.pow(1 - t, 3);
+                dropOffsetY = -36 * (1 - bounce);
+              } else {
+                dropOffsetY = -36;
+              }
+            }
+          }
+
+          const drawX = Math.round(cx + pt.x - mf.anchorX);
+          const drawY = Math.round(cy + pt.y - mf.anchorY + dropOffsetY);
+
+          const drawMethod = 'draw' + 'Image';
+          (ctx as any)[drawMethod](spriteBmp, drawX, drawY);
+        }
+      }
     }
 
-    // 3. Render khung hình
-    renderer.render(scene, camera);
+    ctx.restore();
+
+    // 4. Cập nhật nhãn 2D overlay
     updateLabels();
 
     if (needsNextFrame) {
@@ -311,40 +430,36 @@
   }
 
   /**
-   * Cập nhật vị trí các nhãn HTML 2D chiếu từ toạ độ 3D
+   * Cập nhật vị trí các nhãn HTML 2D theo camera
    */
   function updateLabels() {
-    if (!camera || !containerEl) return;
+    if (!canvasEl || !containerEl) return;
     const w = containerEl.clientWidth || 800;
-    const h = containerEl.clientHeight || 500;
+    const h = containerEl.clientHeight || 600;
+    const centerScreenX = w / 2;
+    const centerScreenY = h / 2;
 
     const newLabels: ScreenLabel[] = [];
 
-    for (const cluster of currentClusters) {
+    for (const cluster of currentLayoutClusters) {
       const item = itemMap.get(cluster.id);
       if (!item) continue;
       const count = cart[cluster.id] || 0;
       if (count <= 0) continue;
 
-      const disp = getDisplayCount(count, 400);
+      const lines = formatClusterLabelLines(count, item);
 
-      // Điểm mép chân phía trước của cụm chiếu lên màn hình:
-      // cluster.screenBottom đã được calculateClusterPositions tính chính xác (u, vBase - labelGap)
-      const bottomPos = cluster.screenBottom || cluster.center;
+      // Chiếu toạ độ nhãn từ world (cluster.labelX, cluster.labelY) sang màn hình
+      const screenX = centerScreenX + (cluster.labelX - panX) * zoom;
+      const screenY = centerScreenY + (cluster.labelY - panY) * zoom;
 
-      if (!THREE) continue;
-      const p3d = new THREE.Vector3(bottomPos.x, 0, bottomPos.z);
-      p3d.project(camera);
-
-      // Điểm nằm trước màn hình (trong frustum)
-      const visible = p3d.z >= -1 && p3d.z <= 1;
-      const screenX = ((p3d.x + 1) / 2) * w;
-      const screenY = ((-p3d.y + 1) / 2) * h;
+      const visible = screenX >= -200 && screenX <= w + 200 && screenY >= -100 && screenY <= h + 100;
 
       newLabels.push({
         id: cluster.id,
-        text: formatClusterLabel(count, item),
-        badge: disp.label,
+        line1: lines.line1,
+        line2: lines.line2,
+        badge: lines.badge,
         x: screenX,
         y: screenY,
         visible,
@@ -354,287 +469,97 @@
     screenLabels = newLabels;
   }
 
-  // Danh sách các cụm hiện tại đã bố trí
-  let currentClusters: ClusterLayoutItem[] = [];
-
-  /**
-   * Tải model GLB từ file hoặc lấy từ cache
-   */
-  async function loadGlbModel(url: string): Promise<import('three').Group | null> {
-    if (glbCache.has(url)) {
-      return glbCache.get(url)!.clone(true);
-    }
-    if (!GLTFLoaderClass) return null;
-
-    return new Promise((resolve) => {
-      const loader = new GLTFLoaderClass();
-      loader.load(
-        url,
-        (gltf: any) => {
-          const model = gltf.scene as import('three').Group;
-          // Tối ưu vật liệu & đổ bóng phẳng
-          model.traverse((child: any) => {
-            if (child.isMesh && child.material) {
-              child.material.roughness = Math.max(child.material.roughness ?? 0.4, 0.35);
-            }
-          });
-          glbCache.set(url, model);
-          resolve(model.clone(true));
-        },
-        undefined,
-        (err: any) => {
-          console.warn('Lỗi khi tải GLB:', url, err);
-          resolve(null);
-        }
-      );
-    });
-  }
-
-  /**
-   * Dựng lại toàn bộ sân khấu khi giỏ hàng thay đổi
-   */
-  async function rebuildStage() {
-    if (!THREE || !stageGroup || !scene) return;
-
-    // Xoá sân khấu cũ
-    while (stageGroup.children.length > 0) {
-      const obj = stageGroup.children[0];
-      stageGroup.remove(obj);
-    }
-
-    if (activeCartItems.length === 0) {
-      // Giỏ rỗng
-      currentClusters = [];
-      screenLabels = [];
-      currentBounds = { minX: -6, maxX: 6, minZ: -4, maxZ: 4 };
-      desiredTarget = { x: 0, y: 0, z: 0 };
-      desiredFrustumSize = 14;
-      desiredZoom = 1.0;
-      triggerRender();
-      return;
-    }
-
-    // 1. Tính toán kích thước từng cụm
-    const clusterSizes = activeCartItems.map(({ id, count }) => {
-      const cfg = ITEM_3D_CONFIG[id] || { spacing: 2.0, scale: 1.0 };
-      if (cfg.isLargeInfrastructure) {
-        // Công trình lớn theo quy mô chuẩn
-        return { id, width: cfg.spacing, depth: cfg.spacing * 0.75 };
-      }
-      const disp = getDisplayCount(count, 400);
-      const grid = calculateGridLayout(disp.displayCount, cfg.spacing);
-      return { id, width: grid.width, depth: grid.depth };
-    });
-
-    // 2. Tính toán vị trí không chồng lấn cho các cụm (xếp ngang hàng, wrap phía sau)
-    // Hàng rộng theo tỉ lệ khung: tổng bề ngang các cụm chia số hàng sao cho khối tổng gần tỉ lệ khung
-    const spans = clusterSizes.map((c) => (c.width + c.depth) / Math.SQRT2);
-    const totalSpan = spans.reduce((a, b) => a + b, 0) + 6 * Math.max(0, spans.length - 1);
-    const maxSpan = Math.max(0, ...spans);
-    const aspect = containerEl ? Math.max(0.5, containerEl.clientWidth / Math.max(1, containerEl.clientHeight)) : 1.4;
-    const rows = Math.max(1, Math.round(Math.sqrt(totalSpan / (aspect * Math.max(1, maxSpan * 0.6)))));
-    const placement = calculateClusterPositions(clusterSizes, {
-      baseGap: 4.0,
-      rowGap: 6.0,
-      // Ưu tiên 1 hàng ngang như neal.fun; chỉ xuống hàng khi quá dài so với khung
-      maxRowWidth: Math.max(maxSpan + 1, (totalSpan / rows) * 1.8 + 1),
-      maxClustersPerRow: 8,
-      minLabelDist: 9.0,
-    });
-    currentClusters = placement.clusters;
-    currentBounds = placement.totalBounds;
-
-    // 3. Tạo mô hình cho từng cụm
-    const prefersReducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    for (const cluster of placement.clusters) {
-      const count = cart[cluster.id] || 0;
-      if (count <= 0) continue;
-
-      const cfg = ITEM_3D_CONFIG[cluster.id] || { spacing: 2.0, scale: 1.0 };
-      const clusterGroup = new THREE.Group();
-      clusterGroup.position.set(cluster.center.x, 0, cluster.center.z);
-
-      // Mặt nền mờ bóng nhẹ cho từng cụm
-      const shadowPlane = new THREE.Mesh(
-        new THREE.PlaneGeometry(cluster.width + 1.2, cluster.depth + 1.2),
-        new THREE.MeshBasicMaterial({ color: 0xe6e1d9, transparent: true, opacity: 0.6 })
-      );
-      shadowPlane.rotateX(-Math.PI / 2);
-      shadowPlane.position.y = 0.01;
-      clusterGroup.add(shadowPlane);
-
-      // Công trình lớn chỉ dựng 1 mô hình tâm cụm
-      if (cfg.isLargeInfrastructure) {
-        let model: import('three').Object3D | null = null;
-        if (cfg.modelUrl) {
-          const baseGlb = await loadGlbModel(cfg.modelUrl);
-          if (baseGlb) {
-            if (cluster.id === 'metro-1') {
-              model = createMetroTrainGroup(baseGlb, THREE);
-            } else if (cluster.id === 'dstdc') {
-              model = createBulletTrainGroup(baseGlb, THREE);
-            } else {
-              model = baseGlb;
-            }
-          }
-        }
-        if (!model) {
-          model = createProceduralMesh(cluster.id, THREE);
-        }
-        if (model) {
-          model.scale.setScalar(cfg.scale);
-          model.position.set(0, 0, 0);
-
-          if (!prefersReducedMotion) {
-            model.userData = {
-              isDropping: true,
-              dropStart: performance.now(),
-              dropHeight: 4.0,
-              baseY: 0,
-            };
-          }
-          clusterGroup.add(model);
-        }
-      } else {
-        // Vật phẩm số lượng nhiều: dựng các bản thể xếp lưới
-        const disp = getDisplayCount(count, 400);
-        const grid = calculateGridLayout(disp.displayCount, cfg.spacing);
-
-        let baseModel: import('three').Object3D | null = null;
-        if (cfg.modelUrl) {
-          baseModel = await loadGlbModel(cfg.modelUrl);
-        }
-        if (!baseModel) {
-          baseModel = createProceduralMesh(cluster.id, THREE);
-        }
-
-        if (baseModel) {
-          // Tạo các clone bản thể
-          for (let i = 0; i < grid.positions.length; i++) {
-            const pos = grid.positions[i];
-            const instance = baseModel.clone(true);
-            instance.scale.setScalar(cfg.scale);
-            instance.position.set(pos.x, 0, pos.z);
-
-            // Hiệu ứng rơi cho các bản thể mới mua
-            if (!prefersReducedMotion && i >= grid.positions.length - 10) {
-              instance.userData = {
-                isDropping: true,
-                dropStart: performance.now() + (i % 8) * 20,
-                dropHeight: 3.5,
-                baseY: 0,
-              };
-            }
-
-            clusterGroup.add(instance);
-          }
-        }
-      }
-
-      stageGroup.add(clusterGroup);
-    }
-
-    // 4. Fit camera tự động bao quát các cụm
-    if (containerEl) {
-      const fit = calculateCameraFit(
-        currentBounds,
-        containerEl.clientWidth || 800,
-        containerEl.clientHeight || 500,
-        1.2,
-        activeCartItems.length
-      );
-      desiredTarget = fit.target;
-      desiredFrustumSize = fit.frustumSize;
-      desiredZoom = fit.zoom;
-    }
-
+  // Đánh dấu thời điểm mua mới để kích hoạt hiệu ứng rơi
+  export function notifyItemBought(itemId: string) {
+    dropTimers.set(itemId, performance.now());
     triggerRender();
   }
-
-  // Khi cart thay đổi từ component cha
-  $effect(() => {
-    // Kích hoạt khi activeCartItems thay đổi
-    const _ = activeCartItems;
-    if (THREE && stageGroup) {
-      rebuildStage();
-    }
-  });
 
   // Nút "Căn giữa" (Fit All)
   export function recenter() {
     if (!containerEl) return;
-    const fit = calculateCameraFit(
+    const fit = calculateStage2DFit(
       currentBounds,
       containerEl.clientWidth || 800,
-      containerEl.clientHeight || 500,
-      1.2,
-      activeCartItems.length
+      containerEl.clientHeight || 600,
+      1.22
     );
-    desiredTarget = fit.target;
-    desiredFrustumSize = fit.frustumSize;
+    desiredPanX = fit.targetX;
+    desiredPanY = fit.targetY;
     desiredZoom = fit.zoom;
     triggerRender();
   }
 
   // Nút Zoom +
   export function zoomIn() {
-    desiredZoom = Math.min(desiredZoom * 1.25, 3.0);
+    desiredZoom = Math.min(desiredZoom * 1.25, 2.5);
     triggerRender();
   }
 
   // Nút Zoom -
   export function zoomOut() {
-    desiredZoom = Math.max(desiredZoom / 1.25, 0.4);
+    desiredZoom = Math.max(desiredZoom / 1.25, 0.25);
     triggerRender();
   }
 
-  // Xử lý kéo thả chuột / cảm ứng để pan camera
+  // Điều khiển chuột & cảm ứng: Pan và Pinch-to-zoom
   function handlePointerDown(e: PointerEvent) {
-    isDragging = true;
-    lastPointer = { x: e.clientX, y: e.clientY };
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     (e.target as HTMLElement)?.setPointerCapture?.(e.pointerId);
+
+    if (activePointers.size === 1) {
+      isDragging = true;
+      lastPointer = { x: e.clientX, y: e.clientY };
+    } else if (activePointers.size === 2) {
+      isDragging = false;
+      const pts = Array.from(activePointers.values());
+      initialPinchDistance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      initialPinchZoom = desiredZoom;
+    }
   }
 
   function handlePointerMove(e: PointerEvent) {
-    if (!isDragging || !containerEl) return;
-    const dx = e.clientX - lastPointer.x;
-    const dy = e.clientY - lastPointer.y;
-    lastPointer = { x: e.clientX, y: e.clientY };
+    if (!activePointers.has(e.pointerId)) return;
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-    // Hệ số tỷ lệ theo kích thước frustum
-    const factor = (currentFrustumSize / (containerEl.clientHeight || 500)) * (1 / currentZoom);
+    if (activePointers.size === 1 && isDragging) {
+      const dx = e.clientX - lastPointer.x;
+      const dy = e.clientY - lastPointer.y;
+      lastPointer = { x: e.clientX, y: e.clientY };
 
-    // Kéo ngang dx: di chuyển theo trục u
-    // Kéo dọc dy: di chuyển theo trục v
-    const du = -dx * factor;
-    const dv = (dy * factor) / 0.647;
+      desiredPanX -= dx / zoom;
+      desiredPanY -= dy / zoom;
+      panX -= dx / zoom;
+      panY -= dy / zoom;
 
-    const panX = (du - dv) / Math.SQRT2;
-    const panZ = (-du - dv) / Math.SQRT2;
-
-    desiredTarget.x += panX;
-    desiredTarget.z += panZ;
-    currentTarget.x += panX;
-    currentTarget.z += panZ;
-
-    updateCameraPosition();
-    updateLabels();
-    triggerRender();
+      updateLabels();
+      triggerRender();
+    } else if (activePointers.size === 2 && initialPinchDistance > 0) {
+      const pts = Array.from(activePointers.values());
+      const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const ratio = currentDist / initialPinchDistance;
+      desiredZoom = Math.max(0.25, Math.min(initialPinchZoom * ratio, 2.5));
+      triggerRender();
+    }
   }
 
   function handlePointerUp(e: PointerEvent) {
-    isDragging = false;
+    activePointers.delete(e.pointerId);
+    if (activePointers.size === 0) {
+      isDragging = false;
+    } else if (activePointers.size === 1) {
+      const remaining = Array.from(activePointers.values())[0];
+      lastPointer = { x: remaining.x, y: remaining.y };
+      isDragging = true;
+    }
   }
 
   function handleWheel(e: WheelEvent) {
     e.preventDefault();
     if (e.deltaY < 0) {
-      desiredZoom = Math.min(desiredZoom * 1.1, 3.0);
+      desiredZoom = Math.min(desiredZoom * 1.12, 2.5);
     } else {
-      desiredZoom = Math.max(desiredZoom / 1.1, 0.4);
+      desiredZoom = Math.max(desiredZoom / 1.12, 0.25);
     }
     triggerRender();
   }
@@ -649,73 +574,70 @@
   onpointercancel={handlePointerUp}
   onwheel={handleWheel}
   role="region"
-  aria-label="Sân khấu 3D isometric mô phỏng các vật phẩm đã chi tiêu"
+  aria-label="Sân khấu isometric 2.5D mô phỏng quy mô tài sản đã chi tiêu"
 >
-  {#if !webGlSupported}
-    <!-- Thông báo nếu trình duyệt không có WebGL -->
-    <div class="no-webgl-notice">
-      <p>💡 Thiết bị hoặc trình duyệt không bật WebGL. Sân khấu tự động hiển thị giao diện 2D trực quan.</p>
-    </div>
-  {:else}
-    <canvas bind:this={canvasEl} class="stage-canvas"></canvas>
+  <canvas bind:this={canvasEl} class="stage-canvas"></canvas>
 
-    <!-- Các nhãn 2D ghim chân mỗi cụm 3D -->
-    <div class="labels-layer" aria-hidden="true">
-      {#each screenLabels as label (label.id)}
-        {#if label.visible}
-          <div
-            class="cluster-label"
-            style="transform: translate(-50%, 6px) translate({label.x}px, {label.y}px);"
-            onclick={() => onSelectCard?.(label.id)}
-          >
-            <span class="label-name">{label.text}</span>
+  <!-- Lớp nhãn 2 dòng HTML ghim chân từng cụm -->
+  <div class="labels-layer" aria-hidden="true">
+    {#each screenLabels as label (label.id)}
+      {#if label.visible}
+        <div
+          class="cluster-label-card"
+          style="transform: translate(-50%, 0) translate({label.x}px, {label.y}px);"
+          onclick={() => onSelectCard?.(label.id)}
+        >
+          <div class="label-line-1">
+            <span class="label-title">{label.line1}</span>
             {#if label.badge}
               <span class="label-badge">{label.badge}</span>
             {/if}
           </div>
-        {/if}
-      {/each}
+          <div class="label-line-2">{label.line2}</div>
+        </div>
+      {/if}
+    {/each}
+  </div>
+
+  <!-- Nút điều khiển Zoom góc dưới phải -->
+  {#if activeCartItems.length > 0}
+    <div class="controls-overlay">
+      <div class="zoom-controls">
+        <button
+          type="button"
+          class="overlay-btn"
+          onclick={zoomIn}
+          title="Phóng to (+)"
+          aria-label="Phóng to sân khấu"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          class="overlay-btn"
+          onclick={zoomOut}
+          title="Thu nhỏ (−)"
+          aria-label="Thu nhỏ sân khấu"
+        >
+          −
+        </button>
+      </div>
+
+      <div class="pan-hint">
+        <span>🖱️ Kéo để dịch · Cuộn để phóng to</span>
+      </div>
     </div>
+  {/if}
 
-    <!-- Hướng dẫn điều khiển mờ góc dưới (chỉ hiện khi có vật phẩm) -->
-    {#if activeCartItems.length > 0}
-      <div class="controls-overlay">
-        <div class="zoom-controls">
-          <button
-            type="button"
-            class="overlay-btn"
-            onclick={zoomIn}
-            title="Phóng to sân khấu (+)"
-            aria-label="Phóng to sân khấu"
-          >
-            +
-          </button>
-          <button
-            type="button"
-            class="overlay-btn"
-            onclick={zoomOut}
-            title="Thu nhỏ sân khấu (−)"
-            aria-label="Thu nhỏ sân khấu"
-          >
-            −
-          </button>
-        </div>
-
-        <div class="pan-hint">
-          <span>🖱️ Kéo để xoay / dịch nhẹ · Cuộn để phóng to</span>
-        </div>
-      </div>
-    {/if}
-
-    {#if activeCartItems.length === 0}
-      <div class="empty-stage-prompt">
-        <div class="empty-icon">🏗️</div>
-        <div class="empty-title">Sân khấu 3D đang chờ kiến thiết</div>
-        <p class="empty-sub">
-          Chọn vật phẩm ở thanh Mua sắm <span class="dir-desktop">bên phải</span><span class="dir-mobile">bên dưới</span> để xem các mô hình 3D xuất hiện trực tiếp tại đây!
-        </p>
-      </div>
-    {/if}
+  <!-- Lời nhắc khi giỏ hàng rỗng -->
+  {#if activeCartItems.length === 0}
+    <div class="empty-stage-prompt">
+      <div class="empty-icon">🏗️</div>
+      <div class="empty-title">Sân khấu kiến thiết đang chờ đón</div>
+      <p class="empty-sub">
+        Chọn vật phẩm ở thanh Mua sắm <span class="dir-desktop">bên phải</span><span class="dir-mobile">bên dưới</span> để xem các mô hình xuất hiện ngay tại đây!
+      </p>
+    </div>
   {/if}
 </div>
 
@@ -724,10 +646,7 @@
     position: relative;
     width: 100%;
     height: 100%;
-    min-height: 480px;
     background: #faf8f5;
-    border-radius: var(--radius, 1rem);
-    border: 1px solid var(--color-border, #e6e1d9);
     overflow: hidden;
     touch-action: none;
     user-select: none;
@@ -755,36 +674,38 @@
     overflow: hidden;
   }
 
-  .cluster-label {
+  .cluster-label-card {
     position: absolute;
     top: 0;
     left: 0;
-    display: inline-flex;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.35rem;
     background: rgba(255, 255, 255, 0.94);
     backdrop-filter: blur(8px);
     border: 1px solid #e2ded4;
-    border-radius: 999px;
-    padding: 0.3rem 0.65rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: #1f1d1a;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-radius: 0.75rem;
+    padding: 0.35rem 0.75rem;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
     pointer-events: auto;
     cursor: pointer;
     white-space: nowrap;
-    transition: transform 0.05s ease, background 0.15s ease;
+    transition: transform 0.08s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   }
 
-  .cluster-label:hover {
-    background: #ffffff;
+  .cluster-label-card:hover {
     border-color: #059669;
-    color: #059669;
+    box-shadow: 0 6px 18px rgba(5, 150, 105, 0.16);
   }
 
-  .label-name {
-    line-height: 1.2;
+  .label-line-1 {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: #1f1d1a;
+    line-height: 1.25;
   }
 
   .label-badge {
@@ -792,44 +713,51 @@
     color: #ffffff;
     border-radius: 999px;
     padding: 0.05rem 0.35rem;
-    font-size: 0.675rem;
+    font-size: 0.65rem;
     font-weight: 800;
+  }
+
+  .label-line-2 {
+    font-size: 0.725rem;
+    font-weight: 700;
+    color: #059669;
+    line-height: 1.2;
+    margin-top: 0.1rem;
   }
 
   .controls-overlay {
     position: absolute;
-    bottom: 0.85rem;
-    left: 0.85rem;
+    bottom: 1.25rem;
+    right: 1.25rem;
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 0.65rem;
+    gap: 0.75rem;
     pointer-events: none;
+    z-index: 20;
   }
 
   .zoom-controls {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 0.35rem;
     pointer-events: auto;
   }
 
   .overlay-btn {
-    height: 34px;
-    min-width: 34px;
-    padding: 0 0.6rem;
-    background: rgba(255, 255, 255, 0.92);
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.94);
     backdrop-filter: blur(6px);
     border: 1px solid #e2ded4;
     border-radius: 0.5rem;
-    font-size: 0.875rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: #1f1d1a;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     transition: all 0.15s ease;
   }
 
@@ -837,22 +765,19 @@
     background: #ffffff;
     border-color: #059669;
     color: #059669;
-  }
-
-  .recenter-btn {
-    font-size: 0.775rem;
-    font-weight: 600;
+    transform: scale(1.05);
   }
 
   .pan-hint {
-    font-size: 0.725rem;
+    font-size: 0.75rem;
     font-weight: 500;
     color: #78716c;
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(4px);
-    padding: 0.25rem 0.55rem;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(6px);
+    padding: 0.3rem 0.65rem;
     border-radius: 999px;
-    border: 1px solid #f0ebe4;
+    border: 1px solid #e6e1d9;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
   }
 
   .empty-stage-prompt {
@@ -861,39 +786,33 @@
     left: 50%;
     transform: translate(-50%, -50%);
     text-align: center;
-    max-width: 320px;
-    padding: 1.5rem;
-    background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(8px);
+    max-width: 340px;
+    padding: 1.75rem;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(10px);
     border: 1px dashed #d6d0c4;
-    border-radius: 1rem;
+    border-radius: 1.25rem;
     pointer-events: none;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
   }
 
   .empty-icon {
-    font-size: 2.5rem;
-    margin-bottom: 0.5rem;
+    font-size: 2.75rem;
+    margin-bottom: 0.65rem;
   }
 
   .empty-title {
-    font-size: 1.05rem;
-    font-weight: 700;
+    font-size: 1.1rem;
+    font-weight: 800;
     color: #1f1d1a;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.4rem;
   }
 
   .empty-sub {
-    font-size: 0.8rem;
-    color: #78716c;
-    line-height: 1.4;
+    font-size: 0.825rem;
+    color: #6b7280;
+    line-height: 1.5;
     margin: 0;
-  }
-
-  .no-webgl-notice {
-    padding: 2rem;
-    text-align: center;
-    color: #78716c;
-    font-size: 0.875rem;
   }
 
   .dir-desktop {
@@ -912,21 +831,28 @@
     .dir-mobile {
       display: inline;
     }
-  }
-
-  @media (max-width: 768px) {
-    .stage-container {
-      min-height: 48svh;
-      border-radius: 0.75rem;
-    }
 
     .pan-hint {
       display: none;
     }
 
-    .cluster-label {
-      font-size: 0.7rem;
-      padding: 0.2rem 0.5rem;
+    .controls-overlay {
+      bottom: calc(45svh + 1rem);
+      right: 1rem;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .cluster-label-card {
+      padding: 0.25rem 0.55rem;
+    }
+
+    .label-line-1 {
+      font-size: 0.725rem;
+    }
+
+    .label-line-2 {
+      font-size: 0.675rem;
     }
   }
 </style>
