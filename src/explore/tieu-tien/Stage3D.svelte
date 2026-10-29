@@ -14,7 +14,12 @@
     type ClusterLayoutItem,
     type ClusterBounds,
   } from './stage3d';
-  import { ITEM_3D_CONFIG, createProceduralMesh } from './models3d';
+  import {
+    ITEM_3D_CONFIG,
+    createProceduralMesh,
+    createMetroTrainGroup,
+    createBulletTrainGroup,
+  } from './models3d';
   import { formatVietnameseCurrency } from './logic';
 
   interface Props {
@@ -323,14 +328,12 @@
 
       const disp = getDisplayCount(count, 400);
 
-      // Điểm mép trước hướng về phía camera (+X, +Z)
-      // delta = (halfW + halfD) / 2 + 0.6 đảm bảo chiếu ra đúng tâm ngang và ở phía trước mô hình
-      const halfW = cluster.width / 2;
-      const halfD = cluster.depth / 2;
-      const delta = (halfW + halfD) / 2 + 0.6;
+      // Điểm mép chân phía trước của cụm chiếu lên màn hình:
+      // cluster.screenBottom đã được calculateClusterPositions tính chính xác (u, vBase - labelGap)
+      const bottomPos = cluster.screenBottom || cluster.center;
 
       if (!THREE) continue;
-      const p3d = new THREE.Vector3(cluster.center.x + delta, 0, cluster.center.z + delta);
+      const p3d = new THREE.Vector3(bottomPos.x, 0, bottomPos.z);
       p3d.project(camera);
 
       // Điểm nằm trước màn hình (trong frustum)
@@ -415,16 +418,22 @@
     const clusterSizes = activeCartItems.map(({ id, count }) => {
       const cfg = ITEM_3D_CONFIG[id] || { spacing: 2.0, scale: 1.0 };
       if (cfg.isLargeInfrastructure) {
-        // Công trình lớn chỉ 1 mô hình
-        return { id, width: cfg.spacing * 1.5, depth: cfg.spacing * 1.2 };
+        // Công trình lớn theo quy mô chuẩn
+        return { id, width: cfg.spacing, depth: cfg.spacing * 0.75 };
       }
       const disp = getDisplayCount(count, 400);
       const grid = calculateGridLayout(disp.displayCount, cfg.spacing);
       return { id, width: grid.width, depth: grid.depth };
     });
 
-    // 2. Tính toán vị trí không chồng lấn cho các cụm
-    const placement = calculateClusterPositions(clusterSizes, 4.0);
+    // 2. Tính toán vị trí không chồng lấn cho các cụm (xếp ngang hàng, wrap phía sau)
+    const placement = calculateClusterPositions(clusterSizes, {
+      baseGap: 4.0,
+      rowGap: 6.0,
+      maxRowWidth: 70.0,
+      maxClustersPerRow: 4,
+      minLabelDist: 9.0,
+    });
     currentClusters = placement.clusters;
     currentBounds = placement.totalBounds;
 
@@ -454,7 +463,16 @@
       if (cfg.isLargeInfrastructure) {
         let model: import('three').Object3D | null = null;
         if (cfg.modelUrl) {
-          model = await loadGlbModel(cfg.modelUrl);
+          const baseGlb = await loadGlbModel(cfg.modelUrl);
+          if (baseGlb) {
+            if (cluster.id === 'metro-1') {
+              model = createMetroTrainGroup(baseGlb, THREE);
+            } else if (cluster.id === 'dstdc') {
+              model = createBulletTrainGroup(baseGlb, THREE);
+            } else {
+              model = baseGlb;
+            }
+          }
         }
         if (!model) {
           model = createProceduralMesh(cluster.id, THREE);
@@ -518,7 +536,7 @@
         currentBounds,
         containerEl.clientWidth || 800,
         containerEl.clientHeight || 500,
-        1.18,
+        1.2,
         activeCartItems.length
       );
       desiredTarget = fit.target;
@@ -545,7 +563,7 @@
       currentBounds,
       containerEl.clientWidth || 800,
       containerEl.clientHeight || 500,
-      1.18,
+      1.2,
       activeCartItems.length
     );
     desiredTarget = fit.target;
@@ -582,11 +600,13 @@
     // Hệ số tỷ lệ theo kích thước frustum
     const factor = (currentFrustumSize / (containerEl.clientHeight || 500)) * (1 / currentZoom);
 
-    // Chiếu pan theo góc nhìn isometric
-    // Kéo ngang dx: di chuyển dọc trục (1, 0, -1)
-    // Kéo dọc dy: di chuyển dọc trục (1, 0, 1)
-    const panX = (-dx + dy) * 0.7 * factor;
-    const panZ = (dx + dy) * 0.7 * factor;
+    // Kéo ngang dx: di chuyển theo trục u
+    // Kéo dọc dy: di chuyển theo trục v
+    const du = -dx * factor;
+    const dv = (dy * factor) / 0.647;
+
+    const panX = (du - dv) / Math.SQRT2;
+    const panZ = (-du - dv) / Math.SQRT2;
 
     desiredTarget.x += panX;
     desiredTarget.z += panZ;

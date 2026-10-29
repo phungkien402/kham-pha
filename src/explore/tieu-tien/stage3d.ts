@@ -26,6 +26,10 @@ export interface ClusterBounds {
   maxZ: number;
   minY?: number;
   maxY?: number;
+  minU?: number;
+  maxU?: number;
+  minV?: number;
+  maxV?: number;
 }
 
 export interface ClusterLayoutItem {
@@ -34,17 +38,65 @@ export interface ClusterLayoutItem {
   bounds: ClusterBounds;
   width: number;
   depth: number;
+  u: number;
+  v: number;
+  row: number;
+  halfWu: number;
+  halfDv: number;
+  screenBottom: { x: number; z: number };
+}
+
+export interface ClusterPlacementOptions {
+  baseGap?: number;
+  rowGap?: number;
+  maxRowWidth?: number;
+  maxClustersPerRow?: number;
+  minLabelDist?: number;
+  labelGap?: number;
 }
 
 export interface ClustersPlacementResult {
   clusters: ClusterLayoutItem[];
   totalBounds: ClusterBounds;
+  rowCount: number;
 }
 
 export interface CameraFitResult {
   target: { x: number; y: number; z: number };
   frustumSize: number;
   zoom: number;
+  projBounds?: {
+    minX: number;
+    maxX: number;
+    minY: number;
+    maxY: number;
+    spanX: number;
+    spanY: number;
+  };
+}
+
+/**
+ * Chuyển đổi toạ độ mặt đất (u, v) theo góc nhìn Isometric sang toạ độ thế giới (x, z):
+ * - u: trục ngang màn hình (screen right), vector đơn vị (1/√2, 0, -1/√2)
+ * - v: trục chiều sâu màn hình (hàng phía sau, đi lên trên), vector đơn vị (-1/√2, 0, -1/√2)
+ */
+export function uvToWorld(u: number, v: number): { x: number; z: number } {
+  const x = (u - v) / Math.SQRT2;
+  const z = (-u - v) / Math.SQRT2;
+  return {
+    x: Math.abs(x) < 1e-12 ? 0 : x,
+    z: Math.abs(z) < 1e-12 ? 0 : z,
+  };
+}
+
+/**
+ * Chuyển đổi toạ độ thế giới (x, z) sang toạ độ mặt đất (u, v) theo góc nhìn Isometric
+ */
+export function worldToUv(x: number, z: number): { u: number; v: number } {
+  return {
+    u: (x - z) / Math.SQRT2,
+    v: (-x - z) / Math.SQRT2,
+  };
 }
 
 /**
@@ -125,137 +177,341 @@ export function calculateGridLayout(count: number, spacing = 2.0): GridLayoutRes
 }
 
 /**
- * 3. Sắp xếp vị trí các cụm sao cho không chồng lấn (non-overlapping)
- * Sắp xếp từ trái sang phải theo trục X
- * Khoảng cách giữa 2 cụm (gap) tự động giãn theo kích thước cụm + bề rộng nhãn để nhãn không đè nhau
+ * 3. Sắp xếp vị trí các cụm theo phong cách neal.fun:
+ * - Các cụm nằm NGANG HÀNG trên màn hình theo vector screen right (u)
+ * - Đáy các cụm trong cùng hàng thẳng hàng tại cùng toạ độ v (vMin = vBase)
+ * - Nhãn ngay dưới chân mỗi cụm và căn giữa theo trục ngang (u)
+ * - Nếu nhiều cụm hoặc quá rộng thì tự động xuống hàng mới phía sau (v tăng)
+ * - Mỗi hàng đều được căn giữa khung hình theo trục U
  */
 export function calculateClusterPositions(
   clusters: Array<{ id: string; width: number; depth: number }>,
-  baseGap = 4.0
+  options?: number | ClusterPlacementOptions
 ): ClustersPlacementResult {
   if (!clusters || clusters.length === 0) {
     return {
       clusters: [],
-      totalBounds: { minX: 0, maxX: 0, minZ: 0, maxZ: 0 },
+      totalBounds: {
+        minX: 0,
+        maxX: 0,
+        minZ: 0,
+        maxZ: 0,
+        minU: 0,
+        maxU: 0,
+        minV: 0,
+        maxV: 0,
+      },
+      rowCount: 0,
     };
   }
 
-  const items: ClusterLayoutItem[] = [];
-  let currentX = 0;
+  const baseGap = typeof options === 'number' ? options : (options?.baseGap ?? 4.0);
+  const rowGap = typeof options === 'object' ? (options.rowGap ?? 6.0) : 6.0;
+  const maxRowWidth = typeof options === 'object' ? (options.maxRowWidth ?? 70.0) : 70.0;
+  const maxClustersPerRow = typeof options === 'object' ? (options.maxClustersPerRow ?? 4) : 4;
+  const minLabelDist = typeof options === 'object' ? (options.minLabelDist ?? 8.5) : 8.5;
+  const labelGap = typeof options === 'object' ? (options.labelGap ?? 0.8) : 0.8;
 
-  for (let i = 0; i < clusters.length; i++) {
-    const c = clusters[i];
-    const halfW = c.width / 2;
-    const halfD = c.depth / 2;
+  // 1. Phân chia các cụm vào các hàng (wrap)
+  interface IntermediateCluster {
+    cluster: { id: string; width: number; depth: number };
+    origIndex: number;
+    halfWu: number;
+    halfDv: number;
+    spanU: number;
+    spanV: number;
+  }
 
-    if (i === 0) {
-      currentX = halfW;
-    } else {
-      const prev = items[i - 1];
-      // Gap động: đảm bảo khoảng cách giữa tâm 2 nhãn liền kề đủ rộng (~8.5 đơn vị 3D)
-      const minCenterDist = 8.5;
-      const neededGap = Math.max(0, minCenterDist - (prev.width / 2 + halfW));
-      const effectiveGap = Math.max(baseGap, neededGap);
+  const intermediate: IntermediateCluster[] = clusters.map((c, i) => {
+    // Chiếu kích thước (width, depth) sang trục chiếu màn hình u và v
+    const spanU = (c.width + c.depth) / Math.SQRT2;
+    const spanV = (c.width + c.depth) / Math.SQRT2;
+    return {
+      cluster: c,
+      origIndex: i,
+      halfWu: spanU / 2,
+      halfDv: spanV / 2,
+      spanU,
+      spanV,
+    };
+  });
 
-      currentX = prev.bounds.maxX + effectiveGap + halfW;
+  const rows: IntermediateCluster[][] = [];
+  let currentRow: IntermediateCluster[] = [];
+  let currentLineWidth = 0;
+
+  for (let i = 0; i < intermediate.length; i++) {
+    const item = intermediate[i];
+    let neededDist = 0;
+    if (currentRow.length > 0) {
+      const prev = currentRow[currentRow.length - 1];
+      const geomDist = prev.halfWu + item.halfWu + baseGap;
+      neededDist = Math.max(geomDist, minLabelDist);
     }
 
-    const bounds: ClusterBounds = {
-      minX: currentX - halfW,
-      maxX: currentX + halfW,
-      minZ: -halfD,
-      maxZ: halfD,
-    };
+    const wouldExceedWidth =
+      currentRow.length > 0 && currentLineWidth + neededDist + item.halfWu > maxRowWidth;
+    const wouldExceedCount = currentRow.length >= maxClustersPerRow;
 
-    items.push({
-      id: c.id,
-      center: { x: currentX, z: 0 },
-      bounds,
-      width: c.width,
-      depth: c.depth,
-    });
+    if (wouldExceedWidth || wouldExceedCount) {
+      rows.push(currentRow);
+      currentRow = [];
+      currentLineWidth = 0;
+    }
+
+    if (currentRow.length === 0) {
+      currentLineWidth = item.spanU;
+    } else {
+      currentLineWidth += neededDist;
+    }
+
+    currentRow.push(item);
+  }
+  if (currentRow.length > 0) {
+    rows.push(currentRow);
   }
 
-  // Căn tâm toàn bộ hệ thống về gần 0 để camera dễ bắt
-  const minX = items[0].bounds.minX;
-  const maxX = items[items.length - 1].bounds.maxX;
-  const shiftX = (minX + maxX) / 2;
+  // 2. Định vị từng hàng trên toạ độ (u, v):
+  // Hàng r: đáy các cụm thẳng hàng tại vBase (vMin = vBase).
+  // Đáy hàng 0 tại vBase = 0.
+  // Hàng kế tiếp bắt đầu sau đỉnh cao nhất của hàng trước + rowGap.
+  const placedItems: ClusterLayoutItem[] = [];
+  let currentVBase = 0;
 
-  let totalMinZ = 0;
-  let totalMaxZ = 0;
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
 
-  for (const item of items) {
-    item.center.x -= shiftX;
-    item.bounds.minX -= shiftX;
-    item.bounds.maxX -= shiftX;
+    // Tính toạ độ u tương đối của các cụm trong hàng
+    const relativeU: number[] = [];
+    let curU = 0;
+    for (let j = 0; j < row.length; j++) {
+      if (j === 0) {
+        curU = row[j].halfWu;
+      } else {
+        const prev = row[j - 1];
+        const neededDist = Math.max(prev.halfWu + row[j].halfWu + baseGap, minLabelDist);
+        curU += neededDist;
+      }
+      relativeU.push(curU);
+    }
+
+    // Căn giữa hàng theo trục U (u = 0 là tâm ngang)
+    const minRowU = relativeU[0] - row[0].halfWu;
+    const maxRowU = relativeU[row.length - 1] + row[row.length - 1].halfWu;
+    const rowCenterU = (minRowU + maxRowU) / 2;
+
+    let maxRowV = currentVBase;
+
+    for (let j = 0; j < row.length; j++) {
+      const item = row[j];
+      const u = relativeU[j] - rowCenterU;
+      // Đáy cụm thẳng hàng: vMin = currentVBase => centerV = currentVBase + halfDv
+      const v = currentVBase + item.halfDv;
+      const topV = currentVBase + item.spanV;
+      if (topV > maxRowV) {
+        maxRowV = topV;
+      }
+
+      const worldCenter = uvToWorld(u, v);
+      const worldBottom = uvToWorld(u, currentVBase - labelGap);
+
+      const minU = u - item.halfWu;
+      const maxU = u + item.halfWu;
+      const minV = currentVBase;
+      const maxV = topV;
+
+      // Giới hạn trong không gian 3D thế giới (x, z)
+      const halfW = item.cluster.width / 2;
+      const halfD = item.cluster.depth / 2;
+      const bounds: ClusterBounds = {
+        minX: worldCenter.x - halfW,
+        maxX: worldCenter.x + halfW,
+        minZ: worldCenter.z - halfD,
+        maxZ: worldCenter.z + halfD,
+        minU,
+        maxU,
+        minV,
+        maxV,
+      };
+
+      placedItems.push({
+        id: item.cluster.id,
+        center: worldCenter,
+        bounds,
+        width: item.cluster.width,
+        depth: item.cluster.depth,
+        u,
+        v,
+        row: r,
+        halfWu: item.halfWu,
+        halfDv: item.halfDv,
+        screenBottom: worldBottom,
+      });
+    }
+
+    // Hàng sau lùi ra phía sau (v tăng)
+    currentVBase = maxRowV + rowGap;
+  }
+
+  // Giữ nguyên thứ tự ban đầu của mảng clusters đầu vào
+  placedItems.sort((a, b) => {
+    const idxA = clusters.findIndex((c) => c.id === a.id);
+    const idxB = clusters.findIndex((c) => c.id === b.id);
+    return idxA - idxB;
+  });
+
+  // Tính totalBounds bao trùm mọi cụm
+  let totalMinX = Infinity,
+    totalMaxX = -Infinity;
+  let totalMinZ = Infinity,
+    totalMaxZ = -Infinity;
+  let totalMinU = Infinity,
+    totalMaxU = -Infinity;
+  let totalMinV = Infinity,
+    totalMaxV = -Infinity;
+
+  for (const item of placedItems) {
+    if (item.bounds.minX < totalMinX) totalMinX = item.bounds.minX;
+    if (item.bounds.maxX > totalMaxX) totalMaxX = item.bounds.maxX;
     if (item.bounds.minZ < totalMinZ) totalMinZ = item.bounds.minZ;
     if (item.bounds.maxZ > totalMaxZ) totalMaxZ = item.bounds.maxZ;
+    if (item.bounds.minU! < totalMinU) totalMinU = item.bounds.minU!;
+    if (item.bounds.maxU! > totalMaxU) totalMaxU = item.bounds.maxU!;
+    if (item.bounds.minV! < totalMinV) totalMinV = item.bounds.minV!;
+    if (item.bounds.maxV! > totalMaxV) totalMaxV = item.bounds.maxV!;
   }
 
   const totalBounds: ClusterBounds = {
-    minX: items[0].bounds.minX,
-    maxX: items[items.length - 1].bounds.maxX,
+    minX: totalMinX,
+    maxX: totalMaxX,
     minZ: totalMinZ,
     maxZ: totalMaxZ,
+    minU: totalMinU,
+    maxU: totalMaxU,
+    minV: totalMinV,
+    maxV: totalMaxV,
   };
 
   return {
-    clusters: items,
+    clusters: placedItems,
     totalBounds,
+    rowCount: rows.length,
   };
 }
 
 /**
- * 4. Tính toán góc nhìn và zoom camera Orthographic bao trọn toàn bộ cụm
- * Lấp ~80% khung (padding nhỏ ~1.18).
- * Khi chỉ có 1-2 cụm thì zoom gần hơn.
+ * 4. Tính toán góc nhìn và zoom camera Orthographic bao trọn toàn bộ cụm theo bbox CHIẾU lên màn hình (cả nhãn)
+ * Lấp ~80–85% khung hình, căn giữa khung; không để mô hình/nhãn bị cắt.
  */
 export function calculateCameraFit(
   totalBounds: ClusterBounds,
   viewportWidth: number,
   viewportHeight: number,
-  padding = 1.18,
+  padding = 1.2,
   clusterCount = 1
 ): CameraFitResult {
-  const target = {
-    x: (totalBounds.minX + totalBounds.maxX) / 2,
-    y: 0,
-    z: (totalBounds.minZ + totalBounds.maxZ) / 2,
-  };
-
-  const spanX = Math.max(1.5, totalBounds.maxX - totalBounds.minX);
-  const spanZ = Math.max(1.5, totalBounds.maxZ - totalBounds.minZ);
-  const spanY = Math.max(1.5, (totalBounds.maxY ?? 3) - (totalBounds.minY ?? 0));
-
   const vpW = Math.max(1, viewportWidth);
   const vpH = Math.max(1, viewportHeight);
   const aspect = vpW / vpH;
 
-  // Chiếu isometric chuẩn: đường chéo X-Z
-  const projWidth = (spanX + spanZ) * 0.72;
-  const projHeight = (spanX + spanZ) * 0.42 + spanY;
+  // Hệ số chiếu Isometric chuẩn của Three.js OrthographicCamera:
+  // cameraPosition = target + (dist, 1.2*dist, dist)
+  // Xcam = u
+  // Ycam = alpha * v + beta * y
+  const alpha = 1.2 / Math.sqrt(3.44); // ~ 0.6470
+  const beta = Math.SQRT2 / Math.sqrt(3.44); // ~ 0.7625
 
-  // Kích thước frustum cần bao phủ để lấp ~80-85% khung
-  const fitPadding = Math.min(padding, 1.25);
-  const requiredFrustumH = Math.max(projHeight, projWidth / aspect) * fitPadding;
+  const hasExtendedBounds =
+    totalBounds.minU !== undefined &&
+    totalBounds.maxU !== undefined &&
+    totalBounds.minV !== undefined &&
+    totalBounds.maxV !== undefined;
 
-  // Khi chỉ có 1–2 cụm thì zoom gần hơn
-  let minFrustum = 3.5;
-  let zoom = 1.0;
-  if (clusterCount === 1) {
-    minFrustum = 3.2;
-    zoom = 1.15;
-  } else if (clusterCount === 2) {
-    minFrustum = 4.8;
-    zoom = 1.05;
+  let minU: number, maxU: number, minV: number, maxV: number;
+  if (hasExtendedBounds) {
+    minU = totalBounds.minU!;
+    maxU = totalBounds.maxU!;
+    minV = totalBounds.minV!;
+    maxV = totalBounds.maxV!;
+  } else {
+    // Dự phòng tính từ minX, maxX, minZ, maxZ nếu không có u, v
+    const corners = [
+      { x: totalBounds.minX, z: totalBounds.minZ },
+      { x: totalBounds.minX, z: totalBounds.maxZ },
+      { x: totalBounds.maxX, z: totalBounds.minZ },
+      { x: totalBounds.maxX, z: totalBounds.maxZ },
+    ];
+    const uvs = corners.map((p) => worldToUv(p.x, p.z));
+    minU = Math.min(...uvs.map((p) => p.u));
+    maxU = Math.max(...uvs.map((p) => p.u));
+    minV = Math.min(...uvs.map((p) => p.v));
+    maxV = Math.max(...uvs.map((p) => p.v));
   }
 
-  const frustumSize = Math.max(minFrustum, requiredFrustumH);
+  // Dự phòng an toàn cho bề rộng nhãn và chiều cao nhãn/mô hình:
+  const labelExtraU = hasExtendedBounds ? 3.5 : 0;
+  const labelExtraV = hasExtendedBounds ? 3.0 : 0;
+  const modelHeight =
+    totalBounds.maxY !== undefined
+      ? Math.max(0, totalBounds.maxY - (totalBounds.minY ?? 0))
+      : hasExtendedBounds
+        ? 4.5
+        : 0;
+
+  const projMinX = minU - labelExtraU;
+  const projMaxX = maxU + labelExtraU;
+  const projMinY = alpha * (minV - labelExtraV);
+  const projMaxY = alpha * maxV + beta * modelHeight;
+
+  const spanX = Math.max(2.0, projMaxX - projMinX);
+  const spanY = Math.max(2.0, projMaxY - projMinY);
+
+  // Tâm mục tiêu (target) trên màn hình chiếu về toạ độ thế giới 3D
+  const midProjX = (projMinX + projMaxX) / 2;
+  const midProjY = (projMinY + projMaxY) / 2;
+
+  const targetU = midProjX;
+  const targetV = midProjY / alpha;
+  const targetPos = uvToWorld(targetU, targetV);
+  const target = {
+    x: targetPos.x,
+    y: 0,
+    z: targetPos.z,
+  };
+
+  // Frustum size cần thiết để bao quát cả chiều ngang và chiều cao
+  const requiredFrustumH = Math.max(spanY, spanX / aspect);
+
+  // Lấp ~80-85% khung hình:
+  // padding = 1 / 0.825 ≈ 1.21
+  const fitPadding = Math.max(1.15, Math.min(padding, 1.25));
+  let frustumSize = requiredFrustumH * fitPadding;
+
+  // Zoom gần nhẹ khi chỉ có 1-2 cụm
+  let minFrustum = 8.0;
+  let zoom = 1.0;
+  if (clusterCount === 1) {
+    minFrustum = 7.5;
+    zoom = 1.05;
+  } else if (clusterCount === 2) {
+    minFrustum = 11.0;
+    zoom = 1.0;
+  }
+
+  frustumSize = Math.max(minFrustum, frustumSize);
 
   return {
     target,
     frustumSize,
     zoom,
+    projBounds: {
+      minX: projMinX,
+      maxX: projMaxX,
+      minY: projMinY,
+      maxY: projMaxY,
+      spanX,
+      spanY,
+    },
   };
 }
 

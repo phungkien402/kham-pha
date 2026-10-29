@@ -97,14 +97,15 @@ describe('Sân khấu 3D — Hàm thuần (stage3d)', () => {
     });
   });
 
-  describe('3. Vị trí các cụm không chồng nhau (calculateClusterPositions)', () => {
+  describe('3. Vị trí các cụm không chồng nhau theo toạ độ màn hình (calculateClusterPositions)', () => {
     it('danh sách rỗng an toàn', () => {
       const res = calculateClusterPositions([]);
       expect(res.clusters).toEqual([]);
       expect(res.totalBounds.minX).toBe(0);
+      expect(res.rowCount).toBe(0);
     });
 
-    it('nhiều cụm xếp liền kề không chồng lấn và cách nhau >= gap', () => {
+    it('nhiều cụm trong cùng hàng xếp ngang màn hình theo trục U, không chồng lấn và cách nhau >= gap', () => {
       const input = [
         { id: 'pho', width: 6, depth: 6 },
         { id: 'xe-may', width: 10, depth: 8 },
@@ -114,12 +115,31 @@ describe('Sân khấu 3D — Hàm thuần (stage3d)', () => {
       const res = calculateClusterPositions(input, gap);
       expect(res.clusters.length).toBe(3);
 
+      // Cùng nằm ở hàng 0
+      for (const c of res.clusters) {
+        expect(c.row).toBe(0);
+      }
+
       for (let i = 0; i < res.clusters.length - 1; i++) {
         const c1 = res.clusters[i];
         const c2 = res.clusters[i + 1];
-        // Cụm tiếp theo phải nằm ngoài biên phải của cụm trước ít nhất là gap
-        const distanceBetweenEdges = c2.bounds.minX - c1.bounds.maxX;
-        expect(distanceBetweenEdges).toBeGreaterThanOrEqual(gap - 1e-6);
+        // Cụm tiếp theo phải nằm ngoài biên phải của cụm trước theo trục chiếu màn hình U ít nhất là gap
+        const distanceBetweenEdgesOnScreen = c2.bounds.minU! - c1.bounds.maxU!;
+        expect(distanceBetweenEdgesOnScreen).toBeGreaterThanOrEqual(gap - 1e-6);
+      }
+    });
+
+    it('đáy các cụm trong cùng một hàng thẳng hàng tại cùng toạ độ v (đáy thẳng hàng)', () => {
+      const input = [
+        { id: 'pho', width: 6, depth: 6 },
+        { id: 'xe-may', width: 10, depth: 8 },
+        { id: 'o-to', width: 14, depth: 10 },
+      ];
+      const res = calculateClusterPositions(input, 4.0);
+      // Đáy cụm theo trục v (vMin) phải bằng nhau cho tất cả cụm trong cùng hàng
+      const vBaseRow0 = res.clusters[0].bounds.minV;
+      for (const c of res.clusters) {
+        expect(c.bounds.minV).toBeCloseTo(vBaseRow0!, 5);
       }
     });
 
@@ -131,11 +151,66 @@ describe('Sân khấu 3D — Hàm thuần (stage3d)', () => {
       const res = calculateClusterPositions(input);
       const c1 = res.clusters[0];
       const c2 = res.clusters[1];
-      const centerDist = Math.abs(c2.center.x - c1.center.x);
-      expect(centerDist).toBeGreaterThanOrEqual(8.5);
+      // Khoảng cách theo trục ngang màn hình U >= 8.5
+      const screenCenterDist = Math.abs(c2.u - c1.u);
+      expect(screenCenterDist).toBeGreaterThanOrEqual(8.5);
     });
 
-    it('totalBounds bao quát trọn vẹn mọi cụm', () => {
+    it('nhãn đặt ngay dưới chân mỗi cụm và căn giữa theo trục U', () => {
+      const input = [
+        { id: 'pho', width: 6, depth: 6 },
+        { id: 'xe-may', width: 10, depth: 8 },
+      ];
+      const res = calculateClusterPositions(input);
+      for (const c of res.clusters) {
+        // screenBottom chiếu ra phải có toạ độ ngang u bằng đúng c.u
+        const uvBottom = (c.screenBottom.x - c.screenBottom.z) / Math.SQRT2;
+        expect(uvBottom).toBeCloseTo(c.u, 5);
+      }
+    });
+
+    it('nhiều cụm quá rộng thì tự động xuống hàng mới phía sau (wrap) không đè hàng trước', () => {
+      // 4 cụm kích thước lớn giống tình huống mua 100 phở, 100 vision, 100 vf8, 1 metro
+      const input = [
+        { id: 'pho', width: 20, depth: 20 },
+        { id: 'vision', width: 25, depth: 25 },
+        { id: 'vf8', width: 40, depth: 40 },
+        { id: 'metro', width: 16, depth: 6 },
+      ];
+      const res = calculateClusterPositions(input, {
+        baseGap: 4.0,
+        rowGap: 6.0,
+        maxRowWidth: 70.0,
+        maxClustersPerRow: 4,
+      });
+
+      // Phải tự động chia thành 2 hàng
+      expect(res.rowCount).toBeGreaterThanOrEqual(2);
+
+      const row0Clusters = res.clusters.filter((c) => c.row === 0);
+      const row1Clusters = res.clusters.filter((c) => c.row === 1);
+      expect(row0Clusters.length).toBeGreaterThan(0);
+      expect(row1Clusters.length).toBeGreaterThan(0);
+
+      // Đáy hàng 1 phải nằm sau đỉnh cao nhất của hàng 0 ít nhất là rowGap
+      const maxVRow0 = Math.max(...row0Clusters.map((c) => c.bounds.maxV!));
+      const minVRow1 = Math.min(...row1Clusters.map((c) => c.bounds.minV!));
+      expect(minVRow1).toBeGreaterThanOrEqual(maxVRow0 + 6.0 - 1e-6);
+    });
+
+    it('mỗi hàng đều được căn giữa khung hình theo trục U', () => {
+      const input = [
+        { id: 'a', width: 8, depth: 8 },
+        { id: 'b', width: 12, depth: 10 },
+      ];
+      const res = calculateClusterPositions(input);
+      const row0 = res.clusters.filter((c) => c.row === 0);
+      const minU = Math.min(...row0.map((c) => c.bounds.minU!));
+      const maxU = Math.max(...row0.map((c) => c.bounds.maxU!));
+      expect((minU + maxU) / 2).toBeCloseTo(0, 5);
+    });
+
+    it('totalBounds bao quát trọn vẹn mọi cụm cả theo toạ độ 3D và toạ độ màn hình', () => {
       const input = [
         { id: 'a', width: 4, depth: 5 },
         { id: 'b', width: 8, depth: 12 },
@@ -146,6 +221,10 @@ describe('Sân khấu 3D — Hàm thuần (stage3d)', () => {
         expect(c.bounds.maxX).toBeLessThanOrEqual(res.totalBounds.maxX);
         expect(c.bounds.minZ).toBeGreaterThanOrEqual(res.totalBounds.minZ);
         expect(c.bounds.maxZ).toBeLessThanOrEqual(res.totalBounds.maxZ);
+        expect(c.bounds.minU!).toBeGreaterThanOrEqual(res.totalBounds.minU!);
+        expect(c.bounds.maxU!).toBeLessThanOrEqual(res.totalBounds.maxU!);
+        expect(c.bounds.minV!).toBeGreaterThanOrEqual(res.totalBounds.minV!);
+        expect(c.bounds.maxV!).toBeLessThanOrEqual(res.totalBounds.maxV!);
       }
     });
   });
@@ -160,8 +239,31 @@ describe('Sân khấu 3D — Hàm thuần (stage3d)', () => {
       expect(fit.frustumSize).toBeGreaterThan(0);
     });
 
+    it('tính theo bbox chiếu lên màn hình (cả nhãn) và lấp ~80–85% khung', () => {
+      const stageBounds = {
+        minX: -15,
+        maxX: 15,
+        minZ: -10,
+        maxZ: 10,
+        minU: -25,
+        maxU: 25,
+        minV: 0,
+        maxV: 20,
+        maxY: 6,
+      };
+      const fit = calculateCameraFit(stageBounds, 1200, 800, 1.2);
+      expect(fit.projBounds).toBeDefined();
+      expect(fit.projBounds!.spanX).toBeGreaterThan(50); // bao gồm cả labelExtraU
+      expect(fit.projBounds!.spanY).toBeGreaterThan(15);
+
+      // FrustumSize lấp ~80-85% khung hình: tỉ lệ span / frustumSize ~ 1 / 1.2 ≈ 0.833
+      const fillRatio = Math.max(fit.projBounds!.spanY, fit.projBounds!.spanX / (1200 / 800)) / fit.frustumSize;
+      expect(fillRatio).toBeGreaterThanOrEqual(0.8);
+      expect(fillRatio).toBeLessThanOrEqual(0.86);
+    });
+
     it('màn hình hẹp (mobile) tăng frustumSize để không bị cắt 2 bên', () => {
-      const bounds = { minX: -30, maxX: 30, minZ: -10, maxZ: 10 };
+      const bounds = { minX: -30, maxX: 30, minZ: -10, maxZ: 10, minU: -30, maxU: 30, minV: 0, maxV: 10 };
       const fitDesktop = calculateCameraFit(bounds, 1200, 800);
       const fitMobile = calculateCameraFit(bounds, 375, 667);
       expect(fitMobile.frustumSize).toBeGreaterThan(fitDesktop.frustumSize);
