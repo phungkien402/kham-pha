@@ -4,7 +4,7 @@ param([Parameter(Mandatory)][string]$FilePrompt, [Parameter(Mandatory)][string]$
 Set-Location D:\Neal
 Remove-Item $FileKetQua -ErrorAction SilentlyContinue
 $codex = "$env:LOCALAPPDATA\OpenAI\Codex\bin\e78bad9887fa50cf\codex.exe"
-& "$PSScriptRoot\mo-cua-so-phai.ps1" -TieuDe "ChatGPT (Codex)" -Lenh "cd D:\Neal; Get-Content $FilePrompt -Raw -Encoding utf8 | & '$codex' exec --sandbox workspace-write -C D:\Neal -" | Out-Null
+& "$PSScriptRoot\mo-cua-so-phai.ps1" -TieuDe "ChatGPT (Codex)" -Lenh "cd D:\Neal; Get-Content $FilePrompt -Raw -Encoding utf8 | & '$codex' --search exec --sandbox workspace-write -C D:\Neal -" | Out-Null
 $t = 0; while (-not (Test-Path $FileKetQua) -and $t -lt $PhutToiDa * 6) { Start-Sleep 10; $t++ }
 Start-Sleep 5
 & "$PSScriptRoot\dong-cua-so.ps1" | Out-Null

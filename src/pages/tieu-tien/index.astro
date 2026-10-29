@@ -1,0 +1,46 @@
+---
+import ExploreLayout from '../../layouts/ExploreLayout.astro';
+import TieuTien from '../../explore/tieu-tien/TieuTien.svelte';
+---
+
+<ExploreLayout
+  slug="tieu-tien"
+  title="1 ngày làm PNV"
+  description="Bạn có 35,2 tỷ USD — tiêu thế nào? Mô phỏng theo ước tính tài sản ròng của tỷ phú Phạm Nhật Vượng do Forbes công bố ngày 10/10/2026."
+  ogImage="/og/tieu-tien.png"
+>
+  <TieuTien client:load />
+
+  <footer class="sources-note">
+    <p class="disclaimer">
+      ⚖️ <strong>Tuyên bố miễn trừ:</strong> Trò chơi minh hoạ độc lập, không liên kết, tài trợ hay đại diện cho bất kỳ cá nhân hay doanh nghiệp nào được nhắc tới. Dữ liệu là con số ước tính công khai trên báo chí, không phản ánh dòng tiền mặt hay tài khoản cá nhân.
+    </p>
+    <p class="source-item">
+      <strong>Ngân sách mô phỏng:</strong> Ước tính tài sản ròng 35,2 tỷ USD theo Forbes ghi nhận ngày 10/10/2026. Tỷ giá quy đổi 25.660 VND/USD (giá mua chuyển khoản Vietcombank ngày 29/10/2026).
+    </p>
+    <p class="source-item">
+      <strong>Nguồn giá 20 vật phẩm:</strong> Được khảo sát và đối chiếu độc lập từ website chính thức của nhà sản xuất, bảng học phí trường đại học, và các quyết định phê duyệt chủ trương đầu tư công đã công bố trên báo chí chính thống.
+    </p>
+  </footer>
+</ExploreLayout>
+
+<style>
+  .sources-note {
+    max-width: 1200px;
+    margin: var(--space-8, 2rem) auto var(--space-12, 3rem);
+    padding: var(--space-4, 1rem) var(--space-6, 1.5rem);
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid var(--color-border, #e6e1d9);
+    border-radius: var(--radius, 1rem);
+    font-size: 0.8125rem;
+    color: var(--color-text-muted, #6b665f);
+    line-height: 1.6;
+  }
+  .disclaimer {
+    margin-bottom: 0.5rem;
+    color: var(--color-text, #1f1d1a);
+  }
+  .source-item {
+    margin-top: 0.25rem;
+  }
+</style>

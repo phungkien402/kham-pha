@@ -1,5 +1,14 @@
 [
   {
+    "slug": "tieu-tien",
+    "title": "1 ngày làm PNV",
+    "tagline": "Bạn có 35,2 tỷ USD — tiêu thế nào?",
+    "color": "#059669",
+    "status": "live",
+    "launchDate": "2026-10-29",
+    "card": "/cards/tieu-tien.webp"
+  },
+  {
     "slug": "to-co-nao",
     "title": "Việt Nam to cỡ nào?",
     "tagline": "Việt Nam và các tỉnh to cỡ nào trên thế giới?",
