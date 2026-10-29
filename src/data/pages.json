@@ -18,6 +18,15 @@
     "card": "/cards/to-co-nao.webp"
   },
   {
+    "slug": "hieu-viet-nam",
+    "title": "Bạn hiểu Việt Nam đến đâu?",
+    "tagline": "How Vietnamese Are You? — khám phá văn hoá 5 vùng miền",
+    "color": "#E11D48",
+    "status": "live",
+    "launchDate": "2026-10-29",
+    "card": "/cards/hieu-viet-nam.webp"
+  },
+  {
     "slug": "mua-hoa-viet",
     "title": "Mùa Hoa Việt",
     "tagline": "Hôm nay hoa gì đang nở?",

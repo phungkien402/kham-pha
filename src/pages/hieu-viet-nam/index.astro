@@ -1,0 +1,47 @@
+---
+import ExploreLayout from '../../layouts/ExploreLayout.astro';
+import HieuVietNam from '../../explore/hieu-viet-nam/HieuVietNam.svelte';
+---
+
+<ExploreLayout
+  slug="hieu-viet-nam"
+  title="Bạn hiểu Việt Nam đến đâu?"
+  description="How Vietnamese Are You? — chuyến khám phá văn hoá 5 vùng miền qua 12 câu đố vui chọn lọc, không phải thước đo quốc tịch."
+  ogImage="/og/hieu-viet-nam.png"
+>
+  <HieuVietNam client:load />
+
+  <footer class="sources-note">
+    <p class="disclaimer">
+      <strong>Về trò chơi:</strong> "Bạn hiểu Việt Nam đến đâu?" là một hành trình khám phá văn hoá, phong tục, địa danh và phong vị đời sống của 5 vùng miền Tổ quốc. Trò chơi hướng tới tinh thần tò mò, học hỏi điều mới và gắn kết, hoàn toàn không phải bài kiểm tra quốc tịch hay thước đo lòng yêu nước.
+    </p>
+    <p class="source-item">
+      <strong>Dữ liệu câu hỏi:</strong> Được biên soạn và kiểm chứng độc lập với nguồn tham chiếu từ UNESCO, các cơ quan ban ngành, cổng thông tin chính thức của các tỉnh thành và từ điển tiếng Việt.
+    </p>
+    <p class="source-item">
+      <strong>Bản đồ địa lý:</strong> Thể hiện 34 tỉnh thành và đầy đủ chủ quyền hai quần đảo Hoàng Sa và Trường Sa trên nền phép chiếu phẳng bảo toàn diện tích.
+    </p>
+  </footer>
+</ExploreLayout>
+
+<style>
+  .sources-note {
+    margin-top: var(--space-8, 2rem);
+    padding: var(--space-4, 1rem) var(--space-6, 1.5rem);
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid var(--color-border, #e6e1d9);
+    border-radius: var(--radius, 1rem);
+    font-size: 0.8125rem;
+    color: var(--color-text-muted, #6b665f);
+    line-height: 1.6;
+    max-width: 900px;
+    margin-inline: auto;
+  }
+  .disclaimer {
+    margin-bottom: 0.5rem;
+    color: var(--color-text, #1f1d1a);
+  }
+  .source-item {
+    margin-top: 0.25rem;
+  }
+</style>

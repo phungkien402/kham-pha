@@ -1,0 +1,682 @@
+[
+  {
+    "id": "bac-01",
+    "vung": "Bắc",
+    "chuDe": "món ăn vùng miền",
+    "tinh": "hai-phong",
+    "cauHoi": "Ở Hải Phòng, món nước có bánh đa đỏ, cua đồng và chả lá lốt thường mang tên nào?",
+    "luaChon": [
+      "Bánh đa cua",
+      "Bún thang",
+      "Cao lầu",
+      "Hủ tiếu Nam Vang"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Bánh đa cua Hải Phòng dùng sợi bánh đa đỏ và nước dùng cua đồng. Điều bất ngờ: chả lá lốt là thành phần quen thuộc của món này.",
+    "nguon": "https://vi.wikipedia.org/wiki/Bánh_đa_cua",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bac-02",
+    "vung": "Bắc",
+    "chuDe": "địa danh & địa lý",
+    "tinh": "cao-bang",
+    "cauHoi": "Con thác biên giới ở Cao Bằng đổ trên sông Quây Sơn, giáp Trung Quốc, có tên gì?",
+    "luaChon": [
+      "Thác Bản Giốc",
+      "Thác Dray Nur",
+      "Thác Pongour",
+      "Thác Bạc"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Thác Bản Giốc nằm trên sông Quây Sơn, ở biên giới Việt Nam – Trung Quốc. Điều bất ngờ: phía Trung Quốc của cụm thác được gọi là Đức Thiên.",
+    "nguon": "https://vi.wikipedia.org/wiki/Thác_Bản_Giốc",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bac-03",
+    "vung": "Bắc",
+    "chuDe": "phong tục & lễ hội",
+    "tinh": "bac-ninh",
+    "cauHoi": "Di sản hát đối đáp nam nữ gắn với hội làng vùng Kinh Bắc được gọi là gì?",
+    "luaChon": [
+      "Dân ca quan họ Bắc Ninh",
+      "Hát xoan Phú Thọ",
+      "Đờn ca tài tử",
+      "Hò khoan Lệ Thủy"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Dân ca quan họ Bắc Ninh là lối hát giao duyên đối đáp. Điều bất ngờ: UNESCO ghi danh thực hành này năm 2009.",
+    "nguon": "https://vi.wikipedia.org/wiki/Dân_ca_quan_họ_Bắc_Ninh",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bac-04",
+    "vung": "Bắc",
+    "chuDe": "món ăn vùng miền",
+    "tinh": "ha-noi",
+    "cauHoi": "Thức quà làm từ lúa nếp non, thường gói trong lá sen và gắn với mùa thu Hà Nội, là gì?",
+    "luaChon": [
+      "Cốm",
+      "Mè xửng",
+      "Bánh pía",
+      "Kẹo dừa"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Cốm làm từ hạt lúa nếp còn non, nổi tiếng ở làng Vòng. Điều bất ngờ: cốm thường được gói trong lá sen để giữ mùi thơm.",
+    "nguon": "https://vi.wikipedia.org/wiki/Cốm",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bac-05",
+    "vung": "Bắc",
+    "chuDe": "địa danh & địa lý",
+    "tinh": "ninh-binh",
+    "cauHoi": "Quần thể ở Ninh Bình nổi tiếng với núi đá vôi, thung lũng ngập nước và chuyến đi đò qua hang là nơi nào?",
+    "luaChon": [
+      "Tràng An",
+      "Mũi Né",
+      "Ba Bể",
+      "Bạch Mã"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Tràng An là cảnh quan karst đá vôi xen hang động ngập nước. Điều bất ngờ: đây là di sản hỗn hợp đầu tiên của Việt Nam.",
+    "nguon": "https://vi.wikipedia.org/wiki/Quần_thể_danh_thắng_Tràng_An",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bac-06",
+    "vung": "Bắc",
+    "chuDe": "phong tục & lễ hội",
+    "tinh": "phu-tho",
+    "cauHoi": "Tín ngưỡng thờ cúng tổ tiên chung của người Việt, thực hành trọng tâm ở Phú Thọ, hướng đến những vị vua nào?",
+    "luaChon": [
+      "Các Vua Hùng",
+      "Các chúa Nguyễn",
+      "Các vua nhà Trần",
+      "Các vua nhà Mạc"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Tín ngưỡng này tưởng nhớ các Vua Hùng. Điều bất ngờ: Giỗ Tổ Hùng Vương diễn ra vào mùng 10 tháng Ba âm lịch.",
+    "nguon": "https://vi.wikipedia.org/wiki/Tín_ngưỡng_thờ_cúng_Hùng_Vương",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bac-07",
+    "vung": "Bắc",
+    "chuDe": "đời sống thường ngày",
+    "tinh": "thai-nguyen",
+    "cauHoi": "Khi mời khách một thức uống pha từ búp cây trồng nổi tiếng của Thái Nguyên, người ta thường mời gì?",
+    "luaChon": [
+      "Chè xanh",
+      "Cà phê phin",
+      "Nước thốt nốt",
+      "Trà atisô"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Thái Nguyên nổi tiếng với vùng chè và văn hóa uống trà. Điều bất ngờ: Tân Cương là vùng chè rất được biết đến của tỉnh.",
+    "nguon": "https://vi.wikipedia.org/wiki/Thái_Nguyên",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bac-08",
+    "vung": "Bắc",
+    "chuDe": "phương ngữ & cách gọi",
+    "tinh": "ha-noi",
+    "cauHoi": "Quả mà miền Bắc thường gọi là “dứa”, ở miền Nam hay được gọi là gì?",
+    "luaChon": [
+      "Trái thơm",
+      "Trái bơ",
+      "Trái mãng cầu",
+      "Trái sơ ri"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Cùng một loại quả nhưng mỗi miền một tên: dứa (Bắc), thơm hoặc khóm (Nam). Điều bất ngờ: “khóm” cũng là một tên gọi quen thuộc ở Nam Bộ.",
+    "nguon": "https://vi.wikipedia.org/wiki/D%E1%BB%A9a",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "trung-01",
+    "vung": "Trung",
+    "chuDe": "món ăn vùng miền",
+    "tinh": "hue",
+    "cauHoi": "Món bún của cố đô có nước dùng đậm vị sả và mắm ruốc, thường ăn cùng thịt bò, là món nào?",
+    "luaChon": [
+      "Bún bò Huế",
+      "Bún mắm",
+      "Bún chả",
+      "Bún thang"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Bún bò Huế có nước dùng thơm sả và mắm ruốc. Điều bất ngờ: món này thường có cả giò heo.",
+    "nguon": "https://vi.wikipedia.org/wiki/Bún_bò_Huế",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "trung-02",
+    "vung": "Trung",
+    "chuDe": "địa danh & địa lý",
+    "tinh": "quang-tri",
+    "cauHoi": "Cây cầu từng gần giới tuyến quân sự tạm thời bắc qua con sông nào ở Quảng Trị?",
+    "luaChon": [
+      "Sông Bến Hải",
+      "Sông Hương",
+      "Sông Hàn",
+      "Sông Lam"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Cầu Hiền Lương bắc qua sông Bến Hải. Điều bất ngờ: sông này từng là đường phân giới tạm thời theo Hiệp định Genève 1954.",
+    "nguon": "https://vi.wikipedia.org/wiki/Sông_Bến_Hải",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "trung-03",
+    "vung": "Trung",
+    "chuDe": "phương ngữ & cách gọi",
+    "tinh": "nghe-an",
+    "cauHoi": "Trong tiếng Nghệ Tĩnh, bộ ba “mô, tê, răng” tương ứng với cách hỏi phổ thông nào?",
+    "luaChon": [
+      "Đâu, kia, sao",
+      "Ai, gì, bao nhiêu",
+      "Khi nào, vì sao, thế nào",
+      "Đây, đó, nọ"
+    ],
+    "dapAn": 0,
+    "giaiThich": "“Mô” là đâu, “tê” là kia, “răng” là sao/thế nào. Điều bất ngờ: ba từ này tạo sắc thái Nghệ Tĩnh rất rõ.",
+    "nguon": "https://vi.wikipedia.org/wiki/Phương_ngữ_tiếng_Việt",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "trung-04",
+    "vung": "Trung",
+    "chuDe": "món ăn vùng miền",
+    "tinh": "quang-nam",
+    "cauHoi": "Món sợi vàng ăn với ít nước dùng, rau sống và đậu phộng, nổi tiếng ở Quảng Nam, là gì?",
+    "luaChon": [
+      "Mì Quảng",
+      "Bánh canh",
+      "Miến lươn",
+      "Phở bò"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Mì Quảng thường chỉ chan ít nước dùng. Điều bất ngờ: bánh tráng nướng bẻ vụn là phần ăn kèm đặc trưng.",
+    "nguon": "https://vi.wikipedia.org/wiki/Mì_Quảng",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "trung-05",
+    "vung": "Trung",
+    "chuDe": "địa danh & địa lý",
+    "tinh": "hue",
+    "cauHoi": "Hệ đầm phá nước lợ ven biển dài nhất Đông Nam Á, ở khu vực Huế, mang tên gì?",
+    "luaChon": [
+      "Tam Giang – Cầu Hai",
+      "Thị Nại",
+      "Xuân Đài",
+      "Nha Phu"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Tam Giang – Cầu Hai là hệ đầm phá ven biển lớn ở Huế. Điều bất ngờ: hệ này dài khoảng 68 km.",
+    "nguon": "https://vi.wikipedia.org/wiki/Phá_Tam_Giang",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "trung-06",
+    "vung": "Trung",
+    "chuDe": "phong tục & lễ hội",
+    "tinh": "quang-binh",
+    "cauHoi": "Lối hát giao duyên gắn với chèo thuyền trên sông Kiến Giang ở Lệ Thủy được gọi là gì?",
+    "luaChon": [
+      "Hò khoan Lệ Thủy",
+      "Hát then",
+      "Hát bội",
+      "Ca trù"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Hò khoan Lệ Thủy gắn với lao động và lễ hội Quảng Bình. Điều bất ngờ: “khoan” gợi nhịp chèo thuyền khoan thai.",
+    "nguon": "https://vi.wikipedia.org/wiki/Hò_khoan_Lệ_Thủy",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "trung-07",
+    "vung": "Trung",
+    "chuDe": "đời sống thường ngày",
+    "tinh": "hue",
+    "cauHoi": "Trong giao tiếp Huế truyền thống, từ xưng hô nào gọi phụ nữ lớn tuổi một cách kính trọng?",
+    "luaChon": [
+      "Mệ",
+      "Cô",
+      "Dì",
+      "Bà ngoại"
+    ],
+    "dapAn": 0,
+    "giaiThich": "“Mệ” là cách xưng gọi kính trọng quen thuộc ở Huế. Điều bất ngờ: từ này cũng lưu dấu trong nhiều tên gọi văn hóa Huế.",
+    "nguon": "https://vi.wikipedia.org/wiki/Phương_ngữ_tiếng_Việt",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "trung-08",
+    "vung": "Trung",
+    "chuDe": "phương ngữ & cách gọi",
+    "tinh": "hue",
+    "cauHoi": "Ở vùng Thanh – Nghệ – Tĩnh, khi ai đó nói “làm ri”, từ “ri” nghĩa là gì?",
+    "luaChon": [
+      "Thế này",
+      "Thế kia",
+      "Vì sao",
+      "Bao giờ"
+    ],
+    "dapAn": 0,
+    "giaiThich": "“Ri” tương ứng với “thế này” trong phương ngữ Bắc Trung Bộ. Điều bất ngờ: “tau” (tôi) cũng là cách xưng quen thuộc của vùng này.",
+    "nguon": "https://vi.wikipedia.org/wiki/Ph%C6%B0%C6%A1ng_ng%E1%BB%AF_ti%E1%BA%BFng_Vi%E1%BB%87t",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "taynguyen-01",
+    "vung": "Tây Nguyên",
+    "chuDe": "món ăn vùng miền",
+    "tinh": "dak-lak",
+    "cauHoi": "Cách nấu cơm trong ống nứa hoặc tre của nhiều cộng đồng miền núi được gọi là gì?",
+    "luaChon": [
+      "Cơm lam",
+      "Cơm tấm",
+      "Cơm hến",
+      "Cơm cháy"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Cơm lam được nấu trong ống tre hoặc nứa. Điều bất ngờ: màng trong ống giúp cơm có mùi thơm riêng.",
+    "nguon": "https://vi.wikipedia.org/wiki/Cơm_lam",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "taynguyen-02",
+    "vung": "Tây Nguyên",
+    "chuDe": "địa danh & địa lý",
+    "tinh": "lam-dong",
+    "cauHoi": "Núi đôi ở phía bắc Đà Lạt, gắn với truyền thuyết K'Lang và H'Biang, có tên gì?",
+    "luaChon": [
+      "Langbiang",
+      "Ngọc Linh",
+      "Chư Yang Sin",
+      "Bà Đen"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Langbiang là quần thể núi ở phía bắc Đà Lạt. Điều bất ngờ: tên gọi gắn với chuyện tình K'Lang và H'Biang.",
+    "nguon": "https://vi.wikipedia.org/wiki/Langbiang",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "taynguyen-03",
+    "vung": "Tây Nguyên",
+    "chuDe": "phong tục & lễ hội",
+    "tinh": "gia-lai",
+    "cauHoi": "Nhạc khí bằng hợp kim được đánh theo dàn trong nghi lễ của nhiều cộng đồng Tây Nguyên là gì?",
+    "luaChon": [
+      "Cồng chiêng",
+      "Đàn bầu",
+      "Đàn nguyệt",
+      "Sáo mèo"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Cồng chiêng là nhạc khí quan trọng trong nghi lễ Tây Nguyên. Điều bất ngờ: UNESCO ghi danh không gian văn hóa này năm 2005.",
+    "nguon": "https://vi.wikipedia.org/wiki/Không_gian_văn_hóa_cồng_chiêng_Tây_Nguyên",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "taynguyen-04",
+    "vung": "Tây Nguyên",
+    "chuDe": "phương ngữ & cách gọi",
+    "tinh": "dak-lak",
+    "cauHoi": "Trong tên gọi địa bàn cư trú Tây Nguyên, từ nào chỉ một làng, như trong “Buôn Ma Thuột”?",
+    "luaChon": [
+      "Buôn",
+      "Xóm",
+      "Ấp",
+      "Bản"
+    ],
+    "dapAn": 0,
+    "giaiThich": "“Buôn” chỉ làng của một số dân tộc Tây Nguyên. Điều bất ngờ: Buôn Ma Thuột bắt nguồn từ tên một buôn của người Ê Đê.",
+    "nguon": "https://vi.wikipedia.org/wiki/Buôn_Ma_Thuột",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "taynguyen-05",
+    "vung": "Tây Nguyên",
+    "chuDe": "đời sống thường ngày",
+    "tinh": "kon-tum",
+    "cauHoi": "Ngôi nhà cộng đồng mái cao vút của nhiều làng Ba Na và Xơ Đăng được gọi là gì?",
+    "luaChon": [
+      "Nhà rông",
+      "Nhà sàn",
+      "Nhà dài",
+      "Nhà trình tường"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Nhà rông là nhà cộng đồng của nhiều dân tộc Tây Nguyên. Điều bất ngờ: mái cao giúp nó thành điểm nhận diện của làng.",
+    "nguon": "https://vi.wikipedia.org/wiki/Nhà_rông",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "taynguyen-06",
+    "vung": "Tây Nguyên",
+    "chuDe": "phong tục & lễ hội",
+    "tinh": "kon-tum",
+    "cauHoi": "Nghi lễ của một số cộng đồng Tây Nguyên có hiến sinh trâu để cầu no đủ thường gọi là gì?",
+    "luaChon": [
+      "Lễ hội đâm trâu",
+      "Hội Gióng",
+      "Lễ hội Lim",
+      "Lễ hội Kate"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Lễ hội đâm trâu là nghi lễ của một số cộng đồng Tây Nguyên. Điều bất ngờ: nó thường gắn với mừng nhà rông mới hoặc mừng mùa.",
+    "nguon": "https://vi.wikipedia.org/wiki/Lễ_hội_đâm_trâu",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "taynguyen-07",
+    "vung": "Tây Nguyên",
+    "chuDe": "đời sống thường ngày",
+    "tinh": "dak-lak",
+    "cauHoi": "Nông sản được rang, xay rồi pha uống, gắn chặt với Buôn Ma Thuột, là gì?",
+    "luaChon": [
+      "Cà phê",
+      "Ca cao",
+      "Chè",
+      "Hồ tiêu"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Buôn Ma Thuột là trung tâm nổi tiếng của vùng cà phê Tây Nguyên. Điều bất ngờ: nơi đây có lễ hội cà phê định kỳ.",
+    "nguon": "https://vi.wikipedia.org/wiki/Buôn_Ma_Thuột",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "taynguyen-08",
+    "vung": "Tây Nguyên",
+    "chuDe": "phương ngữ & cách gọi",
+    "tinh": "dak-lak",
+    "cauHoi": "Trong văn hóa Ê Đê, kiểu nhà dài ngang cho nhiều thế hệ mẫu hệ cùng ở được gọi là gì?",
+    "luaChon": [
+      "Nhà dài",
+      "Nhà rường",
+      "Nhà ngói",
+      "Nhà bè"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Nhà dài là kiểu nhà truyền thống của người Ê Đê. Điều bất ngờ: nhà có thể nối dài khi gia đình có thêm con gái lập gia đình.",
+    "nguon": "https://vi.wikipedia.org/wiki/Người_Ê_Đê",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "nam-01",
+    "vung": "Nam",
+    "chuDe": "món ăn vùng miền",
+    "tinh": "tp-ho-chi-minh",
+    "cauHoi": "Món sợi gạo ăn với nước dùng và nhiều loại thịt, có tên phổ biến ở Nam Bộ là gì?",
+    "luaChon": [
+      "Hủ tiếu",
+      "Bánh hỏi",
+      "Bún mọc",
+      "Miến gà"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Hủ tiếu phổ biến ở Nam Bộ với nhiều biến thể. Điều bất ngờ: có thể ăn sợi mềm hoặc sợi khô, chan nước dùng riêng.",
+    "nguon": "https://vi.wikipedia.org/wiki/Hủ_tiếu",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "nam-02",
+    "vung": "Nam",
+    "chuDe": "địa danh & địa lý",
+    "tinh": "ca-mau",
+    "cauHoi": "Mốc cực Nam trên đất liền Việt Nam nằm tại địa danh nào của Cà Mau?",
+    "luaChon": [
+      "Mũi Cà Mau",
+      "Mũi Né",
+      "Mũi Điện",
+      "Mũi Sa Vĩ"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Mũi Cà Mau là địa danh ở cực Nam đất liền Việt Nam. Điều bất ngờ: tỉnh giáp cả Biển Đông và vịnh Thái Lan.",
+    "nguon": "https://vi.wikipedia.org/wiki/Mũi_Cà_Mau",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "nam-03",
+    "vung": "Nam",
+    "chuDe": "phong tục & lễ hội",
+    "tinh": "can-tho",
+    "cauHoi": "Trên mâm ngũ quả Tết Nam Bộ, mãng cầu, dừa, đu đủ, xoài và sung gửi gắm mong ước nào?",
+    "luaChon": [
+      "Cầu sung vừa đủ xài",
+      "An khang thịnh vượng",
+      "Phúc lộc thọ khang",
+      "Tứ quý bình an"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Người Nam Bộ đọc chệch năm loại quả thành “cầu sung vừa đủ xài”. Điều bất ngờ: sung gợi chữ sung túc.",
+    "nguon": "https://vi.wikipedia.org/wiki/Mâm_ngũ_quả",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "nam-04",
+    "vung": "Nam",
+    "chuDe": "món ăn vùng miền",
+    "tinh": "can-tho",
+    "cauHoi": "Loại bánh nếp gói lá chuối thành đòn trụ, phổ biến dịp Tết ở Nam Bộ, là gì?",
+    "luaChon": [
+      "Bánh tét",
+      "Bánh chưng",
+      "Bánh giầy",
+      "Bánh đúc"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Bánh tét có dạng đòn trụ, thường gói bằng lá chuối. Điều bất ngờ: “tét” gắn với thao tác cắt bánh thành khoanh.",
+    "nguon": "https://vi.wikipedia.org/wiki/Bánh_tét",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "nam-05",
+    "vung": "Nam",
+    "chuDe": "phương ngữ & cách gọi",
+    "tinh": "tp-ho-chi-minh",
+    "cauHoi": "Ở Nam Bộ, từ nào thường dùng để gọi con vật miền Bắc hay gọi là “lợn”?",
+    "luaChon": [
+      "Heo",
+      "Trâu",
+      "Bò",
+      "Dê"
+    ],
+    "dapAn": 0,
+    "giaiThich": "“Heo” là cách gọi thường dùng ở miền Nam. Điều bất ngờ: cả “heo” và “lợn” đều là từ thông dụng theo vùng.",
+    "nguon": "https://vi.wikipedia.org/wiki/Phương_ngữ_tiếng_Việt",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "nam-06",
+    "vung": "Nam",
+    "chuDe": "đời sống thường ngày",
+    "tinh": "can-tho",
+    "cauHoi": "Kiểu chợ họp trên sông, hàng hóa treo trên cây bẹo để giới thiệu, được gọi là gì?",
+    "luaChon": [
+      "Chợ nổi",
+      "Chợ phiên",
+      "Chợ đầu mối",
+      "Chợ đêm"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Chợ nổi là nét mua bán trên sông của Đồng bằng sông Cửu Long. Điều bất ngờ: Cái Răng dùng cây bẹo để giới thiệu hàng từ xa.",
+    "nguon": "https://vi.wikipedia.org/wiki/Chợ_nổi_Cái_Răng",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "nam-07",
+    "vung": "Nam",
+    "chuDe": "đời sống thường ngày",
+    "tinh": "tp-ho-chi-minh",
+    "cauHoi": "Thức uống pha qua phin rồi thêm sữa đặc và đá, rất quen thuộc ở Nam Bộ, là gì?",
+    "luaChon": [
+      "Cà phê sữa đá",
+      "Trà chanh",
+      "Nước sâm",
+      "Sữa đậu nành"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Cà phê sữa đá dùng phin và sữa đặc có đường. Điều bất ngờ: phin lọc tạo nhịp chờ đặc trưng của cà phê Việt.",
+    "nguon": "https://vi.wikipedia.org/wiki/Cà_phê_sữa_đá",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "nam-08",
+    "vung": "Nam",
+    "chuDe": "phương ngữ & cách gọi",
+    "tinh": "dong-thap",
+    "cauHoi": "Trong cách nói thường gặp ở miền Nam, từ nào hay dùng thay cho “hoa”?",
+    "luaChon": [
+      "Bông",
+      "Nụ",
+      "Lá",
+      "Cành"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Ở miền Nam, “bông” thường dùng với nghĩa “hoa”. Điều bất ngờ: “bông” cũng có thể chỉ cotton tùy ngữ cảnh.",
+    "nguon": "https://vi.wikipedia.org/wiki/Phương_ngữ_tiếng_Việt",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bien-01",
+    "vung": "Biển đảo",
+    "chuDe": "món ăn vùng miền",
+    "tinh": "khanh-hoa",
+    "cauHoi": "Món gỏi ven biển Nha Trang dùng cá nhỏ thịt trong, thường trộn chua ngọt, có tên gì?",
+    "luaChon": [
+      "Gỏi cá mai",
+      "Gỏi cuốn",
+      "Gỏi gà",
+      "Gỏi ngó sen"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Gỏi cá mai dùng cá mai tươi, quen thuộc ở Khánh Hòa. Điều bất ngờ: cá mai ít tanh nên thường được làm gỏi.",
+    "nguon": "https://vi.wikipedia.org/wiki/Cá_mai",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bien-02",
+    "vung": "Biển đảo",
+    "chuDe": "địa danh & địa lý",
+    "tinh": "hai-phong",
+    "cauHoi": "Hòn đảo lớn nhất trong quần đảo cùng tên, thuộc Hải Phòng, là đảo nào?",
+    "luaChon": [
+      "Cát Bà",
+      "Phú Quốc",
+      "Côn Đảo",
+      "Lý Sơn"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Cát Bà là đảo lớn nhất quần đảo Cát Bà. Điều bất ngờ: quần đảo thuộc Di sản Vịnh Hạ Long – quần đảo Cát Bà.",
+    "nguon": "https://vi.wikipedia.org/wiki/Cát_Bà",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bien-03",
+    "vung": "Biển đảo",
+    "chuDe": "phong tục & lễ hội",
+    "tinh": "ba-ria-vung-tau",
+    "cauHoi": "Trong lễ hội Nghinh Ông của cư dân ven biển, danh xưng kính trọng dành cho cá voi là gì?",
+    "luaChon": [
+      "Cá Ông",
+      "Cá Cô",
+      "Cá Cậu",
+      "Cá Chúa"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Ngư dân kính gọi cá voi là Cá Ông và cầu phù hộ khi ra khơi. Điều bất ngờ: lễ thường có nghi thức rước sắc thần trên biển.",
+    "nguon": "https://www.sggp.org.vn/da-nang-trao-bang-chung-nhan-di-san-van-hoa-phi-vat-the-quoc-gia-cho-le-hoi-cau-ngu-post509305.html",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bien-04",
+    "vung": "Biển đảo",
+    "chuDe": "địa danh & địa lý",
+    "tinh": "quang-ngai",
+    "cauHoi": "Huyện đảo ngoài khơi Quảng Ngãi có dấu tích miệng núi lửa và nổi tiếng với tỏi là nơi nào?",
+    "luaChon": [
+      "Lý Sơn",
+      "Cô Tô",
+      "Cù Lao Chàm",
+      "Nam Du"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Lý Sơn là huyện đảo hình thành từ hoạt động núi lửa. Điều bất ngờ: tỏi Lý Sơn được trồng trên nền đất núi lửa của đảo.",
+    "nguon": "https://vi.wikipedia.org/wiki/Lý_Sơn",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bien-05",
+    "vung": "Biển đảo",
+    "chuDe": "phương ngữ & cách gọi",
+    "tinh": "ben-tre",
+    "cauHoi": "Ở Nam Bộ, từ nào thường dùng để gọi chiếc thuyền nhỏ đi lại trên sông rạch?",
+    "luaChon": [
+      "Ghe",
+      "Xe",
+      "Ngựa",
+      "Máng"
+    ],
+    "dapAn": 0,
+    "giaiThich": "“Ghe” là cách gọi phổ biến cho phương tiện thủy nhỏ ở Nam Bộ. Điều bất ngờ: có các loại ghe tam bản, ghe bầu và ghe ngo.",
+    "nguon": "https://vi.wikipedia.org/wiki/Ghe",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bien-06",
+    "vung": "Biển đảo",
+    "chuDe": "phong tục & lễ hội",
+    "tinh": "thua-thien-hue",
+    "cauHoi": "Lễ hội của ngư dân miền biển nhằm cầu ra khơi bình an, đánh bắt thuận lợi thường tên gì?",
+    "luaChon": [
+      "Lễ hội Cầu Ngư",
+      "Lễ hội xuống đồng",
+      "Lễ hội Lồng Tồng",
+      "Hội đua voi"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Lễ hội Cầu Ngư cầu cho ngư dân ra khơi bình an, đánh bắt thuận lợi. Điều bất ngờ: trong lễ có hát bả trạo, diễn cảnh chèo thuyền ngay trên bờ.",
+    "nguon": "https://baovanhoa.vn/di-san/di-san-hat-ba-trao-do-mat-tim-nguoi-ke-thua-48944.html",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bien-07",
+    "vung": "Biển đảo",
+    "chuDe": "đời sống thường ngày",
+    "tinh": "kien-giang",
+    "cauHoi": "Loại cá nhỏ được ủ với muối để làm nước mắm Phú Quốc là cá gì?",
+    "luaChon": [
+      "Cá cơm",
+      "Cá thu",
+      "Cá ngừ",
+      "Cá nục"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Nước mắm Phú Quốc chủ yếu làm từ cá cơm và muối. Điều bất ngờ: đây là chỉ dẫn địa lý Việt Nam đầu tiên được EU bảo hộ.",
+    "nguon": "https://vi.wikipedia.org/wiki/Nước_mắm_Phú_Quốc",
+    "ngayTruyCap": "2026-10-29"
+  },
+  {
+    "id": "bien-08",
+    "vung": "Biển đảo",
+    "chuDe": "đời sống thường ngày",
+    "tinh": "khanh-hoa",
+    "cauHoi": "Nghề nuôi và khai thác chim làm tổ bằng nước bọt ở đảo Khánh Hòa tạo ra sản vật nào?",
+    "luaChon": [
+      "Yến sào",
+      "Ngọc trai",
+      "Rong nho",
+      "Muối biển"
+    ],
+    "dapAn": 0,
+    "giaiThich": "Yến sào là sản vật từ tổ chim yến. Điều bất ngờ: tổ yến chủ yếu do nước bọt chim yến đông cứng.",
+    "nguon": "https://vi.wikipedia.org/wiki/Yến_sào",
+    "ngayTruyCap": "2026-10-29"
+  }
+]
