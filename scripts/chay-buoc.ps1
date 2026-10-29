@@ -1,6 +1,6 @@
 # Chạy một bước theo quy trình: agy code (cửa sổ phải) -> đóng -> Claude Code test (cửa sổ phải) -> đóng.
 # Dùng: powershell -File scripts\chay-buoc.ps1 -Buoc 28
-param([Parameter(Mandatory)][string]$Buoc, [int]$PhutToiDa = 60)
+param([Parameter(Mandatory)][string]$Buoc, [int]$PhutToiDa = 60, [switch]$ChiAgy)
 Set-Location D:\Neal
 $agyTask = ".agy-task-$Buoc.txt"; $ccTask = ".claude-test-$Buoc.md"
 Remove-Item AGY_DONE.md, REVIEW.json -ErrorAction SilentlyContinue
@@ -10,6 +10,7 @@ $ok = Cho 'AGY_DONE.md' $PhutToiDa
 & "$PSScriptRoot\dong-cua-so.ps1" | Out-Null
 if (-not $ok) { "AGY_TIMEOUT"; return }
 "AGY_OK"
+if ($ChiAgy) { Get-Content AGY_DONE.md -Encoding utf8; return }
 & "$PSScriptRoot\mo-cua-so-phai.ps1" -TieuDe "Claude Code - test buoc $Buoc" -Lenh "`$env:CLAUDE_CONFIG_DIR=[Environment]::GetEnvironmentVariable('CLAUDE_CONFIG_DIR','User'); cd D:\Neal; claude `"Doc va lam theo file D:\Neal\$ccTask`" --allowedTools `"Read,Grep,Glob,Edit,Write,Bash(npx vitest:*)`"" | Out-Null
 $ok = Cho 'REVIEW.json' 25
 & "$PSScriptRoot\dong-cua-so.ps1" | Out-Null

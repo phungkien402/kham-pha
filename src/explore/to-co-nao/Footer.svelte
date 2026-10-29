@@ -1,11 +1,15 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import type { PlacedShape, EntityMeta } from './types';
   import { SHAPE_PALETTE } from './types';
   import { PRESET_MATCHES, type PresetMatch, formatNumberVi } from './math';
+  import { funFact, surprisingPairs, type SurprisingPair } from './funFacts';
+  import { isReducedMotionPreferred } from './viewportAnimation';
 
   interface Props {
     shapes: PlacedShape[];
     metaMap: Map<string, EntityMeta>;
+    allMeta?: EntityMeta[];
     selectedId: string | null;
     previousSelectedId: string | null;
     activeEntity?: EntityMeta;
@@ -21,11 +25,14 @@
     onSelectPreset: (preset: PresetMatch) => void;
     onShareLink: () => void;
     onExportImage: () => void;
+    onStartTour?: () => void;
+    onSelectSurprisingPair?: (pair: SurprisingPair) => void;
   }
 
   let {
     shapes,
     metaMap,
+    allMeta = [],
     selectedId,
     previousSelectedId,
     activeEntity,
@@ -41,6 +48,8 @@
     onSelectPreset,
     onShareLink,
     onExportImage,
+    onStartTour,
+    onSelectSurprisingPair,
   }: Props = $props();
 
   // Kiểm tra xem bàn hiện tại có trùng với một kèo kinh điển không
@@ -49,9 +58,82 @@
     const ids = shapes.map((s) => s.id);
     return preset.shapes.every((id) => ids.includes(id));
   }
+
+  // --- D4: Dải "Bạn có biết?" đổi cặp mỗi 6s ---
+  const surpriseList = $derived(allMeta.length > 0 ? surprisingPairs(allMeta) : []);
+  let tickerIndex = $state(0);
+  let isTickerPaused = $state(false);
+
+  const currentPair = $derived(
+    surpriseList.length > 0 ? surpriseList[tickerIndex % surpriseList.length] : null
+  );
+
+  const currentPairMetaA = $derived(currentPair ? metaMap.get(currentPair.a) : undefined);
+  const currentPairMetaB = $derived(currentPair ? metaMap.get(currentPair.b) : undefined);
+
+  onMount(() => {
+    const interval = setInterval(() => {
+      if (!isTickerPaused && !isReducedMotionPreferred() && surpriseList.length > 0) {
+        tickerIndex = (tickerIndex + 1) % surpriseList.length;
+      }
+    }, 6000);
+
+    return () => clearInterval(interval);
+  });
+
+  function handlePairClick() {
+    if (currentPair && onSelectSurprisingPair) {
+      onSelectSurprisingPair(currentPair);
+    }
+  }
+
+  // --- D3: Popover Fun Fact cho từng chip hình ---
+  let activePopoverId = $state<string | null>(null);
+
+  function togglePopover(id: string) {
+    activePopoverId = activePopoverId === id ? null : id;
+  }
+
+  function handleWindowClick(e: MouseEvent) {
+    const target = e.target as HTMLElement | null;
+    if (!target?.closest('.shape-chip')) {
+      activePopoverId = null;
+    }
+  }
+
+  function handleWindowKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && activePopoverId) {
+      activePopoverId = null;
+    }
+  }
 </script>
 
+<svelte:window onclick={handleWindowClick} onkeydown={handleWindowKeyDown} />
+
 <footer class="to-co-nao-footer">
+  <!-- D4: Dải "Bạn có biết?" đổi cặp mỗi 6s -->
+  {#if currentPair && currentPairMetaA && currentPairMetaB}
+    <div
+      class="did-you-know-bar"
+      role="region"
+      aria-label="So sánh bất ngờ"
+      onmouseenter={() => (isTickerPaused = true)}
+      onmouseleave={() => (isTickerPaused = false)}
+      onfocusin={() => (isTickerPaused = true)}
+      onfocusout={() => (isTickerPaused = false)}
+    >
+      <span class="did-you-know-tag">Bạn có biết?</span>
+      <button
+        type="button"
+        class="did-you-know-btn"
+        onclick={handlePairClick}
+        title="Đặt cặp {currentPairMetaA.name} và {currentPairMetaB.name} chồng tâm lên bàn"
+      >
+        <span>{currentPairMetaA.name} ≈ {currentPairMetaB.name} →</span>
+      </button>
+    </div>
+  {/if}
+
   <!-- 1. Banner câu so sánh diện tích lớn -->
   {#if comparisonText}
     <div class="comparison-banner">
@@ -66,7 +148,7 @@
     </div>
   {/if}
 
-  <!-- 2. Hàng chip "Kèo kinh điển" và nút Ngẫu nhiên -->
+  <!-- 2. Hàng chip "Kèo kinh điển" và nút Ngẫu nhiên + Hành trình -->
   <section class="presets-section" aria-label="Kèo so sánh kinh điển">
     <div class="presets-header">
       <span class="presets-label">Kèo kinh điển:</span>
@@ -89,7 +171,7 @@
         type="button"
         class="preset-chip random-btn"
         onclick={onRandomMatch}
-        title="Chọn ngẫu nhiên 1 tỉnh và 1 nước có diện tích gần bằng nhau (chênh lệch ≤ 3 lần)"
+        title="Chọn ngẫu nhiên 1 tỉnh và 1 nước có diện tích gần bằng nhau"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
@@ -101,6 +183,20 @@
         </svg>
         <span>Ngẫu nhiên</span>
       </button>
+
+      {#if onStartTour}
+        <button
+          type="button"
+          class="preset-chip tour-btn"
+          onclick={onStartTour}
+          title="Bắt đầu hành trình khám phá 10 chặng thú vị"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <span>Hành trình</span>
+        </button>
+      {/if}
     </div>
   </section>
 
@@ -207,6 +303,31 @@
               </span>
             {/if}
           </button>
+
+          <!-- Nút ⓘ mở Fun fact popover -->
+          {#if m}
+            <button
+              type="button"
+              class="chip-info-btn"
+              class:active={activePopoverId === s.id}
+              title="Thông tin thú vị về {m.name}"
+              aria-label="Thông tin thú vị về {m.name}"
+              aria-expanded={activePopoverId === s.id}
+              onclick={(e) => {
+                e.stopPropagation();
+                togglePopover(s.id);
+              }}
+            >
+              ⓘ
+            </button>
+
+            {#if activePopoverId === s.id}
+              <div class="chip-popover" role="tooltip">
+                <span class="popover-badge">Bạn có biết?</span>
+                <p class="popover-text">{funFact(m, allMeta)}</p>
+              </div>
+            {/if}
+          {/if}
 
           {#if shapes.length > 1}
             <button
@@ -323,6 +444,65 @@
     border-color: #c4b5fd;
   }
 
+  .tour-btn {
+    color: #1e40af;
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    font-weight: 700;
+  }
+
+  .tour-btn:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+  }
+
+  /* D4: Dải "Bạn có biết?" */
+  .did-you-know-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    align-self: center;
+    padding: 0.35rem 0.75rem;
+    background: #fefce8;
+    border: 1px solid #fef08a;
+    border-radius: 9999px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    font-size: 0.8125rem;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .did-you-know-tag {
+    font-weight: 700;
+    color: #854d0e;
+    background: #fef08a;
+    padding: 0.15rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .did-you-know-btn {
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+    color: #713f12;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.15s ease;
+  }
+
+  .did-you-know-btn:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+  }
+
   /* 3. Thanh tác vụ */
   .actions-bar {
     display: flex;
@@ -428,6 +608,7 @@
   }
 
   .shape-chip {
+    position: relative;
     display: inline-flex;
     align-items: center;
     background: #ffffff;
@@ -442,6 +623,77 @@
   .shape-chip.selected {
     border-color: var(--chip-border, #2563eb);
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+  }
+
+  .chip-info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-left: 0.35rem;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .chip-info-btn:hover,
+  .chip-info-btn.active {
+    background: #2563eb;
+    color: #ffffff;
+  }
+
+  /* Popover fun fact nổi lên từ chip */
+  .chip-popover {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 280px;
+    background: #ffffff;
+    border: 1px solid var(--color-border, #e6e1d9);
+    border-radius: 0.75rem;
+    padding: 0.6rem 0.85rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+    z-index: 60;
+    animation: fadeIn 0.15s ease;
+    pointer-events: auto;
+  }
+
+  .chip-popover::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: #ffffff transparent transparent transparent;
+  }
+
+  .popover-badge {
+    display: inline-block;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: #1e40af;
+    background: #eff6ff;
+    padding: 0.1rem 0.4rem;
+    border-radius: 9999px;
+    margin-bottom: 0.3rem;
+  }
+
+  .popover-text {
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--color-text, #1f1d1a);
+    margin: 0;
   }
 
   .chip-select-btn {

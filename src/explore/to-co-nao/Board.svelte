@@ -10,6 +10,8 @@
     loadedShapes: Map<string, string>;
     selectedId: string | null;
     viewport: Viewport;
+    ghostShape?: PlacedShape | null;
+    isLocked?: boolean;
     onViewportChange: (vp: Viewport) => void;
     onSelectShape: (id: string) => void;
     onDeselect: () => void;
@@ -26,6 +28,8 @@
     loadedShapes,
     selectedId,
     viewport,
+    ghostShape = null,
+    isLocked = false,
     onViewportChange,
     onSelectShape,
     onDeselect,
@@ -75,6 +79,7 @@
 
   // Pan & pinch-zoom trên nền
   function handleBgPointerDown(e: PointerEvent) {
+    if (isLocked) return;
     if (e.button !== 0 && e.pointerType === 'mouse') return;
 
     // Bấm vào nền -> bỏ chọn hình đang active
@@ -158,6 +163,7 @@
   // Zoom bằng lăn chuột quanh con trỏ
   function handleWheel(e: WheelEvent) {
     e.preventDefault();
+    if (isLocked) return;
     const rect = containerEl?.getBoundingClientRect();
     if (!rect) return;
 
@@ -177,6 +183,7 @@
 
   // Nút điều khiển zoom
   function zoomByFactor(factor: number) {
+    if (isLocked) return;
     const targetScale = clampScale(viewport.scale * factor);
     onViewportChange({
       cx: viewport.cx,
@@ -237,7 +244,32 @@
     <g
       class="board-camera"
       transform="translate({width / 2}, {height / 2}) scale({viewport.scale}) translate({-viewport.cx}, {-viewport.cy})"
+      style={isLocked ? 'pointer-events: none;' : ''}
     >
+      <!-- Hình mốc mờ từ chặng trước (nếu có trong chế độ hành trình) -->
+      {#if ghostShape}
+        {@const ghostD = loadedShapes.get(ghostShape.id) || ''}
+        {#if ghostD}
+          <g
+            class="ghost-shape-marker"
+            transform="translate({ghostShape.x}, {ghostShape.y}) rotate({ghostShape.rotation ?? ghostShape.goc ?? 0})"
+            opacity="0.25"
+            style="pointer-events: none;"
+            aria-hidden="true"
+          >
+            <path
+              d={ghostD}
+              fill="#94a3b8"
+              stroke="#64748b"
+              stroke-width="1.5"
+              stroke-dasharray="4 4"
+              vector-effect="non-scaling-stroke"
+              fill-rule="evenodd"
+            />
+          </g>
+        {/if}
+      {/if}
+
       {#each shapes as shape, index (shape.id)}
         {@const meta = metaMap.get(shape.id)}
         {@const svgD = loadedShapes.get(shape.id) || ''}
