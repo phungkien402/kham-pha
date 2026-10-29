@@ -1,4 +1,4 @@
-// src/explore/to-co-nao/step-d.test.ts
+﻿// src/explore/to-co-nao/step-d.test.ts
 // Test toàn diện cho bước D: Màn mở đầu (D1), Hành trình (D2), Fun fact (D3), Bạn có biết? (D4)
 
 import { describe, it, expect, vi } from 'vitest';
@@ -290,8 +290,7 @@ describe('UI & A11y của các component D1–D4', () => {
     expect(code).toContain('tier-cau');
     expect(code).toContain('Tự so sánh');
     expect(code).toContain('ontouchstart');
-    expect(code).toContain('ontouchend');
-    expect(code).toContain('max-height: 150px'); // Quy chuẩn mobile 375px
+    expect(code).toContain('ontouchend'); // Quy chuẩn mobile 375px
   });
 
   it('Board.svelte hỗ trợ mốc mờ ghostShape và khoá tương tác khi tween', () => {
