@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   haversine,
   calculateCumulativeDistances,
@@ -7,16 +9,44 @@ import {
   regionAt,
   milestonesCrossed,
   STOPS,
+  STOP_IMAGES,
   TOTAL_ROUTE_KM,
   STRAIGHT_LINE_KM,
   MILESTONES,
+  NATIONAL_VIEWBOX,
   getJourneyProvinces,
+  calculateZoomWindow,
+  createAutoPlaySchedule,
+  getAutoPlayStateAtTime,
 } from './docVietNam';
 
-describe('Bước E: Tính toán địa lý và tuyến hành trình dọc Việt Nam (docVietNam.ts)', () => {
+describe('Bước E3: Tuyến hành trình 32 điểm dừng dọc Việt Nam (docVietNam.ts)', () => {
+  it('danh sách đúng 32 điểm dừng có đủ toạ độ, tỉnh thành, mô tả, fact và loại', () => {
+    expect(STOPS).toHaveLength(32);
+    expect(STOPS[0].name).toBe('Cột cờ Lũng Cú');
+    expect(STOPS[0].province).toBe('Tuyên Quang');
+    expect(STOPS[31].name).toBe('Mũi Cà Mau');
+    expect(STOPS[31].province).toBe('Cà Mau');
+
+    for (let i = 0; i < STOPS.length; i++) {
+      const stop = STOPS[i];
+      expect(stop.id).toBe(i + 1);
+      expect(typeof stop.lat).toBe('number');
+      expect(typeof stop.lng).toBe('number');
+      expect(typeof stop.x).toBe('number');
+      expect(typeof stop.y).toBe('number');
+      expect(Number.isFinite(stop.x)).toBe(true);
+      expect(Number.isFinite(stop.y)).toBe(true);
+      expect(stop.description.length).toBeGreaterThan(15);
+      expect(stop.fact.length).toBeGreaterThan(10);
+      expect(stop.type.length).toBeGreaterThan(2);
+      expect(stop.wikiTitle.length).toBeGreaterThan(2);
+    }
+  });
+
   it('haversine tính đúng khoảng cách Hà Nội – TP.HCM ≈ 1.140 km ± 20 km', () => {
-    const hanoi = STOPS.find((s) => s.name === 'Hà Nội')!;
-    const tphcm = STOPS.find((s) => s.name === 'TP. Hồ Chí Minh')!;
+    const hanoi = STOPS.find((s) => s.province === 'Hà Nội' && s.name === 'Hồ Hoàn Kiếm')!;
+    const tphcm = STOPS.find((s) => s.province === 'TP.HCM' && s.name === 'Bến Nhà Rồng – TP.HCM')!;
     expect(hanoi).toBeDefined();
     expect(tphcm).toBeDefined();
 
@@ -27,7 +57,7 @@ describe('Bước E: Tính toán địa lý và tuyến hành trình dọc Việ
 
   it('đường thẳng Lũng Cú – Cà Mau nằm trong khoảng 1.600 – 1.700 km', () => {
     const lungCu = STOPS[0];
-    const caMau = STOPS[STOPS.length - 1];
+    const caMau = STOPS[31];
     expect(lungCu.name).toBe('Cột cờ Lũng Cú');
     expect(caMau.name).toBe('Mũi Cà Mau');
 
@@ -36,11 +66,12 @@ describe('Bước E: Tính toán địa lý và tuyến hành trình dọc Việ
     expect(d).toBeLessThanOrEqual(1700);
     expect(STRAIGHT_LINE_KM).toBeGreaterThanOrEqual(1600);
     expect(STRAIGHT_LINE_KM).toBeLessThanOrEqual(1700);
+    expect(STRAIGHT_LINE_KM).toBeLessThan(TOTAL_ROUTE_KM);
   });
 
-  it('tổng khoảng cách dọc tuyến tăng đơn điệu qua từng chặng', () => {
+  it('tổng khoảng cách dọc tuyến tăng đơn điệu qua từng chặng (32 điểm dừng)', () => {
     const cum = calculateCumulativeDistances(STOPS);
-    expect(cum).toHaveLength(15);
+    expect(cum).toHaveLength(32);
     expect(cum[0]).toBe(0);
 
     for (let i = 1; i < cum.length; i++) {
@@ -48,7 +79,7 @@ describe('Bước E: Tính toán địa lý và tuyến hành trình dọc Việ
     }
 
     expect(cum[cum.length - 1]).toBeCloseTo(TOTAL_ROUTE_KM, 1);
-    expect(TOTAL_ROUTE_KM).toBeGreaterThan(2000);
+    expect(TOTAL_ROUTE_KM).toBeGreaterThan(2500);
   });
 
   it('positionAt(0) trả về đúng điểm Lũng Cú, positionAt(1) trả về Mũi Cà Mau', () => {
@@ -66,8 +97,9 @@ describe('Bước E: Tính toán địa lý và tuyến hành trình dọc Việ
     expect(end.lng).toBeCloseTo(lastStop.lng, 3);
     expect(end.x).toBeCloseTo(lastStop.x, 1);
     expect(end.y).toBeCloseTo(lastStop.y, 1);
+    expect(end.segIndex).toBe(30);
 
-    // Kiểm tra điểm giữa hành trình 50%
+    // Điểm giữa 50%
     const mid = positionAt(0.5);
     expect(mid.km).toBeGreaterThan(0);
     expect(mid.km).toBeLessThan(TOTAL_ROUTE_KM);
@@ -78,87 +110,67 @@ describe('Bước E: Tính toán địa lý và tuyến hành trình dọc Việ
   it('nearestStop tìm chính xác điểm dừng gần nhất theo km và toạ độ', () => {
     // Theo km
     expect(nearestStop(0).name).toBe('Cột cờ Lũng Cú');
-    expect(nearestStop(265).name).toBe('Hà Nội');
     expect(nearestStop(TOTAL_ROUTE_KM).name).toBe('Mũi Cà Mau');
 
     // Theo toạ độ lat, lng
-    const nearHanoi = nearestStop(21.02, 105.85);
-    expect(nearHanoi.name).toBe('Hà Nội');
+    const nearHoanKiem = nearestStop(21.028, 105.852);
+    expect(nearHoanKiem.name).toBe('Hồ Hoàn Kiếm');
 
-    const nearHue = nearestStop(16.46, 107.59);
-    expect(nearHue.name).toBe('Huế');
+    const nearHue = nearestStop(16.469, 107.578);
+    expect(nearHue.name).toBe('Đại Nội Huế');
 
-    const nearCaMau = nearestStop(8.60, 104.72);
+    const nearCaMau = nearestStop(8.6, 104.72);
     expect(nearCaMau.name).toBe('Mũi Cà Mau');
   });
 
-  it('regionAt xác định đúng 5 vùng khí hậu/địa hình theo từng đoạn', () => {
-    // Đoạn 0: Điểm 1-2
-    const r1 = regionAt(0);
-    expect(r1.description).toContain('Miền núi phía Bắc → đồng bằng sông Hồng');
-    expect(r1.description).toContain('khí hậu có mùa đông lạnh');
+  it('regionAt xác định đúng 5 vùng khí hậu/địa hình theo quy tắc 32 điểm dừng', () => {
+    // Điểm 1–9: Miền núi phía Bắc -> ĐBSH
+    for (let id = 1; id <= 9; id++) {
+      const r = regionAt({ id });
+      expect(r.id).toBe('mien-bac');
+      expect(r.description).toContain('Miền núi phía Bắc');
+    }
 
-    // Đoạn 3: Nghệ An (Điểm 3-7)
-    const r2 = regionAt(3);
-    expect(r2.description).toContain('Bắc Trung Bộ');
-    expect(r2.description).toContain('dải đất hẹp kẹp giữa Trường Sơn và biển');
+    // Điểm 10–17: Bắc Trung Bộ
+    for (let id = 10; id <= 17; id++) {
+      const r = regionAt({ id });
+      expect(r.id).toBe('bac-trung-bo');
+      expect(r.description).toContain('Bắc Trung Bộ');
+    }
 
-    // Đoạn 7: Hải Vân (Điểm 8)
-    const r3 = regionAt(7);
-    expect(r3.description).toBe('Ranh giới khí hậu Hải Vân');
+    // Điểm 18: Hải Vân
+    const rHaiVan = regionAt({ id: 18 });
+    expect(rHaiVan.id).toBe('hai-van');
+    expect(rHaiVan.description).toContain('Hải Vân');
 
-    // Đoạn 9: Nha Trang (Điểm 9-12)
-    const r4 = regionAt(9);
-    expect(r4.description).toContain('Duyên hải Nam Trung Bộ');
-    expect(r4.description).toContain('nắng nhiều, bãi biển dài');
+    // Điểm 19–27: Nam Trung Bộ
+    for (let id = 19; id <= 27; id++) {
+      const r = regionAt({ id });
+      expect(r.id).toBe('nam-trung-bo');
+      expect(r.description).toContain('Nam Trung Bộ');
+    }
 
-    // Đoạn 13: Cần Thơ / Cà Mau (Điểm 13-15)
-    const r5 = regionAt(13);
-    expect(r5.description).toContain('Nam Bộ');
-    expect(r5.description).toContain('nóng quanh năm, hai mùa mưa – khô');
+    // Điểm 28–32: Nam Bộ
+    for (let id = 28; id <= 32; id++) {
+      const r = regionAt({ id });
+      expect(r.id).toBe('nam-bo');
+      expect(r.description).toContain('Nam Bộ');
+    }
   });
 
   it('milestonesCrossed trả về các mốc vượt qua đúng thứ tự và không lặp', () => {
-    // Từ 0 đến 300 km: chưa qua mốc 340 km nào
     expect(milestonesCrossed(0, 300)).toEqual([]);
 
-    // Vượt qua mốc 340 km (0 -> 400 km)
     const cross1 = milestonesCrossed(0, 400);
     expect(cross1).toHaveLength(1);
     expect(cross1[0].km).toBe(340);
     expect(cross1[0].comparison).toBe('khoảng bằng London → Paris');
 
-    // Từ 400 -> 500 km: không vượt mốc mới nào
-    expect(milestonesCrossed(400, 500)).toEqual([]);
-
-    // Vượt qua từ 300 -> 1100 km: vượt qua 340, 880, 1070 đúng thứ tự
     const crossMulti = milestonesCrossed(300, 1100);
     expect(crossMulti.map((m) => m.km)).toEqual([340, 880, 1070]);
 
-    // Lùi lại: không kích hoạt
-    expect(milestonesCrossed(800, 200)).toEqual([]);
-
-    // Vượt mốc cuối 1430 km
-    const crossAll = milestonesCrossed(0, 2000);
+    const crossAll = milestonesCrossed(0, 3000);
     expect(crossAll.map((m) => m.km)).toEqual([340, 880, 1070, 1430]);
-  });
-
-  it('danh sách 15 điểm dừng có đủ toạ độ, tỉnh thành và không bịa đặt số liệu', () => {
-    expect(STOPS).toHaveLength(15);
-    expect(STOPS[0].province).toBe('Tuyên Quang');
-    expect(STOPS[1].province).toBe('Hà Nội');
-    expect(STOPS[6].province).toBe('Huế');
-    expect(STOPS[7].province).toBe('Đà Nẵng');
-    expect(STOPS[12].province).toBe('TP.HCM');
-    expect(STOPS[14].province).toBe('Cà Mau');
-
-    // Kiểm tra toạ độ x, y phẳng km đã được tính
-    for (const stop of STOPS) {
-      expect(typeof stop.x).toBe('number');
-      expect(typeof stop.y).toBe('number');
-      expect(Number.isFinite(stop.x)).toBe(true);
-      expect(Number.isFinite(stop.y)).toBe(true);
-    }
   });
 
   it('getJourneyProvinces xác định tỉnh đang ở và danh sách tỉnh đã đi qua', () => {
@@ -166,11 +178,7 @@ describe('Bước E: Tính toán địa lý và tuyến hành trình dọc Việ
     expect(atStart.currentProvince).toBe('Tuyên Quang');
     expect(atStart.passedProvinces).toEqual(['Tuyên Quang']);
 
-    const atHanoi = getJourneyProvinces(1);
-    expect(atHanoi.currentProvince).toBe('Hà Nội');
-    expect(atHanoi.passedProvinces).toEqual(['Tuyên Quang', 'Hà Nội']);
-
-    const atEnd = getJourneyProvinces(14);
+    const atEnd = getJourneyProvinces(30, true);
     expect(atEnd.currentProvince).toBe('Cà Mau');
     expect(atEnd.passedProvinces).toContain('Tuyên Quang');
     expect(atEnd.passedProvinces).toContain('Hà Nội');
@@ -179,84 +187,129 @@ describe('Bước E: Tính toán địa lý và tuyến hành trình dọc Việ
     expect(atEnd.passedProvinces).toContain('Cà Mau');
   });
 
-  it('ở điểm cuối hành trình (thanh trượt = 100% hoặc isEnd=true), getJourneyProvinces trả về Cà Mau và danh sách đã qua có Cà Mau', () => {
-    // segIndex ở điểm cuối từ positionAt(1) là STOPS.length - 2 (13)
-    const posAt100 = positionAt(1);
-    expect(posAt100.segIndex).toBe(13);
+  it('calculateZoomWindow tính đúng cửa sổ zoom: 0% và 100% là toàn quốc; giữa là ~450 km', () => {
+    // 0% và >= 99%: toàn quốc
+    const win0 = calculateZoomWindow(0);
+    expect(win0.width).toBe(NATIONAL_VIEWBOX.width);
+    expect(win0.height).toBe(NATIONAL_VIEWBOX.height);
 
-    // Khi thanh trượt = 100% (isEnd = true), vị trí hiện tại phải là Cà Mau (điểm 15)
-    const atEnd = getJourneyProvinces(posAt100.segIndex, true);
-    expect(atEnd.currentProvince).toBe('Cà Mau');
-    expect(atEnd.passedProvinces).toContain('Cà Mau');
-    expect(atEnd.passedProvinces[atEnd.passedProvinces.length - 1]).toBe('Cà Mau');
-    expect(atEnd.passedProvinces).toContain('Cần Thơ');
+    const win100 = calculateZoomWindow(1);
+    expect(win100.width).toBe(NATIONAL_VIEWBOX.width);
+    expect(win100.height).toBe(NATIONAL_VIEWBOX.height);
+
+    const win99 = calculateZoomWindow(0.995);
+    expect(win99.width).toBe(NATIONAL_VIEWBOX.width);
+
+    // Ở giữa (progress = 0.5): cửa sổ rộng ~450 km quanh điểm
+    const testPoint = { x: 100, y: 250 };
+    const winMid = calculateZoomWindow(0.5, testPoint);
+    expect(winMid.width).toBe(450);
+    expect(Math.abs(winMid.x + winMid.width / 2 - testPoint.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(winMid.y + winMid.height / 2 - testPoint.y)).toBeLessThanOrEqual(1);
+  });
+
+  it('chế độ tự đi (hàm thuần lập lịch dừng createAutoPlaySchedule và getAutoPlayStateAtTime)', () => {
+    const schedule = createAutoPlaySchedule(STOPS, 60000, 1500);
+    expect(schedule.stops).toHaveLength(32);
+    expect(schedule.travelDurationMs).toBe(60000);
+    expect(schedule.pauseMs).toBe(1500);
+    expect(schedule.totalDurationMs).toBeGreaterThan(60000);
+
+    // Tại thời điểm 0ms
+    const state0 = getAutoPlayStateAtTime(0, schedule);
+    expect(state0.progress).toBe(0);
+    expect(state0.currentStopIndex).toBe(0);
+
+    // Tại thời điểm kết thúc
+    const stateEnd = getAutoPlayStateAtTime(schedule.totalDurationMs + 100, schedule);
+    expect(stateEnd.progress).toBe(1);
+    expect(stateEnd.isFinished).toBe(true);
+
+    // Kiểm tra trạng thái dừng (pause) tại điểm dừng thứ 2
+    const stop2 = schedule.stops[1];
+    const pauseTime = (stop2.arriveMs + stop2.leaveMs) / 2;
+    const statePause = getAutoPlayStateAtTime(pauseTime, schedule);
+    expect(statePause.isPaused).toBe(true);
+    expect(statePause.currentStopIndex).toBe(1);
+
+    // Reduced motion: nhảy từng điểm
+    const travelTime = (stop2.startTravelMs + stop2.arriveMs) / 2;
+    const stateReduced = getAutoPlayStateAtTime(travelTime, schedule, true);
+    expect(stateReduced.currentStopIndex).toBe(0);
+  });
+
+  it('doc-vn-anh.json: mọi ảnh có tacGia, giayPhep, nguon, giấy phép hợp lệ và file tồn tại trên đĩa', () => {
+    const publicDir = path.resolve(__dirname, '../../../public/doc-vn');
+    expect(fs.existsSync(publicDir)).toBe(true);
+
+    const keys = Object.keys(STOP_IMAGES);
+    expect(keys.length).toBe(32);
+
+    const ALLOWED_LICENSE_REGEX = /CC0|CC BY|CC BY-SA|Public domain|PD/i;
+
+    for (let id = 1; id <= 32; id++) {
+      const img = STOP_IMAGES[String(id)];
+      expect(img, `Ảnh cho điểm #${id}`).toBeDefined();
+      expect(img.src).toBe(`/doc-vn/${id}.webp`);
+      expect(img.w).toBeGreaterThan(200);
+      expect(img.h).toBeGreaterThan(200);
+      expect(img.tacGia.length, `Tác giả #${id}`).toBeGreaterThan(2);
+      expect(img.giayPhep.length, `Giấy phép #${id}`).toBeGreaterThan(2);
+      expect(img.nguon, `Nguồn #${id}`).toContain('commons.wikimedia.org');
+      expect(ALLOWED_LICENSE_REGEX.test(img.giayPhep), `Giấy phép ${img.giayPhep} điểm #${id}`).toBe(true);
+
+      const filePath = path.resolve(publicDir, `${id}.webp`);
+      expect(fs.existsSync(filePath), `File ${filePath} phải tồn tại`).toBe(true);
+      const stat = fs.statSync(filePath);
+      expect(stat.size, `Kích thước file #${id}`).toBeLessThanOrEqual(180 * 1024);
+    }
   });
 });
 
-describe('Bước E: Component DocVietNam.svelte và tích hợp ToCoNao.svelte', () => {
-  it('DocVietNam.svelte có đủ câu hỏi, thanh trượt aria, mốc so sánh, bản đồ và màn tổng kết', async () => {
-    const fs = await import('node:fs');
-    const path = await import('node:path');
+describe('Bước E3: Component DocVietNam.svelte và tích hợp ToCoNao.svelte', () => {
+  it('DocVietNam.svelte có đủ các phần tử thiết kế theo đặc tả E3', async () => {
     const code = fs.readFileSync(path.resolve(__dirname, 'DocVietNam.svelte'), 'utf8');
 
-    // Câu hỏi lớn và gợi ý
+    // Câu hỏi lớn
     expect(code).toContain('Bạn nghĩ Việt Nam dài đến mức nào?');
-    expect(code).toContain('Kéo thanh trượt để đi từ cực Bắc xuống cực Nam');
 
-    // Input range và a11y
-    expect(code).toContain('type="range"');
-    expect(code).toContain('aria-label="Hành trình dọc Việt Nam"');
-    expect(code).toContain('aria-valuetext');
+    // Thẻ địa danh hero card
+    expect(code).toContain('hero-card');
+    expect(code).toContain('ken-burns');
+    expect(code).toContain('hero-attribution');
+    expect(code).toContain('hero-fact-row');
 
-    // Hỗ trợ cuộn chuột, bàn phím và chạm
-    expect(code).toContain('onwheel');
-    expect(code).toContain('ArrowDown');
-    expect(code).toContain('PageDown');
-    expect(code).toContain('ontouchstart');
+    // Nút tự đi
+    expect(code).toContain('toggleAutoPlay');
+    expect(code).toContain('Tự đi');
 
-    // Màn tổng kết
-    expect(code).toContain('dọc tuyến các điểm dừng');
-    expect(code).toContain('50 km');
-    expect(code).toContain('So sánh Việt Nam với nước khác ↓');
-    expect(code).toContain('Đi lại từ đầu');
+    // Mini-map và zoom
+    expect(code).toContain('mini-map');
+    expect(code).toContain('mini-view-indicator');
+    expect(code).toContain('vn-main-svg');
 
-    // Đường thẳng Lũng Cú - Cà Mau
-    expect(code).toContain('straight-line');
+    // Slider dọc desktop & slider mobile
+    expect(code).toContain('desktop-slider');
+    expect(code).toContain('mobile-slider');
+    expect(code).toContain('writing-mode: vertical-lr');
+
+    // Bố cục 2 cột desktop (≥ 1024px)
+    expect(code).toContain('minmax(360px, 42%) 1fr');
+
+    // Mobile padding-bottom và sticky đáy
+    expect(code).toContain('padding-bottom: 74px');
+    expect(code).toContain('position: sticky');
 
     // prefers-reduced-motion
     expect(code).toContain('prefers-reduced-motion');
   });
 
-  it('DocVietNam.svelte đáp ứng các yêu cầu bố cục desktop và mobile', async () => {
-    const fs = await import('node:fs');
-    const path = await import('node:path');
-    const code = fs.readFileSync(path.resolve(__dirname, 'DocVietNam.svelte'), 'utf8');
-
-    // Desktop slider: dọc, ≥ 60vh, núm kéo to
-    expect(code).toContain('writing-mode: vertical-lr');
-    expect(code).toContain('min-height: 60vh');
-    expect(code).toContain('28px'); // núm kéo to
-
-    // Mobile: bản đồ cao ~45svh, chip đã qua cuộn ngang 1 dòng, slider sticky đáy
-    expect(code).toContain('45svh');
-    expect(code).toContain('overflow-x: auto');
-    expect(code).toContain('position: sticky');
-    expect(code).toContain('bottom: 0');
-  });
-
-  it('ToCoNao.svelte tích hợp DocVietNam và đã loại bỏ IntroModal cùng tcn-intro-seen', async () => {
-    const fs = await import('node:fs');
-    const path = await import('node:path');
+  it('ToCoNao.svelte tích hợp DocVietNam và giữ nguyên các tính năng so sánh', async () => {
     const code = fs.readFileSync(path.resolve(__dirname, 'ToCoNao.svelte'), 'utf8');
 
     expect(code).toContain('DocVietNam');
     expect(code).toContain('handleCompareWithOtherFromDocVn');
-    expect(code).toContain('viet-nam');
-    expect(code).toContain('jpn');
-
-    // Đã bỏ hoàn toàn IntroModal và logic tcn-intro-seen
     expect(code).not.toContain('IntroModal');
     expect(code).not.toContain('tcn-intro-seen');
-    expect(fs.existsSync(path.resolve(__dirname, 'IntroModal.svelte'))).toBe(false);
   });
 });

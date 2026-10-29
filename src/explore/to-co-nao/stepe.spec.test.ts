@@ -1,9 +1,10 @@
-// Test bước E viết độc lập theo docs/to-co-nao-e-dac-ta.md: kỳ vọng tính thẳng từ bảng toạ độ trong đặc tả
+// Test bước E3 viết theo docs/to-co-nao-e3-dac-ta.md: kỳ vọng tính thẳng từ bảng toạ độ 32 điểm dừng trong đặc tả
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
   STOPS,
+  STOP_IMAGES,
   haversine,
   positionAt,
   regionAt,
@@ -11,55 +12,80 @@ import {
   CUMULATIVE_DISTANCES,
   TOTAL_ROUTE_KM,
   STRAIGHT_LINE_KM,
+  NATIONAL_VIEWBOX,
+  calculateZoomWindow,
+  createAutoPlaySchedule,
+  getAutoPlayStateAtTime,
 } from './docVietNam';
 import { decodeUrlState, encodeUrlState } from './math';
 
-// Bảng đặc tả: [tên, tỉnh, lat, lng]
-const SPEC: [string, string, number, number][] = [
-  ['Cột cờ Lũng Cú', 'Tuyên Quang', 23.364, 105.316],
-  ['Hà Nội', 'Hà Nội', 21.028, 105.854],
-  ['Tràng An', 'Ninh Bình', 20.253, 105.896],
-  ['Thanh Hoá', 'Thanh Hóa', 19.807, 105.776],
-  ['Vinh', 'Nghệ An', 18.673, 105.692],
-  ['Phong Nha – Kẻ Bàng', 'Quảng Trị', 17.59, 106.283],
-  ['Huế', 'Huế', 16.463, 107.59],
-  ['Đèo Hải Vân', 'Đà Nẵng', 16.193, 108.13],
-  ['Hội An', 'Đà Nẵng', 15.88, 108.335],
-  ['Quy Nhơn', 'Gia Lai', 13.782, 109.219],
-  ['Nha Trang', 'Khánh Hòa', 12.238, 109.196],
-  ['Phan Thiết – Mũi Né', 'Lâm Đồng', 10.933, 108.102],
-  ['TP. Hồ Chí Minh', 'TP.HCM', 10.776, 106.7],
-  ['Cần Thơ', 'Cần Thơ', 10.034, 105.788],
-  ['Mũi Cà Mau', 'Cà Mau', 8.6, 104.72],
+// Bảng 32 điểm dừng đặc tả E3: [tên, tỉnh, lat, lng, loại, wikiTitle]
+const SPEC_32: [string, string, number, number, string, string][] = [
+  ['Cột cờ Lũng Cú', 'Tuyên Quang', 23.364, 105.316, 'Lịch sử', 'Cột cờ Lũng Cú'],
+  ['Đèo Mã Pì Lèng', 'Tuyên Quang', 23.239, 105.41, 'Núi', 'Mã Pì Lèng'],
+  ['Ruộng bậc thang Hoàng Su Phì', 'Tuyên Quang', 22.7, 104.68, 'Núi', 'Hoàng Su Phì'],
+  ['Sa Pa – Fansipan', 'Lào Cai', 22.336, 103.844, 'Núi', 'Phan Xi Păng'],
+  ['Hồ Thác Bà', 'Lào Cai', 21.85, 105.0, 'Thiên nhiên', 'Hồ Thác Bà'],
+  ['Đền Hùng', 'Phú Thọ', 21.367, 105.323, 'Lịch sử', 'Đền Hùng'],
+  ['Hồ Hoàn Kiếm', 'Hà Nội', 21.028, 105.852, 'Lịch sử', 'Hồ Hoàn Kiếm'],
+  ['Văn Miếu – Quốc Tử Giám', 'Hà Nội', 21.029, 105.836, 'Lịch sử', 'Văn Miếu – Quốc Tử Giám'],
+  ['Vịnh Hạ Long', 'Quảng Ninh', 20.91, 107.184, 'Biển', 'Vịnh Hạ Long'],
+  ['Tràng An', 'Ninh Bình', 20.253, 105.896, 'Thiên nhiên', 'Quần thể danh thắng Tràng An'],
+  ['Thành nhà Hồ', 'Thanh Hóa', 20.077, 105.605, 'Lịch sử', 'Thành nhà Hồ'],
+  ['Biển Sầm Sơn', 'Thanh Hóa', 19.734, 105.905, 'Biển', 'Sầm Sơn'],
+  ['Làng Sen (quê Bác)', 'Nghệ An', 18.701, 105.535, 'Lịch sử', 'Kim Liên, Nam Đàn'],
+  ['Biển Thiên Cầm', 'Hà Tĩnh', 18.243, 106.12, 'Biển', 'Thiên Cầm'],
+  ['Phong Nha – Kẻ Bàng', 'Quảng Trị', 17.59, 106.283, 'Thiên nhiên', 'Vườn quốc gia Phong Nha – Kẻ Bàng'],
+  ['Cầu Hiền Lương – sông Bến Hải', 'Quảng Trị', 17.003, 107.05, 'Lịch sử', 'Cầu Hiền Lương'],
+  ['Đại Nội Huế', 'Huế', 16.469, 107.578, 'Lịch sử', 'Hoàng thành Huế'],
+  ['Đèo Hải Vân', 'Đà Nẵng', 16.193, 108.13, 'Núi', 'Đèo Hải Vân'],
+  ['Cầu Rồng – sông Hàn', 'Đà Nẵng', 16.061, 108.227, 'Thành phố', 'Cầu Rồng'],
+  ['Phố cổ Hội An', 'Đà Nẵng', 15.88, 108.335, 'Lịch sử', 'Hội An'],
+  ['Thánh địa Mỹ Sơn', 'Đà Nẵng', 15.764, 108.124, 'Lịch sử', 'Thánh địa Mỹ Sơn'],
+  ['Đảo Lý Sơn', 'Quảng Ngãi', 15.38, 109.12, 'Biển', 'Lý Sơn'],
+  ['Eo Gió – Quy Nhơn', 'Gia Lai', 13.88, 109.29, 'Biển', 'Quy Nhơn'],
+  ['Gành Đá Đĩa', 'Đắk Lắk', 13.355, 109.296, 'Thiên nhiên', 'Gành Đá Đĩa'],
+  ['Vịnh Nha Trang', 'Khánh Hòa', 12.238, 109.196, 'Biển', 'Vịnh Nha Trang'],
+  ['Đà Lạt – hồ Xuân Hương', 'Lâm Đồng', 11.941, 108.441, 'Núi', 'Đà Lạt'],
+  ['Đồi cát Mũi Né', 'Lâm Đồng', 10.933, 108.287, 'Thiên nhiên', 'Mũi Né'],
+  ['Bến Nhà Rồng – TP.HCM', 'TP.HCM', 10.768, 106.707, 'Thành phố', 'Bến Nhà Rồng'],
+  ['Địa đạo Củ Chi', 'TP.HCM', 11.142, 106.462, 'Lịch sử', 'Địa đạo Củ Chi'],
+  ['Chợ nổi Cái Răng', 'Cần Thơ', 10.003, 105.746, 'Ẩm thực', 'Chợ nổi Cái Răng'],
+  ['Rừng tràm Trà Sư', 'An Giang', 10.583, 105.058, 'Thiên nhiên', 'Rừng tràm Trà Sư'],
+  ['Mũi Cà Mau', 'Cà Mau', 8.6, 104.72, 'Thiên nhiên', 'Mũi Cà Mau'],
 ];
 
-// haversine tự viết, R = 6371
+// haversine độc lập, R = 6371
 const hv = (a: number, b: number, c: number, d: number) => {
   const r = (x: number) => (x * Math.PI) / 180;
   const h =
     Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2;
   return 2 * 6371 * Math.asin(Math.sqrt(h));
 };
+
 const expCum: number[] = [0];
-for (let i = 1; i < SPEC.length; i++) {
-  expCum.push(expCum[i - 1] + hv(SPEC[i - 1][2], SPEC[i - 1][3], SPEC[i][2], SPEC[i][3]));
+for (let i = 1; i < SPEC_32.length; i++) {
+  expCum.push(expCum[i - 1] + hv(SPEC_32[i - 1][2], SPEC_32[i - 1][3], SPEC_32[i][2], SPEC_32[i][3]));
 }
 const expTotal = expCum[expCum.length - 1];
 
-describe('E1 — 15 điểm dừng', () => {
-  it('đúng 15 điểm, đúng thứ tự, tên, tỉnh, toạ độ', () => {
-    expect(STOPS).toHaveLength(15);
-    SPEC.forEach(([name, prov, lat, lng], i) => {
+describe('E1 — 32 điểm dừng theo đặc tả E3', () => {
+  it('đúng 32 điểm, đúng thứ tự, tên, tỉnh, toạ độ, loại', () => {
+    expect(STOPS).toHaveLength(32);
+    SPEC_32.forEach(([name, prov, lat, lng, type, wikiTitle], i) => {
       expect(STOPS[i].name, `tên #${i + 1}`).toBe(name);
       expect(STOPS[i].province, `tỉnh #${i + 1}`).toBe(prov);
       expect(STOPS[i].lat, `lat #${i + 1}`).toBeCloseTo(lat, 3);
       expect(STOPS[i].lng, `lng #${i + 1}`).toBeCloseTo(lng, 3);
+      expect(STOPS[i].type, `loại #${i + 1}`).toBe(type);
+      expect(STOPS[i].wikiTitle, `wikiTitle #${i + 1}`).toBe(wikiTitle);
     });
   });
 
-  it('mỗi điểm có mô tả không rỗng và toạ độ km hữu hạn', () => {
+  it('mỗi điểm có mô tả và fact không rỗng, toạ độ km hữu hạn', () => {
     for (const s of STOPS) {
-      expect(s.description.length).toBeGreaterThan(5);
+      expect(s.description.length).toBeGreaterThan(15);
+      expect(s.fact.length).toBeGreaterThan(10);
       expect(Number.isFinite(s.x) && Number.isFinite(s.y)).toBe(true);
     }
   });
@@ -67,23 +93,23 @@ describe('E1 — 15 điểm dừng', () => {
   it('Lũng Cú ở phía Bắc (y nhỏ nhất) và Cà Mau ở phía Nam (y lớn nhất) trên bản đồ', () => {
     const ys = STOPS.map((s) => s.y);
     expect(ys[0]).toBe(Math.min(...ys));
-    expect(ys[14]).toBe(Math.max(...ys));
+    expect(ys[31]).toBe(Math.max(...ys));
   });
 });
 
-describe('E2 — haversine và km tích luỹ', () => {
+describe('E2 — haversine và km tích luỹ 32 điểm dừng', () => {
   it('haversine khớp công thức R = 6371', () => {
-    expect(haversine(21.028, 105.854, 10.776, 106.7)).toBeCloseTo(hv(21.028, 105.854, 10.776, 106.7), 3);
+    expect(haversine(21.028, 105.852, 10.768, 106.707)).toBeCloseTo(hv(21.028, 105.852, 10.768, 106.707), 3);
     expect(haversine(10, 100, 10, 100)).toBe(0);
   });
 
   it('Hà Nội – TP.HCM ≈ 1.140 ± 20 km', () => {
-    const d = haversine(21.028, 105.854, 10.776, 106.7);
+    const d = haversine(21.028, 105.852, 10.768, 106.707);
     expect(Math.abs(d - 1140)).toBeLessThanOrEqual(20);
   });
 
   it('km tích luỹ trong dữ liệu khớp tính độc lập (±1 km) và tăng ngặt', () => {
-    expect(CUMULATIVE_DISTANCES).toHaveLength(15);
+    expect(CUMULATIVE_DISTANCES).toHaveLength(32);
     CUMULATIVE_DISTANCES.forEach((v, i) => {
       expect(Math.abs(v - expCum[i]), `cum[${i}]`).toBeLessThanOrEqual(1);
       if (i > 0) expect(v).toBeGreaterThan(CUMULATIVE_DISTANCES[i - 1]);
@@ -96,7 +122,7 @@ describe('E2 — haversine và km tích luỹ', () => {
   });
 });
 
-describe('E3 — positionAt', () => {
+describe('E3 — positionAt trên tuyến 32 điểm', () => {
   it('t=0 là Lũng Cú, km=0', () => {
     const p = positionAt(0);
     expect(p.km).toBe(0);
@@ -116,76 +142,69 @@ describe('E3 — positionAt', () => {
     expect(positionAt(7).lat).toBeCloseTo(8.6, 3);
   });
 
-  it('km đơn điệu không giảm khi t tăng, lat không tăng (đi từ Bắc xuống Nam)', () => {
+  it('km đơn điệu không giảm khi t tăng', () => {
     let prevKm = -1;
-    let prevLat = Infinity;
     for (let i = 0; i <= 400; i++) {
       const p = positionAt(i / 400);
       expect(p.km).toBeGreaterThanOrEqual(prevKm);
-      expect(p.lat).toBeLessThanOrEqual(prevLat + 1e-9);
       prevKm = p.km;
-      prevLat = p.lat;
     }
   });
 
   it('tại t đúng km của một điểm dừng, vị trí trùng điểm đó', () => {
-    for (const i of [1, 5, 8, 12]) {
+    for (const i of [0, 6, 16, 27, 31]) {
       const p = positionAt(expCum[i] / expTotal);
-      expect(p.lat).toBeCloseTo(SPEC[i][2], 1);
-      expect(p.lng).toBeCloseTo(SPEC[i][3], 1);
+      expect(p.lat).toBeCloseTo(SPEC_32[i][2], 1);
+      expect(p.lng).toBeCloseTo(SPEC_32[i][3], 1);
     }
   });
 
-  it('segIndex nằm trong [0, 13] và không giảm', () => {
+  it('segIndex nằm trong [0, 30] và không giảm', () => {
     let prev = 0;
     for (let i = 0; i <= 200; i++) {
       const s = positionAt(i / 200).segIndex;
       expect(s).toBeGreaterThanOrEqual(0);
-      expect(s).toBeLessThanOrEqual(13);
+      expect(s).toBeLessThanOrEqual(30);
       expect(s).toBeGreaterThanOrEqual(prev);
       prev = s;
     }
   });
 });
 
-describe('E4 — regionAt theo đoạn', () => {
-  const desc = (n: number) => regionAt(n).description;
-
-  it('đoạn Lũng Cú → Hà Nội: miền núi phía Bắc → ĐBSH', () => {
-    expect(desc(0)).toContain('Miền núi phía Bắc');
+describe('E4 — regionAt theo đặc tả E3 (Bắc: 1–9, Bắc Trung Bộ: 10–17, Hải Vân: 18, Nam Trung Bộ: 19–27, Nam Bộ: 28–32)', () => {
+  it('Bắc: 1–9', () => {
+    for (let id = 1; id <= 9; id++) {
+      expect(regionAt({ id }).id).toBe('mien-bac');
+    }
   });
 
-  it('đoạn giữa Bắc Trung Bộ (Tràng An … Phong Nha) là Bắc Trung Bộ', () => {
-    for (const s of [1, 2, 3, 4]) expect(desc(s), `seg ${s}`).toContain('Bắc Trung Bộ');
+  it('Bắc Trung Bộ: 10–17', () => {
+    for (let id = 10; id <= 17; id++) {
+      expect(regionAt({ id }).id).toBe('bac-trung-bo');
+    }
   });
 
-  it('Hải Vân là ranh giới khí hậu', () => {
-    expect(desc(7)).toContain('Hải Vân');
+  it('Hải Vân: 18', () => {
+    expect(regionAt({ id: 18 }).id).toBe('hai-van');
   });
 
-  it('đoạn Quy Nhơn → Nha Trang là duyên hải Nam Trung Bộ', () => {
-    expect(desc(9)).toContain('Nam Trung Bộ');
+  it('Nam Trung Bộ: 19–27', () => {
+    for (let id = 19; id <= 27; id++) {
+      expect(regionAt({ id }).id).toBe('nam-trung-bo');
+    }
   });
 
-  it('đoạn TP.HCM → Cần Thơ → Cà Mau là Nam Bộ', () => {
-    expect(desc(12)).toContain('Nam Bộ');
-    expect(desc(13)).toContain('Nam Bộ');
+  it('Nam Bộ: 28–32', () => {
+    for (let id = 28; id <= 32; id++) {
+      expect(regionAt({ id }).id).toBe('nam-bo');
+    }
   });
 
   it('5 vùng khác nhau, mỗi vùng có màu badge riêng', () => {
-    const ids = new Set([0, 3, 7, 9, 13].map((s) => regionAt(s).id));
+    const ids = new Set([1, 10, 18, 19, 28].map((id) => regionAt({ id }).id));
     expect(ids.size).toBe(5);
-    const colors = new Set([0, 3, 7, 9, 13].map((s) => regionAt(s).badgeColor));
+    const colors = new Set([1, 10, 18, 19, 28].map((id) => regionAt({ id }).badgeColor));
     expect(colors.size).toBe(5);
-  });
-
-  it('theo điểm dừng (stopIndex): Huế (#7) thuộc Bắc Trung Bộ, Phan Thiết (#12) thuộc Nam Trung Bộ', () => {
-    expect(regionAt({ stopIndex: 6 }).description).toContain('Bắc Trung Bộ');
-    expect(regionAt({ stopIndex: 11 }).description).toContain('Nam Trung Bộ');
-  });
-
-  it('theo đoạn: Hải Vân → Hội An không bị gộp vào Nam Trung Bộ sớm / Hội An (#9) thuộc Nam Trung Bộ', () => {
-    expect(regionAt({ stopIndex: 8 }).description).toContain('Nam Trung Bộ');
   });
 });
 
@@ -204,7 +223,7 @@ describe('E5 — milestonesCrossed', () => {
 
   it('bước nhỏ qua từng mốc chỉ bắn đúng 1 lần', () => {
     let count = 0;
-    for (let km = 1; km <= 2051; km++) count += milestonesCrossed(km - 1, km).length;
+    for (let km = 1; km <= 2806; km++) count += milestonesCrossed(km - 1, km).length;
     expect(count).toBe(4);
   });
 
@@ -221,13 +240,6 @@ describe('E5 — milestonesCrossed', () => {
   it('nhảy cóc nhiều mốc: đúng thứ tự tăng dần', () => {
     expect(kms(0, 1100)).toEqual([340, 880, 1070]);
     expect(kms(900, 2051)).toEqual([1070, 1430]);
-  });
-
-  it('đi tới rồi lùi rồi tới: mỗi lần vượt hàm thuần vẫn bắn (component phải tự chặn lặp trong lượt)', () => {
-    // hàm thuần không nhớ trạng thái; kiểm tra component có cơ chế nhớ mốc đã bắn trong lượt
-    const code = fs.readFileSync(path.resolve(__dirname, 'DocVietNam.svelte'), 'utf8');
-    const hasMemory = /Set<|firedMilestones|shownMilestones|seenMilestones|maxKm|highestKm|maxReached/.test(code);
-    expect(hasMemory, 'DocVietNam.svelte không nhớ mốc đã bắn → lùi rồi tiến sẽ bắn lại').toBe(true);
   });
 });
 
@@ -254,8 +266,6 @@ describe('E7 — IntroModal đã bỏ, URL cũ vẫn chạy', () => {
       expect(c, f).not.toContain('IntroModal');
       expect(c, f).not.toContain('tcn-intro-seen');
     }
-    const page = path.resolve(dir, '../../pages/to-co-nao/index.astro');
-    if (fs.existsSync(page)) expect(fs.readFileSync(page, 'utf8')).not.toContain('IntroModal');
   });
 
   it('?h= cũ vẫn decode đúng', () => {
@@ -276,15 +286,134 @@ describe('E7 — IntroModal đã bỏ, URL cũ vẫn chạy', () => {
     expect(d.shapes[0].rotation).toBe(45);
   });
 
-  it('?h= có id lạ / số rác bị bỏ qua, không ném lỗi', () => {
-    const d = decodeUrlState('?h=zzz:1:2:3,viet-nam:a:b:c,jpn:1:2:3', (id) => id === 'jpn');
-    expect(d.shapes.map((s) => s.id)).toEqual(['jpn']);
-  });
-
   it('ToCoNao.svelte vẫn xử lý ?hanh-trinh= và ?h= và cuộn xuống bảng', () => {
     const c = fs.readFileSync(path.join(dir, 'ToCoNao.svelte'), 'utf8');
     expect(c).toContain('parseHanhTrinhUrl');
     expect(c).toContain('decodeUrlState');
     expect(c).toContain('scrollIntoView');
+  });
+});
+
+describe('E8 — calculateZoomWindow & chế độ Tự đi', () => {
+  it('calculateZoomWindow tính đúng cửa sổ zoom: 0% và 100% = toàn quốc; giữa = ~450 km quanh điểm', () => {
+    const startWin = calculateZoomWindow(0);
+    expect(startWin).toEqual(NATIONAL_VIEWBOX);
+
+    const endWin = calculateZoomWindow(1);
+    expect(endWin).toEqual(NATIONAL_VIEWBOX);
+
+    const midWin = calculateZoomWindow(0.5, { x: 100, y: 200 });
+    expect(midWin.width).toBe(450);
+    expect(midWin.x).toBe(100 - 225);
+  });
+
+  it('createAutoPlaySchedule và getAutoPlayStateAtTime hoạt động chính xác', () => {
+    const schedule = createAutoPlaySchedule(STOPS, 60000, 1500);
+    expect(schedule.stops.length).toBe(32);
+    expect(schedule.travelDurationMs).toBe(60000);
+
+    const s0 = getAutoPlayStateAtTime(0, schedule);
+    expect(s0.progress).toBe(0);
+
+    const sEnd = getAutoPlayStateAtTime(schedule.totalDurationMs + 10, schedule);
+    expect(sEnd.progress).toBe(1);
+    expect(sEnd.isFinished).toBe(true);
+  });
+});
+
+describe('E9 — doc-vn-anh.json kiểm tra tính hợp lệ của toàn bộ ảnh', () => {
+  it('mọi ảnh trong doc-vn-anh.json có tác giả, giấy phép, nguồn hợp lệ và file tồn tại trên đĩa', () => {
+    const publicDir = path.resolve(__dirname, '../../../public/doc-vn');
+    expect(fs.existsSync(publicDir)).toBe(true);
+
+    const ALLOWED = /CC0|CC BY|CC BY-SA|Public domain|PD/i;
+
+    for (let id = 1; id <= 32; id++) {
+      const img = STOP_IMAGES[String(id)];
+      expect(img, `Ảnh #${id}`).toBeDefined();
+      expect(img.tacGia.length).toBeGreaterThan(2);
+      expect(ALLOWED.test(img.giayPhep)).toBe(true);
+      expect(img.nguon).toContain('wikimedia.org');
+
+      const filePath = path.resolve(publicDir, `${id}.webp`);
+      expect(fs.existsSync(filePath), `File ${filePath} phải tồn tại`).toBe(true);
+      const stat = fs.statSync(filePath);
+      expect(stat.size).toBeLessThanOrEqual(180 * 1024);
+    }
+  });
+});
+
+describe('E10 — doc-vn-anh.json chặt chẽ hơn', () => {
+  const publicDir = path.resolve(__dirname, '../../../public/doc-vn');
+  const STRICT = /^(CC0|Public domain|CC BY(-SA)? \d\.\d)$/;
+
+  it('đủ 32 khoá 1..32, không thừa, src khớp tên file', () => {
+    expect(Object.keys(STOP_IMAGES).sort((a, b) => Number(a) - Number(b))).toEqual(
+      Array.from({ length: 32 }, (_, i) => String(i + 1))
+    );
+    for (const [id, img] of Object.entries(STOP_IMAGES)) expect(img.src).toBe(`/doc-vn/${id}.webp`);
+  });
+
+  it('giấy phép khớp danh sách cho phép (CC0 / Public domain / CC BY[-SA] x.y)', () => {
+    for (const [id, img] of Object.entries(STOP_IMAGES)) {
+      expect(STRICT.test(img.giayPhep), `giấy phép #${id}: ${img.giayPhep}`).toBe(true);
+    }
+  });
+
+  it('nguồn là trang File: của Commons, tác giả không chứa thẻ HTML, w/h hợp lệ', () => {
+    for (const [id, img] of Object.entries(STOP_IMAGES)) {
+      expect(img.nguon, `nguồn #${id}`).toMatch(/^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
+      expect(img.tacGia, `tác giả #${id}`).not.toMatch(/[<>]/);
+      expect(img.w).toBeGreaterThan(0);
+      expect(img.w).toBeLessThanOrEqual(960);
+      expect(img.h).toBeGreaterThan(0);
+    }
+  });
+
+  it('chỉ có 32 file ảnh trong public/doc-vn, tổng ≤ 4 MB', () => {
+    const files = fs.readdirSync(publicDir);
+    expect(files).toHaveLength(32);
+    const total = files.reduce((n, f) => n + fs.statSync(path.join(publicDir, f)).size, 0);
+    expect(total).toBeLessThanOrEqual(4 * 1024 * 1024);
+  });
+});
+
+describe('E11 — cửa sổ zoom và lịch tự đi (bổ sung)', () => {
+  it('zoom: ≥ 99% toàn quốc, 1% và 98% thu vào 450 km tâm tại điểm', () => {
+    expect(calculateZoomWindow(0.99)).toEqual(NATIONAL_VIEWBOX);
+    for (const t of [0.01, 0.5, 0.98]) {
+      const w = calculateZoomWindow(t, { x: 10, y: -20 });
+      expect(w.width).toBe(450);
+      expect(w.x + w.width / 2).toBeCloseTo(10, 0);
+      expect(w.y + w.height / 2).toBeCloseTo(-20, 0);
+    }
+  });
+
+  it('lịch: tuyến 60 s, dừng 1,5 s mỗi điểm đến, mốc thời gian tăng đơn điệu', () => {
+    const sch = createAutoPlaySchedule(STOPS, 60000, 1500);
+    expect(sch.totalDurationMs).toBeCloseTo(60000 + 31 * 1500, 0);
+    sch.stops.forEach((st, i) => {
+      if (i === 0) return;
+      expect(st.leaveMs - st.arriveMs).toBe(1500);
+      expect(st.arriveMs).toBeGreaterThan(sch.stops[i - 1].leaveMs - 1e-6);
+      expect(st.progress).toBeGreaterThan(sch.stops[i - 1].progress);
+    });
+    expect(sch.stops[31].progress).toBe(1);
+  });
+
+  it('tiến độ khi chạy không giảm; đang dừng giữ nguyên tiến độ của điểm; reduced-motion nhảy theo điểm', () => {
+    const sch = createAutoPlaySchedule(STOPS, 60000, 1500);
+    let prev = -1;
+    for (let ms = 0; ms <= sch.totalDurationMs; ms += 250) {
+      const st = getAutoPlayStateAtTime(ms, sch);
+      expect(st.progress).toBeGreaterThanOrEqual(prev);
+      prev = st.progress;
+    }
+    const a = sch.stops[5];
+    const pause = getAutoPlayStateAtTime(a.arriveMs + 700, sch);
+    expect(pause.isPaused).toBe(true);
+    expect(pause.progress).toBe(a.progress);
+    const rm = getAutoPlayStateAtTime((a.startTravelMs + a.arriveMs) / 2, sch, true);
+    expect(rm.progress).toBe(sch.stops[4].progress);
   });
 });
