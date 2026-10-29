@@ -369,8 +369,11 @@
       max-width: 100%;
       border-radius: 1rem 1rem 0 0;
       padding: 0.5rem 0.75rem 0.6rem;
-      max-height: 150px;
       overflow-x: hidden;
+    }
+
+    .tier-sub {
+      white-space: normal;
     }
 
     .tier-headline {
@@ -378,8 +381,8 @@
     }
 
     .tier-cau {
-      font-size: 0.75rem;
-      -webkit-line-clamp: 1;
+      font-size: 0.8125rem;
+      -webkit-line-clamp: 3;
     }
 
     .nav-btn {
