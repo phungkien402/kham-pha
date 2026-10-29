@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { geoContains } from 'd3-geo';
 import {
   haversine,
   calculateCumulativeDistances,
@@ -18,6 +19,11 @@ import {
   calculateZoomWindow,
   createAutoPlaySchedule,
   getAutoPlayStateAtTime,
+  selectStopWithHysteresis,
+  calculateTravelEstimates,
+  formatGuessComparison,
+  PROVINCES,
+  VN_PATH,
 } from './docVietNam';
 
 describe('Bước E3: Tuyến hành trình 32 điểm dừng dọc Việt Nam (docVietNam.ts)', () => {
@@ -311,5 +317,263 @@ describe('Bước E3: Component DocVietNam.svelte và tích hợp ToCoNao.svelte
     expect(code).toContain('handleCompareWithOtherFromDocVn');
     expect(code).not.toContain('IntroModal');
     expect(code).not.toContain('tcn-intro-seen');
+  });
+});
+
+describe('Bước E4: Tinh chỉnh dữ liệu 32 điểm dừng & các hàm thuần E4', () => {
+  it('dữ liệu 32 điểm dừng: đủ 4 trường hook, moTa, fact, changKe không rỗng; moTa ≤ 2 câu; description khớp moTa', () => {
+    expect(STOPS).toHaveLength(32);
+
+    for (let i = 0; i < STOPS.length; i++) {
+      const stop = STOPS[i];
+      expect(stop.id).toBe(i + 1);
+      expect(typeof stop.hook).toBe('string');
+      expect(stop.hook.trim().length).toBeGreaterThan(10);
+
+      expect(typeof stop.moTa).toBe('string');
+      expect(stop.moTa.trim().length).toBeGreaterThan(15);
+
+      // moTa đúng ≤ 2 câu (tách câu theo dấu chấm/chấm than/chấm hỏi)
+      const sentences = stop.moTa.split(/(?<=[.!?])\s+/).filter(Boolean);
+      expect(sentences.length, `Điểm #${stop.id} (${stop.name}) moTa có ${sentences.length} câu`).toBeLessThanOrEqual(2);
+
+      // Alias description để tương thích ngược 100%
+      expect(stop.description).toBe(stop.moTa);
+
+      expect(typeof stop.fact).toBe('string');
+      expect(stop.fact.trim().length).toBeGreaterThan(10);
+
+      expect(typeof stop.changKe).toBe('string');
+      expect(stop.changKe.trim().length).toBeGreaterThan(10);
+    }
+  });
+
+  it('PROVINCES có đúng 34 tỉnh sáp nhập và VN_PATH là đường biên toàn quốc hợp lệ', () => {
+    const provKeys = Object.keys(PROVINCES);
+    expect(provKeys).toHaveLength(34);
+
+    for (const key of provKeys) {
+      const p = PROVINCES[key];
+      expect(p.name.length).toBeGreaterThan(1);
+      expect(p.d.startsWith('M')).toBe(true);
+      expect(Number.isFinite(p.labelX)).toBe(true);
+      expect(Number.isFinite(p.labelY)).toBe(true);
+    }
+
+    expect(VN_PATH.startsWith('M')).toBe(true);
+    expect(VN_PATH.length).toBeGreaterThan(500);
+  });
+
+  it('selectStopWithHysteresis: vùng đệm trễ 15% qua trung điểm giúp kéo mượt không giật thẻ', () => {
+    const p0 = STOPS[0];
+    const p1 = STOPS[1];
+    const segLen = p1.kmFromStart - p0.kmFromStart;
+    const midKm = p0.kmFromStart + 0.5 * segLen;
+
+    // Tiến: chỉ chuyển từ p0 sang p1 khi vượt quá 15% độ dài đoạn kể từ trung điểm (tức 65%)
+    const forwardThreshold = p0.kmFromStart + 0.65 * segLen;
+    expect(selectStopWithHysteresis(midKm, 0).id).toBe(p0.id);
+    expect(selectStopWithHysteresis(forwardThreshold - 0.05, 0).id).toBe(p0.id);
+    expect(selectStopWithHysteresis(forwardThreshold + 0.05, 0).id).toBe(p1.id);
+
+    // Lùi: chỉ chuyển từ p1 về p0 khi lùi quá 15% độ dài đoạn kể từ trung điểm (tức 35%)
+    const backwardThreshold = p0.kmFromStart + 0.35 * segLen;
+    expect(selectStopWithHysteresis(midKm, 1).id).toBe(p1.id);
+    expect(selectStopWithHysteresis(backwardThreshold + 0.05, 1).id).toBe(p1.id);
+    expect(selectStopWithHysteresis(backwardThreshold - 0.05, 1).id).toBe(p0.id);
+
+    // Kẹp biên tại 2 đầu
+    expect(selectStopWithHysteresis(-10, 0).id).toBe(p0.id);
+    expect(selectStopWithHysteresis(TOTAL_ROUTE_KM + 100, 31).id).toBe(STOPS[31].id);
+
+    // Khi previousStopIndex = -1 (chưa khởi tạo)
+    expect(selectStopWithHysteresis(0, -1).id).toBe(p0.id);
+    expect(selectStopWithHysteresis(TOTAL_ROUTE_KM, -1).id).toBe(STOPS[31].id);
+  });
+
+  it('formatGuessComparison: xử lý đầy đủ các trường hợp 1.650 / 1.000 / 2.500 / null', () => {
+    const straight = Math.round(STRAIGHT_LINE_KM);
+
+    // 1.650 km: đoán rất chuẩn
+    const res1650 = formatGuessComparison(1650);
+    expect(res1650.hasGuess).toBe(true);
+    expect(res1650.guessKm).toBe(1650);
+    expect(res1650.straightKm).toBe(straight);
+    expect(res1650.assessment).toBe('đoán rất chuẩn');
+    expect(res1650.fullText).toContain('đoán rất chuẩn');
+
+    // 1.000 km: thực tế xa hơn bạn nghĩ khá nhiều
+    const res1000 = formatGuessComparison(1000);
+    expect(res1000.hasGuess).toBe(true);
+    expect(res1000.assessment).toBe('thực tế xa hơn bạn nghĩ khá nhiều');
+    expect(res1000.fullText).toContain('thực tế xa hơn bạn nghĩ khá nhiều');
+
+    // 2.500 km: gần với chiều dài đường bộ
+    const res2500 = formatGuessComparison(2500);
+    expect(res2500.hasGuess).toBe(true);
+    expect(res2500.assessment).toBe('gần với chiều dài đường bộ dọc hành trình hơn là đường chim bay');
+
+    // null / bỏ qua
+    const resNull = formatGuessComparison(null);
+    expect(resNull.hasGuess).toBe(false);
+    expect(resNull.guessKm).toBeNull();
+    expect(resNull.fullText).toContain(`Thực tế khoảng`);
+  });
+
+  it('calculateTravelEstimates: tính chuẩn thời gian theo km dọc tuyến (xe máy 40 km/h, tàu 60 km/h, máy bay 800 km/h)', () => {
+    const est = calculateTravelEstimates(TOTAL_ROUTE_KM);
+    expect(est.motorbikeHours).toBe(Math.round(TOTAL_ROUTE_KM / 40));
+    expect(est.trainHours).toBe(Math.round(TOTAL_ROUTE_KM / 60));
+    expect(est.planeHours).toBe(Number((TOTAL_ROUTE_KM / 800).toFixed(1)));
+    expect(est.note).toBe('ước tính, chưa tính nghỉ');
+    expect(est.motorbikeText).toContain('giờ');
+    expect(est.trainText).toContain('giờ');
+    expect(est.planeText).toContain('giờ');
+  });
+
+  it('point-in-polygon: 32 điểm dừng nằm đúng hoặc sát tỉnh kỳ vọng; Lý Sơn thuộc Quảng Ngãi và cách đất liền > 15 km; Mỹ Sơn thuộc Đà Nẵng', () => {
+    const provPath = path.resolve(__dirname, '../../../raw-data/Provinces.geojson');
+    if (!fs.existsSync(provPath)) return;
+
+    const provincesRaw = JSON.parse(fs.readFileSync(provPath, 'utf8'));
+
+    const provGroups: Record<string, any[]> = {};
+    for (const f of provincesRaw.features) {
+      let name = f.properties.TinhThanh || f.properties.name || '';
+      if (name === 'TP. Hồ Chí Minh' || name === 'TP Hồ Chí Minh' || name === 'Hồ Chí Minh') {
+        name = 'TP.HCM';
+      }
+      if (!provGroups[name]) provGroups[name] = [];
+      provGroups[name].push(f);
+    }
+
+    // 1. Kiểm tra Mỹ Sơn nằm trong Đà Nẵng
+    const mySon = STOPS.find((s) => s.name === 'Thánh địa Mỹ Sơn')!;
+    expect(mySon.province).toBe('Đà Nẵng');
+    const daNangFeats = provGroups['Đà Nẵng'] || [];
+    const mySonInside = daNangFeats.some((f) => geoContains(f, [mySon.lng, mySon.lat]));
+    expect(mySonInside, 'Mỹ Sơn phải nằm trong polygon Đà Nẵng (Quảng Nam sáp nhập)').toBe(true);
+
+    // 2. Kiểm tra Lý Sơn thuộc Quảng Ngãi và nằm ngoài đất liền > 15 km
+    const lySon = STOPS.find((s) => s.name === 'Đảo Lý Sơn')!;
+    expect(lySon.province).toBe('Quảng Ngãi');
+    const qnFeats = provGroups['Quảng Ngãi'] || [];
+    const lySonInProv = qnFeats.some((f) => geoContains(f, [lySon.lng, lySon.lat]));
+    expect(lySonInProv, 'Lý Sơn phải nằm trong polygon Quảng Ngãi').toBe(true);
+
+    // Tìm polygon đất liền của Quảng Ngãi (polygon có số điểm lớn nhất)
+    let mainlandRing: [number, number][] = [];
+    let maxPoints = 0;
+    for (const f of qnFeats) {
+      const geom = f.geometry;
+      const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+      for (const poly of polys) {
+        const ring = poly[0];
+        if (ring.length > maxPoints) {
+          maxPoints = ring.length;
+          mainlandRing = ring;
+        }
+      }
+    }
+    // Lý Sơn nằm ngoài đất liền
+    const lySonInMainland = geoContains({ type: 'Polygon', coordinates: [mainlandRing] } as any, [lySon.lng, lySon.lat]);
+    expect(lySonInMainland, 'Lý Sơn không được nằm trong polygon đất liền').toBe(false);
+
+    // Khoảng cách từ Lý Sơn tới bờ đất liền Quảng Ngãi > 15 km
+    let minCoastDist = Infinity;
+    for (const [lng, lat] of mainlandRing) {
+      const d = haversine(lySon.lat, lySon.lng, lat, lng);
+      if (d < minCoastDist) minCoastDist = d;
+    }
+    expect(minCoastDist, 'Khoảng cách từ Lý Sơn tới đất liền phải > 15 km').toBeGreaterThan(15);
+
+    // 3. Toàn bộ 32 điểm: hoặc nằm trong polygon, hoặc nằm trong dung sai bờ biển ≤ 3 km
+    for (const stop of STOPS) {
+      const feats = provGroups[stop.province] || [];
+      const inside = feats.some((f) => geoContains(f, [stop.lng, stop.lat]));
+      if (!inside) {
+        // Tính khoảng cách tới đỉnh gần nhất của tỉnh
+        let minD = Infinity;
+        for (const f of feats) {
+          const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+          for (const poly of polys) {
+            for (const ring of poly) {
+              for (const [lng, lat] of ring) {
+                const d = haversine(stop.lat, stop.lng, lat, lng);
+                if (d < minD) minD = d;
+              }
+            }
+          }
+        }
+        expect(minD, `Điểm #${stop.id} ${stop.name} (${stop.province}) cách ranh tỉnh ≤ 3 km`).toBeLessThanOrEqual(3.0);
+      }
+    }
+  });
+
+  it('manifest ảnh scripts/doc-vn-anh-manifest.json và contact sheet docs/doc-vn-anh-contact.jpg', () => {
+    const manifestPath = path.resolve(__dirname, '../../../scripts/doc-vn-anh-manifest.json');
+    expect(fs.existsSync(manifestPath), 'Manifest ảnh phải tồn tại').toBe(true);
+
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    expect(manifest).toHaveLength(32);
+
+    for (let i = 0; i < 32; i++) {
+      const item = manifest[i];
+      expect(item.id).toBe(i + 1);
+      expect(typeof item.commonsFile).toBe('string');
+      expect(item.commonsFile.length).toBeGreaterThan(3);
+      expect(typeof item.cropPosition).toBe('string');
+      expect(item.cropPosition.length).toBeGreaterThan(2);
+
+      // Trong doc-vn-anh.json cũng phải có cropPosition
+      const imgMeta = STOP_IMAGES[String(item.id)];
+      expect(imgMeta).toBeDefined();
+      expect(imgMeta.cropPosition).toBe(item.cropPosition);
+    }
+
+    // Contact sheet
+    const contactPath = path.resolve(__dirname, '../../../docs/doc-vn-anh-contact.jpg');
+    expect(fs.existsSync(contactPath), 'Contact sheet phải tồn tại').toBe(true);
+    const contactStat = fs.statSync(contactPath);
+    expect(contactStat.size, 'Kích thước contact sheet').toBeGreaterThan(50 * 1024);
+  });
+
+  it('DocVietNam.svelte tuân thủ đặc tả E4: quiz 3 nút, haptic vibrate, không confetti, bố cục ảnh clamp', () => {
+    const code = fs.readFileSync(path.resolve(__dirname, 'DocVietNam.svelte'), 'utf8');
+
+    // 3 nút đoán đường chim bay
+    expect(code).toContain('2.500');
+    expect(code).toContain('1.000');
+    expect(code).toContain('1.650');
+    expect(code).toContain('localStorage');
+
+    // Hysteresis & đồng bộ "Đang ở <tỉnh>"
+    expect(code).toContain('selectStopWithHysteresis');
+    expect(code).toContain('currentNearest.province');
+    expect(code).toContain('Đang ở');
+
+    // Haptic pulse navigator.vibrate(10)
+    expect(code).toContain('navigator.vibrate(10)');
+
+    // Không dùng confetti
+    expect(code).not.toContain('confetti');
+    expect(code).not.toContain('canvas-confetti');
+
+    // CSS clamp cho hero image desktop
+    expect(code).toContain('clamp(22rem, 40svh, 34rem)');
+
+    // Hiển thị PROVINCES & VN_PATH
+    expect(code).toContain('PROVINCES');
+    expect(code).toContain('VN_PATH');
+
+    // Cấu trúc hero card: hook nằm trên ảnh
+    const hookIdx = code.indexOf('hero-hook');
+    const imgIdx = code.indexOf('hero-img');
+    const factIdx = code.indexOf('hero-fact-row');
+    const changKeIdx = code.indexOf('hero-next-hint');
+    expect(hookIdx).toBeGreaterThan(-1);
+    expect(imgIdx).toBeGreaterThan(hookIdx);
+    expect(factIdx).toBeGreaterThan(imgIdx);
+    expect(changKeIdx).toBeGreaterThan(factIdx);
   });
 });

@@ -417,3 +417,265 @@ describe('E11 — cửa sổ zoom và lịch tự đi (bổ sung)', () => {
     expect(rm.progress).toBe(sch.stops[4].progress);
   });
 });
+
+// ===================== Bước E4 — kiểm thử độc lập theo docs/to-co-nao-e4-dac-ta.md =====================
+import {
+  PROVINCES,
+  PROVINCE_NAME_TO_SLUG,
+  selectStopWithHysteresis,
+  calculateTravelEstimates,
+  formatGuessComparison,
+} from './docVietNam';
+
+const sentenceCount = (s: string) =>
+  s
+    .split(/(?<=[.!?…])\s+/)
+    .map((x) => x.trim())
+    .filter(Boolean).length;
+
+describe('E4-1 — 4 trường nội dung cho 32 điểm', () => {
+  it('hook, moTa, fact, changKe đều là chuỗi không rỗng', () => {
+    for (const s of STOPS) {
+      for (const k of ['hook', 'moTa', 'fact', 'changKe'] as const) {
+        expect(typeof s[k], `${k} #${s.id}`).toBe('string');
+        expect(s[k].trim().length, `${k} #${s.id}`).toBeGreaterThan(8);
+      }
+    }
+  });
+  it('moTa tối đa 2 câu', () => {
+    for (const s of STOPS) expect(sentenceCount(s.moTa), `moTa #${s.id}`).toBeLessThanOrEqual(2);
+  });
+  it('hook ≤ 140 ký tự; changKe bắt đầu bằng "…" (trừ điểm cuối)', () => {
+    for (const s of STOPS) {
+      expect(s.hook.length, `hook #${s.id}`).toBeLessThanOrEqual(140);
+      if (s.id < 32) expect(s.changKe.startsWith('…'), `changKe #${s.id}`).toBe(true);
+    }
+  });
+  it('không dùng các fact bị loại trong đặc tả', () => {
+    const all = STOPS.map((s) => [s.hook, s.moTa, s.fact, s.changKe].join(' ')).join(' ');
+    expect(all).not.toMatch(/vi tảo/i);
+    expect(all).not.toMatch(/-\s?150\s?m|−\s?150/);
+  });
+  it('Hồ Hoàn Kiếm dùng fact chắc chắn (Tháp Rùa / Thê Húc / trả gươm)', () => {
+    const s = STOPS.find((x) => x.name.includes('Hoàn Kiếm'))!;
+    expect(`${s.moTa} ${s.fact}`).toMatch(/Tháp Rùa|Thê Húc|gươm/);
+  });
+});
+
+describe('E4-2 — hysteresis chọn thẻ', () => {
+  it('tại đúng km của một điểm thì chọn điểm đó', () => {
+    for (let i = 0; i < 32; i++) {
+      expect(selectStopWithHysteresis(STOPS[i].kmFromStart, i).id).toBe(STOPS[i].id);
+    }
+  });
+  it('vượt trung điểm nhưng chưa đủ 15% thì giữ thẻ cũ khi đi tiến', () => {
+    for (let i = 0; i < 31; i++) {
+      const seg = STOPS[i + 1].kmFromStart - STOPS[i].kmFromStart;
+      const km = STOPS[i].kmFromStart + 0.55 * seg;
+      expect(selectStopWithHysteresis(km, i).id, `i=${i}`).toBe(STOPS[i].id);
+    }
+  });
+  it('vượt 65% đoạn thì chuyển sang điểm kế', () => {
+    for (let i = 0; i < 31; i++) {
+      const seg = STOPS[i + 1].kmFromStart - STOPS[i].kmFromStart;
+      const km = STOPS[i].kmFromStart + 0.66 * seg;
+      expect(selectStopWithHysteresis(km, i).id).toBe(STOPS[i + 1].id);
+    }
+  });
+  it('đi lùi: chỉ về điểm trước khi lùi quá 35% đoạn; vùng giữa giữ nguyên', () => {
+    for (let i = 1; i < 32; i++) {
+      const a = STOPS[i - 1].kmFromStart;
+      const seg = STOPS[i].kmFromStart - a;
+      expect(selectStopWithHysteresis(a + 0.45 * seg, i).id, `giữ i=${i}`).toBe(STOPS[i].id);
+      expect(selectStopWithHysteresis(a + 0.34 * seg, i).id, `lùi i=${i}`).toBe(STOPS[i - 1].id);
+    }
+  });
+  it('kéo chậm đi-về quanh trung điểm không làm thẻ dao động', () => {
+    const i = 5;
+    const a = STOPS[i].kmFromStart;
+    const seg = STOPS[i + 1].kmFromStart - a;
+    let cur = i;
+    const seen = new Set<number>();
+    for (let t = 0.4; t <= 0.6; t += 0.005) {
+      cur = selectStopWithHysteresis(a + t * seg, cur).id - 1;
+      seen.add(cur);
+    }
+    for (let t = 0.6; t >= 0.4; t -= 0.005) {
+      cur = selectStopWithHysteresis(a + t * seg, cur).id - 1;
+      seen.add(cur);
+    }
+    expect(seen.size).toBe(1);
+  });
+  it('kẹp hai đầu; chưa có chỉ số trước (-1) thì chọn gần nhất', () => {
+    expect(selectStopWithHysteresis(-50, 10).id).toBe(1);
+    expect(selectStopWithHysteresis(99999, 3).id).toBe(32);
+    expect(selectStopWithHysteresis(STOPS[20].kmFromStart + 1, -1).id).toBe(STOPS[20].id);
+  });
+});
+
+describe('E4-3 — dự đoán và tổng kết', () => {
+  it('không đoán thì chỉ hiện thực tế ~1.643 km', () => {
+    const r = formatGuessComparison(null);
+    expect(r.hasGuess).toBe(false);
+    expect(r.fullText).toContain('1.643');
+  });
+  it('đoán 1.650 → câu mẫu của đặc tả, đoán chuẩn', () => {
+    const r = formatGuessComparison(1650);
+    expect(r.fullText).toContain('Bạn đoán 1.650 km');
+    expect(r.fullText).toContain('thực tế khoảng 1.643 km đường chim bay');
+    expect(r.assessment).toBe('đoán rất chuẩn');
+  });
+  it('đoán 1.000 và 2.500: nêu km đã đoán, nhận xét khác nhau và khác "chuẩn"', () => {
+    const lo = formatGuessComparison(1000);
+    const hi = formatGuessComparison(2500);
+    expect(lo.fullText).toContain('1.000');
+    expect(hi.fullText).toContain('2.500');
+    expect(lo.assessment).not.toBe('đoán rất chuẩn');
+    expect(hi.assessment).not.toBe('đoán rất chuẩn');
+    expect(lo.assessment).not.toBe(hi.assessment);
+  });
+  it('km dọc hành trình khác hẳn km chim bay', () => {
+    expect(STRAIGHT_LINE_KM).toBeCloseTo(1643, -1);
+    expect(TOTAL_ROUTE_KM).toBeGreaterThan(STRAIGHT_LINE_KM * 1.5);
+  });
+});
+
+describe('E4-4 — ước tính thời gian', () => {
+  it('xe máy 40, tàu 60, máy bay 800 km/h theo TOTAL_ROUTE_KM', () => {
+    const e = calculateTravelEstimates();
+    expect(e.motorbikeHours).toBe(Math.round(TOTAL_ROUTE_KM / 40));
+    expect(e.trainHours).toBe(Math.round(TOTAL_ROUTE_KM / 60));
+    expect(e.planeHours).toBeCloseTo(TOTAL_ROUTE_KM / 800, 1);
+    expect(e.note).toMatch(/ước tính/);
+    expect(e.note).toMatch(/chưa tính nghỉ/);
+  });
+  it('2.800 km: 70 / 47 / 3,5 giờ', () => {
+    const e = calculateTravelEstimates(2800);
+    expect(e.motorbikeHours).toBe(70);
+    expect(e.trainHours).toBe(47);
+    expect(e.planeHours).toBe(3.5);
+    expect(e.planeText).toContain('3,5');
+  });
+});
+
+type Pt = [number, number];
+function parseRings(d: string): Pt[][] {
+  const rings: Pt[][] = [];
+  const re = /([MLZ])\s*(-?[\d.]+)?[\s,]*(-?[\d.]+)?/g;
+  let cur: Pt[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(d))) {
+    if (m[1] === 'M') {
+      if (cur.length) rings.push(cur);
+      cur = [[+m[2], +m[3]]];
+    } else if (m[1] === 'L') cur.push([+m[2], +m[3]]);
+  }
+  if (cur.length) rings.push(cur);
+  return rings;
+}
+function inside(p: Pt, rings: Pt[][]): boolean {
+  let c = false;
+  for (const r of rings)
+    for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+      const [xi, yi] = r[i];
+      const [xj, yj] = r[j];
+      if (yi > p[1] !== yj > p[1] && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) c = !c;
+    }
+  return c;
+}
+function distToRings(p: Pt, rings: Pt[][]): number {
+  let best = Infinity;
+  for (const r of rings)
+    for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+      const [ax, ay] = r[j];
+      const [bx, by] = r[i];
+      const dx = bx - ax;
+      const dy = by - ay;
+      const t =
+        dx || dy
+          ? Math.max(0, Math.min(1, ((p[0] - ax) * dx + (p[1] - ay) * dy) / (dx * dx + dy * dy)))
+          : 0;
+      best = Math.min(best, Math.hypot(p[0] - (ax + t * dx), p[1] - (ay + t * dy)));
+    }
+  return best;
+}
+const PX_PER_KM =
+  Math.hypot(STOPS[31].x - STOPS[0].x, STOPS[31].y - STOPS[0].y) /
+  hv(STOPS[0].lat, STOPS[0].lng, STOPS[31].lat, STOPS[31].lng);
+
+describe('E4-5 — điểm dừng nằm trong tỉnh kỳ vọng (cùng hệ chiếu)', () => {
+  it('34 tỉnh, mọi tỉnh của điểm dừng đều có polygon', () => {
+    expect(Object.keys(PROVINCES)).toHaveLength(34);
+    for (const s of STOPS) {
+      const slug = PROVINCE_NAME_TO_SLUG[s.province];
+      expect(slug, `slug ${s.province}`).toBeDefined();
+      expect(PROVINCES[slug], `polygon ${s.province}`).toBeDefined();
+    }
+  });
+  it('mỗi điểm nằm trong hoặc cách polygon tỉnh ≤ 3 km; đa số nằm hẳn bên trong', () => {
+    let strictlyIn = 0;
+    const bad: string[] = [];
+    for (const s of STOPS) {
+      const rings = parseRings(PROVINCES[PROVINCE_NAME_TO_SLUG[s.province]].d);
+      const p: Pt = [s.x, s.y];
+      if (inside(p, rings)) strictlyIn++;
+      else if (distToRings(p, rings) / PX_PER_KM > 3) bad.push(`${s.id} ${s.name}`);
+    }
+    expect(bad).toEqual([]);
+    expect(strictlyIn).toBeGreaterThanOrEqual(24);
+  });
+  it('Lý Sơn thuộc Quảng Ngãi: nằm trong polygon đảo, ngoài đất liền và cách bờ > 15 km', () => {
+    const s = STOPS.find((x) => x.name.includes('Lý Sơn'))!;
+    expect(s.province).toBe('Quảng Ngãi');
+    const rings = parseRings(PROVINCES['quang-ngai'].d);
+    const mainland = [rings.reduce((a, b) => (b.length > a.length ? b : a))];
+    expect(inside([s.x, s.y], mainland)).toBe(false);
+    expect(distToRings([s.x, s.y], mainland) / PX_PER_KM).toBeGreaterThan(15);
+    expect(inside([s.x, s.y], rings)).toBe(true); // dữ liệu tỉnh có đảo thì phải chứa
+  });
+  it('Mỹ Sơn (15,764; 108,124) nằm trong Đà Nẵng, phía tây nam Hội An', () => {
+    const my = STOPS.find((x) => x.name.includes('Mỹ Sơn'))!;
+    const ha = STOPS.find((x) => x.name.includes('Hội An'))!;
+    expect(my.lat).toBeCloseTo(15.764, 3);
+    expect(my.lng).toBeCloseTo(108.124, 3);
+    expect(my.province).toBe('Đà Nẵng');
+    expect(my.lng).toBeLessThan(ha.lng);
+    expect(my.lat).toBeLessThan(ha.lat);
+    expect(inside([my.x, my.y], parseRings(PROVINCES['da-nang'].d))).toBe(true);
+  });
+  it('toạ độ chiếu nhất quán với lat/lng (sai số ≤ 3%)', () => {
+    for (let i = 1; i < 32; i++) {
+      const km = hv(STOPS[i - 1].lat, STOPS[i - 1].lng, STOPS[i].lat, STOPS[i].lng);
+      if (km < 30) continue;
+      const px = Math.hypot(STOPS[i].x - STOPS[i - 1].x, STOPS[i].y - STOPS[i - 1].y);
+      expect(Math.abs(px / PX_PER_KM / km - 1), `đoạn ${i}`).toBeLessThan(0.03);
+    }
+  });
+});
+
+describe('E4-6 — manifest ảnh khớp file', () => {
+  const manifest = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, '../../../scripts/doc-vn-anh-manifest.json'), 'utf8')
+  ) as { id: number; commonsFile: string; cropPosition?: string }[];
+  it('đủ 32 mục, id 1..32 không trùng, commonsFile bắt đầu "File:"', () => {
+    expect(manifest).toHaveLength(32);
+    expect(manifest.map((m) => m.id).sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 32 }, (_, i) => i + 1)
+    );
+    for (const m of manifest) expect(m.commonsFile.startsWith('File:')).toBe(true);
+    expect(new Set(manifest.map((m) => m.commonsFile)).size).toBe(32);
+  });
+  it('nguồn ảnh trỏ đúng file trong manifest, cropPosition khớp, webp ≤ 960px & ≤ 180 KB', () => {
+    for (const m of manifest) {
+      const img = STOP_IMAGES[String(m.id)];
+      expect(img, `ảnh #${m.id}`).toBeDefined();
+      const title = decodeURIComponent(img.nguon.split('/wiki/')[1] ?? '').replace(/_/g, ' ');
+      expect(title, `nguồn #${m.id}`).toBe(m.commonsFile);
+      if (m.cropPosition) expect(img.cropPosition, `crop #${m.id}`).toBe(m.cropPosition);
+      expect(img.w).toBeLessThanOrEqual(960);
+      const f = path.resolve(__dirname, '../../../public/doc-vn', `${m.id}.webp`);
+      expect(fs.statSync(f).size).toBeLessThanOrEqual(180 * 1024);
+      expect(img.tacGia.trim().length).toBeGreaterThan(2);
+    }
+  });
+});

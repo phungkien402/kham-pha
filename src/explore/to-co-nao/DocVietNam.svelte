@@ -1,24 +1,25 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import defaultData from './data/default.json';
-  import { loadChunk } from './dataLoader';
   import {
     STOPS,
     STOP_IMAGES,
+    PROVINCES,
+    VN_PATH,
     TOTAL_ROUTE_KM,
     STRAIGHT_LINE_KM,
     MILESTONES,
     NATIONAL_VIEWBOX,
-    PROVINCE_CENTERS,
     PROVINCE_NAME_TO_SLUG,
     positionAt,
-    nearestStop,
+    selectStopWithHysteresis,
     regionAt,
     milestonesCrossed,
-    getJourneyProvinces,
     calculateZoomWindow,
     createAutoPlaySchedule,
     getAutoPlayStateAtTime,
+    calculateTravelEstimates,
+    formatGuessComparison,
     type JourneyPosition,
     type Milestone,
     type StopPoint,
@@ -32,23 +33,43 @@
 
   let { onCompareWithOther }: Props = $props();
 
-  // Hình bản đồ Việt Nam mặc định (toàn vẹn lãnh thổ gồm đất liền, Hoàng Sa, Trường Sa)
-  const vnSvgD: string = (defaultData as Record<string, string>)['viet-nam'] || '';
+  // Hình bản đồ Việt Nam toàn vẹn lãnh thổ (chiếu cùng hệ LAEA đồng nhất)
+  const vnSvgD: string = VN_PATH || (defaultData as Record<string, string>)['viet-nam'] || '';
 
-  // Dữ liệu hình ranh giới tỉnh thành nạp động
-  let vnShapes = $state<Record<string, string>>({});
+  // 3 phương án dự đoán khoảng cách đường chim bay (thứ tự xáo cố định theo đặc tả: 2.500, 1.000, 1.650)
+  const GUESS_OPTIONS = [2500, 1000, 1650] as const;
+  let userGuess = $state<number | null>(null);
 
   // Tiến độ hành trình: 0 (Lũng Cú) -> 1 (Mũi Cà Mau)
   let progress = $state(0);
 
-  // Vị trí hiện tại tính theo km
+  // Vị trí hiện tại tính theo km dọc hành trình
   const currentPos: JourneyPosition = $derived(positionAt(progress));
 
   // Kiểm tra cuối hành trình (>= 99%)
   const isFinished = $derived(progress >= 0.99);
 
-  // Điểm dừng gần nhất
-  const currentNearest: StopPoint = $derived(nearestStop(currentPos.km));
+  // Điểm dừng hiển thị: có độ trễ (hysteresis) 15% vượt quá trung điểm chặng để không nhảy qua lại khi kéo chậm
+  let currentStopId = $state(STOPS[0].id);
+
+  const currentNearest: StopPoint = $derived.by(() => {
+    const prevIdx = currentStopId - 1;
+    return selectStopWithHysteresis(currentPos.km, prevIdx, STOPS, 0.15);
+  });
+
+  // Haptic feedback và cập nhật stop id khi đổi điểm dừng
+  $effect(() => {
+    if (currentNearest.id !== currentStopId) {
+      currentStopId = currentNearest.id;
+      try {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate(10);
+        }
+      } catch {
+        // bỏ qua nếu trình duyệt không hỗ trợ haptic
+      }
+    }
+  });
 
   // Ảnh hiện tại và ảnh kế tiếp
   const currentImage: StopImage | undefined = $derived(STOP_IMAGES[String(currentNearest.id)]);
@@ -59,9 +80,26 @@
   // Vùng khí hậu / địa hình
   const currentRegion = $derived(regionAt({ stopIndex: currentNearest.id - 1 }));
 
-  // Thông tin tỉnh hiện tại và các tỉnh đã đi qua (khi kết thúc là Cà Mau)
-  const provinceInfo = $derived(getJourneyProvinces(currentPos.segIndex, isFinished));
-  const currentProvinceSlug = $derived(PROVINCE_NAME_TO_SLUG[provinceInfo.currentProvince] || '');
+  // "Đang ở <tỉnh>" luôn khớp với tỉnh của thẻ hiện tại; danh sách đã qua tích luỹ các tỉnh đã chạm đến
+  const currentProvinceName = $derived(isFinished ? 'Cà Mau' : currentNearest.province);
+  const currentProvinceSlug = $derived(PROVINCE_NAME_TO_SLUG[currentProvinceName] || '');
+
+  const passedProvinces = $derived.by(() => {
+    const passed: string[] = [];
+    const maxIdx = isFinished ? STOPS.length - 1 : currentNearest.id - 1;
+    for (let i = 0; i <= maxIdx; i++) {
+      const p = STOPS[i].province;
+      if (!passed.includes(p)) {
+        passed.push(p);
+      }
+    }
+    return passed;
+  });
+
+  const provinceInfo = $derived({
+    currentProvince: currentProvinceName,
+    passedProvinces,
+  });
 
   // Mốc so sánh vừa vượt qua gần nhất
   let latestMilestone = $state<Milestone | null>(null);
@@ -89,7 +127,7 @@
 
   // Aria valuetext cho thanh trượt
   const ariaValueText = $derived(
-    `Đã đi ${formatNumberVi(displayKm)} km, đang ở ${provinceInfo.currentProvince}`
+    `Đã đi ${formatNumberVi(displayKm)} km, đang ở ${currentProvinceName}`
   );
 
   // Cấu hình style và biểu tượng theo loại địa danh
@@ -126,14 +164,9 @@
   const autoPlaySchedule = createAutoPlaySchedule(STOPS, 60000, 1500);
   let autoPlayElapsedMs = 0;
   let lastFrameTime = 0;
-  let autoPlayRafId: number | null = null;
 
   // Tham chiếu DOM danh sách chip đã qua để tự cuộn
   let chipsContainer = $state<HTMLDivElement | null>(null);
-
-  // Bắn confetti khi hoàn thành
-  let showConfetti = $state(false);
-  let hasShownConfetti = false;
 
   // Cập nhật mốc so sánh và đếm số km mượt
   $effect(() => {
@@ -163,20 +196,11 @@
         displayKm = Math.round(displayKm + diff * 0.28);
       }
     }
-
-    // Hiệu ứng confetti khi đi đến cuối
-    if (isFinished && !hasShownConfetti) {
-      hasShownConfetti = true;
-      showConfetti = true;
-      setTimeout(() => {
-        showConfetti = false;
-      }, 4500);
-    }
   });
 
   // Tự động cuộn danh sách chip "Đã qua" đến chip mới nhất
   $effect(() => {
-    if (provinceInfo.currentProvince && chipsContainer) {
+    if (currentProvinceName && chipsContainer) {
       chipsContainer.scrollTo({
         left: chipsContainer.scrollWidth,
         behavior: prefersReduced ? 'instant' : 'smooth',
@@ -188,10 +212,16 @@
   onMount(() => {
     prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // Nạp lười ranh giới 34 tỉnh thành từ chunk vn
-    loadChunk('vn').then((data) => {
-      if (data) vnShapes = data as Record<string, string>;
-    });
+    // Khôi phục lựa chọn dự đoán từ localStorage nếu có
+    try {
+      const saved = localStorage.getItem('doc-vn-guess-km');
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (!isNaN(val)) userGuess = val;
+      }
+    } catch {
+      // bỏ qua lỗi storage
+    }
 
     let animId: number;
     let lastTime = performance.now();
@@ -236,6 +266,15 @@
     };
   });
 
+  function handleSelectGuess(km: number) {
+    userGuess = km;
+    try {
+      localStorage.setItem('doc-vn-guess-km', String(km));
+    } catch {
+      // bỏ qua lỗi storage
+    }
+  }
+
   function toggleAutoPlay() {
     if (isAutoPlaying) {
       isAutoPlaying = false;
@@ -253,13 +292,12 @@
   function handleResetJourney() {
     isAutoPlaying = false;
     progress = 0;
+    currentStopId = STOPS[0].id;
     firedKm.clear();
     prevKm = 0;
     latestMilestone = null;
     showMilestoneToast = false;
     displayKm = 0;
-    hasShownConfetti = false;
-    showConfetti = false;
   }
 
   function handleRangeInput(e: Event) {
@@ -285,14 +323,12 @@
     if (prefersReduced) {
       progress = targetProgress;
     } else {
-      // Tween mượt đến điểm dừng
       const startProg = progress;
       const startTime = performance.now();
       const dur = 400;
       const stepTween = (now: number) => {
         const elapsed = now - startTime;
         const t = Math.min(1, elapsed / dur);
-        // Easing cubic out
         const ease = 1 - Math.pow(1 - t, 3);
         progress = startProg + (targetProgress - startProg) * ease;
         if (t < 1) {
@@ -354,7 +390,6 @@
       isAutoPlaying = false;
       progress = 1;
     } else if (e.key === ' ') {
-      // Spacebar toggles autoplay
       if (active === document.body || active?.classList.contains('desktop-slider')) {
         e.preventDefault();
         toggleAutoPlay();
@@ -392,7 +427,6 @@
 
 <svelte:window onkeydown={handleKeyDown} />
 
-<!-- Link preload ảnh của điểm kế tiếp -->
 {#if nextImage}
   <link rel="prefetch" href={nextImage.src} as="image" />
 {/if}
@@ -402,7 +436,7 @@
   style="background: {currentRegion.bgGradient};"
   aria-label="Khám phá chiều dài Việt Nam từ Bắc vào Nam"
 >
-  <!-- Header tiêu đề gọn gàng phong cách neal.fun -->
+  <!-- Header: câu hỏi lớn + mini quiz dự đoán ở đầu -->
   <header class="doc-header">
     <div class="header-badge">Hành trình dọc chiều dài đất nước</div>
     <h1 class="doc-title">Bạn nghĩ Việt Nam dài đến mức nào?</h1>
@@ -410,11 +444,31 @@
       Kéo thanh trượt hoặc bấm <strong>▶ Tự đi</strong> để du hành từ cực Bắc xuống cực Nam
       <span class="keyboard-hint">(phím ↑↓, PageUp / PageDown)</span>
     </p>
+
+    <!-- Đoán khoảng cách đường chim bay ở đầu -->
+    <div class="guess-quiz-box" aria-label="Mini-quiz dự đoán khoảng cách">
+      <span class="guess-question">
+        Bạn đoán Lũng Cú → Mũi Cà Mau, đường chim bay, khoảng bao xa?
+      </span>
+      <div class="guess-buttons-row" role="group" aria-label="Các phương án khoảng cách">
+        {#each GUESS_OPTIONS as opt}
+          <button
+            type="button"
+            class="guess-btn"
+            class:is-selected={userGuess === opt}
+            onclick={() => handleSelectGuess(opt)}
+            aria-pressed={userGuess === opt}
+          >
+            {formatNumberVi(opt)} km
+          </button>
+        {/each}
+      </div>
+    </div>
   </header>
 
-  <!-- Lưới 2 cột chính: TRÁI ~42% câu chuyện, PHẢI ~58% bản đồ zoom -->
+  <!-- Lưới 2 cột chính: TRÁI ~42% câu chuyện & thẻ lớn, PHẢI ~58% bản đồ zoom -->
   <div class="doc-body">
-    <!-- CỘT TRÁI: Câu chuyện & Thẻ địa danh nhân vật chính -->
+    <!-- CỘT TRÁI: Câu chuyện & Thẻ địa danh nhân vật chính (chỉ cột trái cuộn trên desktop) -->
     <div class="doc-story-col" aria-live="polite">
       <!-- 1. Dòng km lớn đếm mượt + thanh tiến độ + "Đang ở: <tỉnh>" -->
       <div class="stats-card">
@@ -429,8 +483,8 @@
           </div>
           <div class="current-province-box">
             <span class="prov-tag">Đang ở</span>
-            {#key provinceInfo.currentProvince}
-              <strong class="prov-name slide-fade">{provinceInfo.currentProvince}</strong>
+            {#key currentProvinceName}
+              <strong class="prov-name slide-fade">{currentProvinceName}</strong>
             {/key}
           </div>
         </div>
@@ -440,9 +494,14 @@
         </div>
       </div>
 
-      <!-- 2. THẺ ĐỊA DANH (LỚN, NHÂN VẬT CHÍNH) -->
+      <!-- 2. THẺ ĐỊA DANH MỚI: Câu móc -> Ảnh lớn -> Tên & Chip -> 2 câu mắt thấy -> Fact -> Chặng kế -->
       <article class="hero-card">
-        <!-- Ảnh 16:9 với hiệu ứng crossfade & ken-burns -->
+        <!-- 1. CÂU MÓC GỢI TÒ MÒ (CHỮ LỚN, NẰM TRÊN ẢNH) -->
+        <div class="hero-hook-banner">
+          <h2 class="hero-hook">{currentNearest.hook}</h2>
+        </div>
+
+        <!-- 2. ẢNH LỚN VỚI CROSSFADE & CROP POSITION -->
         {#key currentNearest.id}
           <div class="hero-image-container">
             {#if currentImage}
@@ -452,6 +511,7 @@
                 width={currentImage.w}
                 height={currentImage.h}
                 class="hero-img ken-burns"
+                style="object-position: {currentImage.cropPosition || 'center'};"
                 loading="lazy"
                 decoding="async"
               />
@@ -484,10 +544,10 @@
           </div>
         {/if}
 
-        <!-- Thông tin chi tiết địa danh -->
+        <!-- 3. THÔNG TIN ĐỊA DANH -->
         <div class="hero-info">
           <div class="hero-title-row">
-            <h2 class="hero-name">{currentNearest.name}</h2>
+            <h3 class="hero-name">{currentNearest.name}</h3>
             <div class="hero-chips">
               <span class="chip chip-province">
                 📍 {currentNearest.province}
@@ -502,13 +562,19 @@
             </div>
           </div>
 
-          <!-- Đoạn mô tả 2-3 câu -->
-          <p class="hero-desc">{currentNearest.description}</p>
+          <!-- 4. HAI CÂU NGẮN "MẮT THẤY TAI NGHE" -->
+          <p class="hero-desc">{currentNearest.moTa}</p>
 
-          <!-- Dòng "Bạn có biết?" -->
+          <!-- 5. BẠN CÓ BIẾT? (HIỆN SẴN) -->
           <div class="hero-fact-row">
             <span class="fact-tag" aria-hidden="true">💡 Bạn có biết?</span>
             <p class="fact-text">{currentNearest.fact}</p>
+          </div>
+
+          <!-- 6. CHẶNG KẾ (GỢI Ý CHẶNG TIẾP THEO) -->
+          <div class="hero-next-hint">
+            <span class="next-hint-tag">Chặng kế:</span>
+            <span class="next-hint-text">{currentNearest.changKe}</span>
           </div>
         </div>
       </article>
@@ -551,7 +617,7 @@
           {#each provinceInfo.passedProvinces as prov}
             <span
               class="province-chip"
-              class:is-current={prov === provinceInfo.currentProvince}
+              class:is-current={prov === currentProvinceName}
             >
               {prov}
             </span>
@@ -635,37 +701,32 @@
             fill="url(#seaPattern)"
           />
 
-          <!-- Hình bóng Việt Nam toàn quốc (nền chung) -->
+          <!-- Hình bóng Việt Nam toàn quốc (nền chung cùng hệ chiếu LAEA) -->
           <path
             d={vnSvgD}
             class="vn-land-base"
           />
 
-          <!-- Ranh giới 34 tỉnh thành từ vn.json hiển thị mờ, tô nhẹ tỉnh đang ở khi zoom -->
+          <!-- Ranh giới 34 tỉnh thành xuất cùng 1 hệ chiếu LAEA -->
           <g class="provinces-layer">
-            {#each Object.entries(PROVINCE_CENTERS) as [slug, info]}
-              {@const shapeD = (vnShapes as Record<string, string>)[slug]}
+            {#each Object.entries(PROVINCES) as [slug, info]}
               {@const isCurrentProv = currentProvinceSlug === slug}
-              {#if shapeD}
-                <g transform="translate({info.x}, {info.y})">
-                  <path
-                    d={shapeD}
-                    class="province-boundary"
-                    class:is-active-province={isCurrentProv}
-                  />
-                  <!-- Hiện tên các tỉnh lân cận khi zoom vào -->
-                  {#if isZoomed && isProvinceNearby(info.x, info.y)}
-                    <text
-                      x="0"
-                      y="4"
-                      text-anchor="middle"
-                      class="province-label"
-                      class:is-active-label={isCurrentProv}
-                    >
-                      {info.name}
-                    </text>
-                  {/if}
-                </g>
+              <path
+                d={info.d}
+                class="province-boundary"
+                class:is-active-province={isCurrentProv}
+              />
+              <!-- Hiện tên các tỉnh lân cận khi zoom vào -->
+              {#if isZoomed && isProvinceNearby(info.labelX, info.labelY)}
+                <text
+                  x={info.labelX}
+                  y={info.labelY}
+                  text-anchor="middle"
+                  class="province-label"
+                  class:is-active-label={isCurrentProv}
+                >
+                  {info.name}
+                </text>
               {/if}
             {/each}
           </g>
@@ -701,11 +762,11 @@
               y={(STOPS[0].y + STOPS[31].y) / 2}
               class="straight-flight-label"
             >
-              Đường thẳng: ~{formatNumberVi(Math.round(STRAIGHT_LINE_KM))} km
+              Đường chim bay: ~{formatNumberVi(Math.round(STRAIGHT_LINE_KM))} km
             </text>
           {/if}
 
-          <!-- 32 điểm dừng trên bản đồ (có thể bấm để di chuyển tới) -->
+          <!-- 32 điểm dừng trên bản đồ (tem hành trình: sáng đèn khi đã qua) -->
           {#each STOPS as stop, idx}
             {@const isPassed = stop.kmFromStart <= currentPos.km}
             {@const isCurrent = stop.id === currentNearest.id}
@@ -722,7 +783,7 @@
                 <circle r="22" class="stop-pulse-ring" />
               {/if}
 
-              <!-- Chấm điểm dừng -->
+              <!-- Chấm điểm dừng (tem hành trình) -->
               <circle
                 r={isCurrent ? 8.5 : isPassed ? 6 : 4.5}
                 class="stop-circle"
@@ -752,9 +813,7 @@
           >
             <circle r="26" fill="url(#travelerHalo)" class="traveler-halo" />
             <g class="traveler-vehicle" class:moving={isAutoPlaying}>
-              <!-- Thân xe máy / biểu tượng người đi thu nhỏ -->
               <circle r="8" class="traveler-body" />
-              <!-- Mũi tên định hướng hành trình -->
               <polygon points="0,-12 6,-3 -6,-3" fill="#ffffff" />
               <circle r="3" fill="#ffffff" />
             </g>
@@ -830,7 +889,7 @@
       </button>
 
       <span class="mobile-slider-current">
-        {provinceInfo.currentProvince} ({formatNumberVi(Math.round(displayKm))} km)
+        {currentProvinceName} ({formatNumberVi(Math.round(displayKm))} km)
       </span>
     </div>
 
@@ -853,18 +912,45 @@
 
   <!-- Màn tổng kết khi hoàn thành (>= 99%) -->
   {#if isFinished}
+    {@const guessRes = formatGuessComparison(userGuess, STRAIGHT_LINE_KM)}
+    {@const travelEst = calculateTravelEstimates(TOTAL_ROUTE_KM)}
     <div class="summary-overlay">
       <div class="summary-card" role="dialog" aria-modal="true" aria-labelledby="summary-title">
         <div class="summary-icon" aria-hidden="true">🎉</div>
         <h2 id="summary-title" class="summary-title">
-          Bạn vừa đi khoảng {formatNumberVi(Math.round(TOTAL_ROUTE_KM))} km qua 32 danh thắng tuyệt đẹp của Việt Nam!
+          Hành trình 32 điểm dừng của bạn dài khoảng {formatNumberVi(Math.round(TOTAL_ROUTE_KM))} km!
         </h2>
+
+        <!-- Đáp án dự đoán -->
+        <p class="summary-guess-fact">
+          {guessRes.fullText}
+        </p>
+
         <p class="summary-narrow-fact">
           Và Việt Nam chỗ hẹp nhất chỉ khoảng <strong>50 km</strong> (tại Quảng Bình / Quảng Trị, từ biển tới biên giới Lào).
         </p>
-        <p class="summary-straight-fact">
-          Khoảng cách đường thẳng Lũng Cú – Mũi Cà Mau: <strong>khoảng {formatNumberVi(Math.round(STRAIGHT_LINE_KM))} km</strong>.
-        </p>
+
+        <!-- Ước tính nếu đi liền một mạch -->
+        <div class="summary-travel-box">
+          <span class="travel-box-title">Nếu đi liền một mạch ({travelEst.note}):</span>
+          <div class="travel-estimates-grid">
+            <div class="travel-item">
+              <span class="travel-icon">🛵</span>
+              <span class="travel-name">Xe máy 40 km/h</span>
+              <strong class="travel-time">{travelEst.motorbikeText}</strong>
+            </div>
+            <div class="travel-item">
+              <span class="travel-icon">🚆</span>
+              <span class="travel-name">Tàu hỏa 60 km/h</span>
+              <strong class="travel-time">{travelEst.trainText}</strong>
+            </div>
+            <div class="travel-item">
+              <span class="travel-icon">✈️</span>
+              <span class="travel-name">Máy bay 800 km/h</span>
+              <strong class="travel-time">{travelEst.planeText}</strong>
+            </div>
+          </div>
+        </div>
 
         <div class="summary-actions">
           <button
@@ -883,15 +969,6 @@
           </button>
         </div>
       </div>
-    </div>
-  {/if}
-
-  <!-- Confetti chúc mừng nhẹ nhàng khi về đích -->
-  {#if showConfetti}
-    <div class="confetti-container" aria-hidden="true">
-      {#each Array(24) as _, i}
-        <span class="confetti-piece" style="--i: {i};"></span>
-      {/each}
     </div>
   {/if}
 </section>
@@ -951,7 +1028,60 @@
     font-size: 0.8125rem;
   }
 
-  /* Bố cục desktop (≥ 1024px): 2 cột TRÁI ~42%, PHẢI ~58% */
+  /* Dự đoán ở đầu */
+  .guess-quiz-box {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.55rem;
+    padding: 0.45rem 1rem;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--color-border, #e6e1d9);
+    border-radius: 0.85rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .guess-question {
+    font-size: 0.84375rem;
+    font-weight: 700;
+    color: #1e3a8a;
+  }
+
+  .guess-buttons-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .guess-btn {
+    padding: 0.25rem 0.85rem;
+    border-radius: 9999px;
+    border: 1.5px solid #cbd5e1;
+    background: #ffffff;
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .guess-btn:hover {
+    border-color: #3b82f6;
+    color: #2563eb;
+    background: #eff6ff;
+  }
+
+  .guess-btn.is-selected {
+    background: #2563eb;
+    border-color: #1d4ed8;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+  }
+
+  /* Bố cục desktop (≥ 1024px): 2 cột TRÁI ~42%, PHẢI ~58% cùng cao calc(100svh - header); chỉ cột trái cuộn */
   .doc-body {
     flex: 1;
     min-height: 0;
@@ -962,16 +1092,19 @@
     max-width: 1400px;
     margin: 0 auto;
     width: 100%;
+    height: calc(100svh - 130px);
+    max-height: calc(100svh - 130px);
   }
 
-  /* Cột trái: Câu chuyện và thẻ địa danh */
+  /* Cột trái: Câu chuyện và thẻ địa danh - cuộn độc lập */
   .doc-story-col {
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
     overflow-y: auto;
     padding-right: 0.5rem;
-    max-height: calc(100svh - 110px);
+    height: 100%;
+    max-height: 100%;
     box-sizing: border-box;
   }
 
@@ -984,6 +1117,7 @@
     border-radius: 1rem;
     padding: 0.85rem 1.1rem;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    flex-shrink: 0;
   }
 
   .km-header-row {
@@ -1068,7 +1202,7 @@
     transition: width 0.15s ease-out;
   }
 
-  /* 2. Thẻ địa danh chính */
+  /* 2. Thẻ địa danh mới */
   .hero-card {
     background: #ffffff;
     border: 1px solid var(--color-border, #e6e1d9);
@@ -1077,6 +1211,7 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
     display: flex;
     flex-direction: column;
+    flex-shrink: 0;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
 
@@ -1084,30 +1219,45 @@
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.09);
   }
 
+  /* Câu móc chữ lớn đặt trên ảnh */
+  .hero-hook-banner {
+    padding: 1rem 1.15rem 0.65rem;
+    background: #ffffff;
+  }
+
+  .hero-hook {
+    font-size: 1.125rem;
+    font-weight: 800;
+    line-height: 1.4;
+    color: #0f172a;
+    margin: 0;
+  }
+
   .hero-image-container {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 9;
     overflow: hidden;
     background: #0f172a;
+    flex-shrink: 0;
   }
 
   .hero-img {
     width: 100%;
-    height: 100%;
+    block-size: clamp(22rem, 40svh, 34rem);
+    flex-shrink: 0;
     object-fit: cover;
     display: block;
     transition: opacity 0.4s ease;
   }
 
   .ken-burns {
-    animation: fadeInCross 0.4s ease-out forwards, kenBurnsSlow 10s ease-out forwards;
+    animation: fadeInCross 0.4s ease-out forwards;
   }
 
   @keyframes fadeInCross {
     from {
       opacity: 0;
-      transform: scale(1.05);
+      transform: scale(1.03);
     }
     to {
       opacity: 1;
@@ -1115,18 +1265,9 @@
     }
   }
 
-  @keyframes kenBurnsSlow {
-    0% {
-      transform: scale(1);
-    }
-    100% {
-      transform: scale(1.08);
-    }
-  }
-
   .hero-img-fallback {
     width: 100%;
-    height: 100%;
+    height: 280px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1148,7 +1289,7 @@
     top: 0.65rem;
     right: 0.65rem;
     padding: 0.2rem 0.55rem;
-    background: rgba(15, 23, 42, 0.65);
+    background: rgba(15, 23, 42, 0.7);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     color: #ffffff;
@@ -1182,6 +1323,10 @@
     opacity: 0.4;
   }
 
+  .attr-license {
+    font-weight: 600;
+  }
+
   .attr-link {
     color: #2563eb;
     text-decoration: none;
@@ -1193,20 +1338,20 @@
   }
 
   .hero-info {
-    padding: 1rem 1.15rem;
+    padding: 0.9rem 1.15rem 1rem;
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
+    gap: 0.6rem;
   }
 
   .hero-title-row {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
+    gap: 0.35rem;
   }
 
   .hero-name {
-    font-size: 1.375rem;
+    font-size: 1.25rem;
     font-weight: 800;
     color: #0f172a;
     margin: 0;
@@ -1284,11 +1429,38 @@
     margin: 0;
   }
 
+  /* Dòng mờ gợi chặng kế */
+  .hero-next-hint {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin-top: 0.2rem;
+    padding-top: 0.45rem;
+    border-top: 1px dashed #e2e8f0;
+    font-size: 0.8125rem;
+    color: #64748b;
+  }
+
+  .next-hint-tag {
+    font-weight: 800;
+    color: #4f46e5;
+    text-transform: uppercase;
+    font-size: 0.6875rem;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+
+  .next-hint-text {
+    font-style: italic;
+    line-height: 1.35;
+  }
+
   /* 3. Vùng khí hậu & Mốc so sánh */
   .context-row {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    flex-shrink: 0;
   }
 
   .region-box {
@@ -1369,6 +1541,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+    flex-shrink: 0;
   }
 
   .passed-title {
@@ -1413,7 +1586,7 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    height: calc(100svh - 110px);
+    height: 100%;
     min-height: 480px;
   }
 
@@ -1594,10 +1767,12 @@
     transition: transform 0.15s ease, fill 0.15s ease;
   }
 
+  /* Tem hành trình: chấm sáng có viền khi đã qua */
   .stop-circle.passed {
-    fill: #2563eb;
+    fill: #3b82f6;
     stroke: #ffffff;
     stroke-width: 2.5;
+    filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.7));
   }
 
   .stop-circle.current {
@@ -1863,7 +2038,7 @@
   .summary-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(15, 23, 42, 0.65);
+    background: rgba(15, 23, 42, 0.7);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     display: flex;
@@ -1876,45 +2051,105 @@
 
   .summary-card {
     width: 100%;
-    max-width: 500px;
+    max-width: 520px;
     background: #ffffff;
     border: 1px solid var(--color-border, #e6e1d9);
     border-radius: 1.5rem;
-    padding: 2.25rem 2rem 2rem;
+    padding: 2rem 1.85rem 1.85rem;
     text-align: center;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.9rem;
+    gap: 0.85rem;
     box-sizing: border-box;
   }
 
   .summary-icon {
-    font-size: 3rem;
+    font-size: 2.75rem;
     line-height: 1;
   }
 
   .summary-title {
-    font-size: 1.375rem;
+    font-size: 1.3125rem;
     font-weight: 800;
     color: var(--color-text, #1f1d1a);
     margin: 0;
     line-height: 1.35;
   }
 
-  .summary-narrow-fact {
+  .summary-guess-fact {
     font-size: 0.9375rem;
-    color: #334155;
-    margin: 0;
-    line-height: 1.5;
-  }
-
-  .summary-straight-fact {
-    font-size: 0.875rem;
-    color: var(--color-text-muted, #6b665f);
+    font-weight: 600;
+    color: #1e3a8a;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 0.65rem;
+    padding: 0.5rem 0.85rem;
     margin: 0;
     line-height: 1.45;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .summary-narrow-fact {
+    font-size: 0.875rem;
+    color: #334155;
+    margin: 0;
+    line-height: 1.45;
+  }
+
+  /* Bảng ước tính thời gian di chuyển */
+  .summary-travel-box {
+    width: 100%;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.85rem;
+    padding: 0.75rem 0.85rem;
+    text-align: left;
+    box-sizing: border-box;
+  }
+
+  .travel-box-title {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.5rem;
+  }
+
+  .travel-estimates-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+
+  .travel-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0.4rem 0.25rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.6rem;
+    gap: 0.15rem;
+  }
+
+  .travel-icon {
+    font-size: 1.25rem;
+  }
+
+  .travel-name {
+    font-size: 0.6875rem;
+    color: #64748b;
+  }
+
+  .travel-time {
+    font-size: 0.875rem;
+    color: #1e3a8a;
   }
 
   .summary-actions {
@@ -1922,11 +2157,11 @@
     flex-direction: column;
     gap: 0.65rem;
     width: 100%;
-    margin-top: 0.5rem;
+    margin-top: 0.35rem;
   }
 
   .summary-btn {
-    padding: 0.85rem 1.25rem;
+    padding: 0.8rem 1.25rem;
     border-radius: 0.75rem;
     font-family: inherit;
     font-size: 0.9375rem;
@@ -1956,39 +2191,6 @@
   .summary-btn.secondary:hover {
     background: #f8fafc;
     color: var(--color-text, #1f1d1a);
-  }
-
-  /* Confetti burst */
-  .confetti-container {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 60;
-    overflow: hidden;
-  }
-
-  .confetti-piece {
-    position: absolute;
-    top: -20px;
-    left: calc(var(--i) * 4.2%);
-    width: 10px;
-    height: 16px;
-    background: hsl(calc(var(--i) * 28deg), 85%, 60%);
-    opacity: 0.9;
-    border-radius: 2px;
-    animation: confettiFall 3.8s ease-in forwards;
-    animation-delay: calc(var(--i) * 0.08s);
-  }
-
-  @keyframes confettiFall {
-    0% {
-      transform: translateY(0) rotate(0deg);
-      opacity: 1;
-    }
-    100% {
-      transform: translateY(105vh) rotate(720deg);
-      opacity: 0;
-    }
   }
 
   .slide-fade {
@@ -2029,7 +2231,7 @@
       padding: 0.5rem 0.75rem 0;
       min-height: 100svh;
       height: auto;
-      padding-bottom: 74px; /* padding-bottom bằng chiều cao thanh trượt để không bị che */
+      padding-bottom: 74px; /* padding-bottom bằng chiều cao thanh trượt thật để không bị che */
     }
 
     .doc-header {
@@ -2048,11 +2250,27 @@
       display: none;
     }
 
+    .guess-quiz-box {
+      margin-top: 0.4rem;
+      padding: 0.35rem 0.65rem;
+    }
+
+    .guess-question {
+      font-size: 0.75rem;
+    }
+
+    .guess-btn {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.6rem;
+    }
+
     .doc-body {
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
       overflow: visible;
+      height: auto;
+      max-height: none;
     }
 
     .desktop-only {
@@ -2063,11 +2281,12 @@
       display: flex !important;
     }
 
-    /* Bản đồ lên trên, thẻ xuống dưới */
+    /* Bản đồ 38svh ở trên, thẻ ở dưới theo đặc tả */
     .doc-map-col {
       order: 1;
-      height: 44svh;
-      min-height: 240px;
+      height: 38svh;
+      min-height: 220px;
+      max-height: 38svh;
       width: 100%;
     }
 
@@ -2084,16 +2303,23 @@
     .doc-story-col {
       order: 2;
       width: 100%;
+      height: auto;
       max-height: none;
       overflow: visible;
       padding-right: 0;
+    }
+
+    .hero-img {
+      aspect-ratio: 16 / 9;
+      block-size: auto;
+      width: 100%;
     }
 
     .hero-name {
       font-size: 1.1875rem;
     }
 
-    /* Thanh trượt mobile dính đáy */
+    /* Thanh trượt mobile fixed đáy với safe-area và padding */
     .mobile-slider-bar {
       position: sticky;
       bottom: 0;
@@ -2187,9 +2413,6 @@
     }
     .straight-flight-line {
       animation: none !important;
-    }
-    .confetti-container {
-      display: none !important;
     }
   }
 </style>

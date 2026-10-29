@@ -1,7 +1,8 @@
 // src/explore/to-co-nao/docVietNam.ts
-// Các hàm thuần cho bước E3: "Bạn nghĩ Việt Nam dài đến mức nào?" (dọc Bắc -> Nam)
+// Các hàm thuần cho bước E4: "Bạn nghĩ Việt Nam dài đến mức nào?" (dọc Bắc -> Nam)
 import docVnData from './data/doc-vn.json';
 import docVnAnhData from './data/doc-vn-anh.json';
+import { formatNumberVi } from './math';
 
 export interface StopPoint {
   id: number;
@@ -11,8 +12,11 @@ export interface StopPoint {
   lng: number;
   type: string;
   wikiTitle: string;
+  hook: string;
+  moTa: string;
   description: string;
   fact: string;
+  changKe: string;
   x: number;
   y: number;
   kmFromStart: number;
@@ -25,6 +29,14 @@ export interface StopImage {
   tacGia: string;
   giayPhep: string;
   nguon: string;
+  cropPosition?: string;
+}
+
+export interface ProvinceData {
+  name: string;
+  d: string;
+  labelX: number;
+  labelY: number;
 }
 
 export interface RegionInfo {
@@ -92,6 +104,10 @@ export const TOTAL_ROUTE_KM: number = docVnData.totalKm;
 
 // Chiều dài đường chim bay thẳng Lũng Cú – Mũi Cà Mau (km)
 export const STRAIGHT_LINE_KM: number = docVnData.straightKm;
+
+// Ranh giới 34 tỉnh thành và bóng bản đồ Việt Nam trong cùng hệ chiếu LAEA
+export const PROVINCES: Record<string, ProvinceData> = (docVnData as any).provinces || {};
+export const VN_PATH: string = (docVnData as any).vnPath || '';
 
 // Khung nhìn toàn quốc mặc định (gồm cả Hoàng Sa và Trường Sa)
 export const NATIONAL_VIEWBOX: ZoomWindow = {
@@ -404,6 +420,148 @@ export function nearestStop(
   }
 
   return STOPS[0];
+}
+
+/**
+ * Chọn điểm dừng hiển thị theo khoảng cách km đã đi, có vùng đệm trễ (hysteresis) 15% kể từ trung điểm
+ * của đoạn giữa 2 điểm dừng liền kề (theo đặc tả bước E4).
+ * Tránh hiện tượng thẻ bị nhảy giật qua lại liên tục khi người dùng kéo chậm quanh điểm giữa hai chặng.
+ *
+ * @param currentKm Khoảng cách hiện tại dọc tuyến (km)
+ * @param previousStopIndex Index của điểm dừng đang hiển thị trước đó (0..31), hoặc -1 nếu chưa có
+ * @param stops Danh sách điểm dừng
+ * @param thresholdRatio Tỉ lệ trễ vượt quá trung điểm (mặc định 0.15 = 15%)
+ * @returns Điểm dừng được chọn
+ */
+export function selectStopWithHysteresis(
+  currentKm: number,
+  previousStopIndex: number = -1,
+  stops: StopPoint[] = STOPS,
+  thresholdRatio: number = 0.15
+): StopPoint {
+  if (!stops || stops.length === 0) return STOPS[0];
+
+  // Nếu chưa có stop trước đó (khởi tạo) hoặc index không hợp lệ, chọn theo nearestStop
+  if (previousStopIndex < 0 || previousStopIndex >= stops.length) {
+    return nearestStop(currentKm);
+  }
+
+  // Kẹp ở hai đầu hành trình
+  if (currentKm <= stops[0].kmFromStart) return stops[0];
+  if (currentKm >= stops[stops.length - 1].kmFromStart) return stops[stops.length - 1];
+
+  let currentIndex = previousStopIndex;
+
+  // Đi tiến (về phía Nam): chỉ đổi sang currentIndex + 1 khi vượt quá 15% độ dài đoạn kể từ trung điểm
+  while (currentIndex < stops.length - 1) {
+    const p1 = stops[currentIndex];
+    const p2 = stops[currentIndex + 1];
+    const segLen = Math.max(0, p2.kmFromStart - p1.kmFromStart);
+    // Trung điểm = p1.km + 0.5 * segLen
+    // Ngưỡng chuyển tiến = Trung điểm + thresholdRatio * segLen = p1.km + (0.5 + thresholdRatio) * segLen
+    const forwardThreshold = p1.kmFromStart + (0.5 + thresholdRatio) * segLen;
+
+    if (currentKm >= forwardThreshold) {
+      currentIndex++;
+    } else {
+      break;
+    }
+  }
+
+  // Đi lùi (về phía Bắc): chỉ đổi về currentIndex - 1 khi lùi quá 15% độ dài đoạn kể từ trung điểm
+  while (currentIndex > 0) {
+    const pPrev = stops[currentIndex - 1];
+    const pCurr = stops[currentIndex];
+    const segLen = Math.max(0, pCurr.kmFromStart - pPrev.kmFromStart);
+    // Trung điểm = pPrev.km + 0.5 * segLen
+    // Ngưỡng chuyển lùi = Trung điểm - thresholdRatio * segLen = pPrev.km + (0.5 - thresholdRatio) * segLen
+    const backwardThreshold = pPrev.kmFromStart + (0.5 - thresholdRatio) * segLen;
+
+    if (currentKm <= backwardThreshold) {
+      currentIndex--;
+    } else {
+      break;
+    }
+  }
+
+  return stops[currentIndex];
+}
+
+export interface TravelEstimates {
+  motorbikeHours: number;
+  trainHours: number;
+  planeHours: number;
+  motorbikeText: string;
+  trainText: string;
+  planeText: string;
+  note: string;
+}
+
+/**
+ * Ước tính thời gian nếu đi liền một mạch theo km dọc hành trình (bước E4):
+ * - Xe máy: 40 km/h
+ * - Tàu hỏa: 60 km/h
+ * - Máy bay: 800 km/h
+ * (Ghi rõ "ước tính, chưa tính nghỉ")
+ */
+export function calculateTravelEstimates(routeKm: number = TOTAL_ROUTE_KM): TravelEstimates {
+  const motorbikeHours = Math.round(routeKm / 40);
+  const trainHours = Math.round(routeKm / 60);
+  const planeHours = Number((routeKm / 800).toFixed(1));
+  return {
+    motorbikeHours,
+    trainHours,
+    planeHours,
+    motorbikeText: `~${formatNumberVi(motorbikeHours)} giờ`,
+    trainText: `~${formatNumberVi(trainHours)} giờ`,
+    planeText: `~${planeHours.toString().replace('.', ',')} giờ`,
+    note: 'ước tính, chưa tính nghỉ',
+  };
+}
+
+export interface GuessComparisonResult {
+  hasGuess: boolean;
+  guessKm: number | null;
+  straightKm: number;
+  assessment: string;
+  fullText: string;
+}
+
+/**
+ * Định dạng so sánh giữa dự đoán ban đầu của người dùng với khoảng cách chim bay thực tế (~1.643 km).
+ */
+export function formatGuessComparison(
+  guessKm: number | null,
+  straightKm: number = STRAIGHT_LINE_KM
+): GuessComparisonResult {
+  const roundedStraight = Math.round(straightKm);
+  if (guessKm === null || typeof guessKm !== 'number') {
+    return {
+      hasGuess: false,
+      guessKm: null,
+      straightKm: roundedStraight,
+      assessment: '',
+      fullText: `Thực tế khoảng ${formatNumberVi(roundedStraight)} km đường chim bay.`,
+    };
+  }
+
+  const diff = Math.abs(guessKm - roundedStraight);
+  let assessment = '';
+  if (diff < 50) {
+    assessment = 'đoán rất chuẩn';
+  } else if (guessKm < roundedStraight) {
+    assessment = 'thực tế xa hơn bạn nghĩ khá nhiều';
+  } else {
+    assessment = 'gần với chiều dài đường bộ dọc hành trình hơn là đường chim bay';
+  }
+
+  return {
+    hasGuess: true,
+    guessKm,
+    straightKm: roundedStraight,
+    assessment,
+    fullText: `Bạn đoán ${formatNumberVi(guessKm)} km — thực tế khoảng ${formatNumberVi(roundedStraight)} km đường chim bay (${assessment})`,
+  };
 }
 
 /**
