@@ -1,0 +1,192 @@
+{
+  "center": [
+    106.43998191237796,
+    16.487076751220748
+  ],
+  "totalKm": 2051.1,
+  "straightKm": 1642.9,
+  "cumulativeDistances": [
+    0,
+    265.59,
+    351.877,
+    403.03,
+    529.433,
+    665.088,
+    852.207,
+    917.183,
+    958.308,
+    1210.202,
+    1381.905,
+    1569.674,
+    1723.772,
+    1853.216,
+    2051.1
+  ],
+  "stops": [
+    {
+      "id": 1,
+      "name": "Cột cờ Lũng Cú",
+      "province": "Tuyên Quang",
+      "lat": 23.364,
+      "lng": 105.316,
+      "description": "Điểm cực Bắc Việt Nam, trên cao nguyên đá Đồng Văn.",
+      "x": -114.94,
+      "y": -764.57,
+      "kmFromStart": 0
+    },
+    {
+      "id": 2,
+      "name": "Hà Nội",
+      "province": "Hà Nội",
+      "lat": 21.028,
+      "lng": 105.854,
+      "description": "Thủ đô nghìn năm, giữa đồng bằng sông Hồng.",
+      "x": -60.87,
+      "y": -504.89,
+      "kmFromStart": 265.6
+    },
+    {
+      "id": 3,
+      "name": "Tràng An",
+      "province": "Ninh Bình",
+      "lat": 20.253,
+      "lng": 105.896,
+      "description": "Quần thể danh thắng được UNESCO công nhận, núi đá vôi giữa đồng lúa.",
+      "x": -56.78,
+      "y": -418.76,
+      "kmFromStart": 351.9
+    },
+    {
+      "id": 4,
+      "name": "Thanh Hoá",
+      "province": "Thanh Hóa",
+      "lat": 19.807,
+      "lng": 105.776,
+      "description": "Cửa ngõ Bắc Trung Bộ.",
+      "x": -69.49,
+      "y": -369.23,
+      "kmFromStart": 403
+    },
+    {
+      "id": 5,
+      "name": "Vinh",
+      "province": "Nghệ An",
+      "lat": 18.673,
+      "lng": 105.692,
+      "description": "Thành phố bên sông Lam.",
+      "x": -78.81,
+      "y": -243.2,
+      "kmFromStart": 529.4
+    },
+    {
+      "id": 6,
+      "name": "Phong Nha – Kẻ Bàng",
+      "province": "Quảng Trị",
+      "lat": 17.59,
+      "lng": 106.283,
+      "description": "Vùng hang động đá vôi nổi tiếng thế giới. Gần đây Việt Nam hẹp nhất, chỉ khoảng 50 km từ biển tới biên giới Lào.",
+      "x": -16.64,
+      "y": -122.64,
+      "kmFromStart": 665.1
+    },
+    {
+      "id": 7,
+      "name": "Huế",
+      "province": "Huế",
+      "lat": 16.463,
+      "lng": 107.59,
+      "description": "Cố đô triều Nguyễn bên sông Hương.",
+      "x": 122.63,
+      "y": 2.33,
+      "kmFromStart": 852.2
+    },
+    {
+      "id": 8,
+      "name": "Đèo Hải Vân",
+      "province": "Đà Nẵng",
+      "lat": 16.193,
+      "lng": 108.13,
+      "description": "Dãy Bạch Mã – Hải Vân là ranh giới khí hậu: phía Bắc có mùa đông lạnh, phía Nam ấm quanh năm.",
+      "x": 180.46,
+      "y": 31.95,
+      "kmFromStart": 917.2
+    },
+    {
+      "id": 9,
+      "name": "Hội An",
+      "province": "Đà Nẵng",
+      "lat": 15.88,
+      "lng": 108.335,
+      "description": "Phố cổ được UNESCO công nhận.",
+      "x": 202.67,
+      "y": 66.56,
+      "kmFromStart": 958.3
+    },
+    {
+      "id": 10,
+      "name": "Quy Nhơn",
+      "province": "Gia Lai",
+      "lat": 13.782,
+      "lng": 109.219,
+      "description": "Thành phố biển của Nam Trung Bộ.",
+      "x": 300.16,
+      "y": 298.78,
+      "kmFromStart": 1210.2
+    },
+    {
+      "id": 11,
+      "name": "Nha Trang",
+      "province": "Khánh Hòa",
+      "lat": 12.238,
+      "lng": 109.196,
+      "description": "Vịnh biển nổi tiếng.",
+      "x": 299.66,
+      "y": 470.45,
+      "kmFromStart": 1381.9
+    },
+    {
+      "id": 12,
+      "name": "Phan Thiết – Mũi Né",
+      "province": "Lâm Đồng",
+      "lat": 10.933,
+      "lng": 108.102,
+      "description": "Đồi cát đỏ, vùng khô hạn nhất Việt Nam nằm gần đây.",
+      "x": 181.66,
+      "y": 616.66,
+      "kmFromStart": 1569.7
+    },
+    {
+      "id": 13,
+      "name": "TP. Hồ Chí Minh",
+      "province": "TP.HCM",
+      "lat": 10.776,
+      "lng": 106.7,
+      "description": "Đô thị lớn nhất cả nước.",
+      "x": 28.44,
+      "y": 634.76,
+      "kmFromStart": 1723.8
+    },
+    {
+      "id": 14,
+      "name": "Cần Thơ",
+      "province": "Cần Thơ",
+      "lat": 10.034,
+      "lng": 105.788,
+      "description": "Trung tâm đồng bằng sông Cửu Long, chợ nổi.",
+      "x": -71.5,
+      "y": 717.07,
+      "kmFromStart": 1853.2
+    },
+    {
+      "id": 15,
+      "name": "Mũi Cà Mau",
+      "province": "Cà Mau",
+      "lat": 8.6,
+      "lng": 104.72,
+      "description": "Điểm cực Nam đất liền, rừng ngập mặn.",
+      "x": -189.54,
+      "y": 875.6,
+      "kmFromStart": 2051.1
+    }
+  ]
+}

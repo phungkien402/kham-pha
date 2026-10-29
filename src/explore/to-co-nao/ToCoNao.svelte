@@ -5,7 +5,7 @@
   import SearchBox from './SearchBox.svelte';
   import Footer from './Footer.svelte';
   import TourCard from './TourCard.svelte';
-  import IntroModal from './IntroModal.svelte';
+  import DocVietNam from './DocVietNam.svelte';
   import { meta, metaMap, loadedShapes, getShape, prefetchVn } from './dataLoader';
   import {
     fitView,
@@ -57,8 +57,9 @@
   let funFactToastMessage = $state<string | null>(null);
   let funFactToastTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // D1: Màn mở đầu
-  let showIntro = $state(false);
+  // Tham chiếu DOM section so sánh bên dưới
+  let boardContainerEl: HTMLElement | undefined = $state();
+  let hasUserModifiedBoard = $state(false);
 
   // D2: Chế độ Hành trình
   let isTour = $state(false);
@@ -130,7 +131,6 @@
     const safeStep = Math.min(Math.max(stepNum, 1), 10);
     currentTourStep = safeStep;
     isTour = true;
-    showIntro = false;
 
     // Prefetch toàn bộ chunk tour trong nền
     prefetchTourData();
@@ -239,13 +239,18 @@
   }
 
   function handleStartTour(step = 1) {
-    showIntro = false;
     setupTourStep(step);
+    if (boardContainerEl) {
+      boardContainerEl.scrollIntoView({ behavior: 'smooth' });
+    }
   }
 
-  function handleExploreFromIntro() {
-    showIntro = false;
-    setupStepShapes('lam-dong', 'bel');
+  async function handleCompareWithOtherFromDocVn() {
+    await setupStepShapes('viet-nam', 'jpn');
+    hasUserModifiedBoard = true;
+    if (boardContainerEl) {
+      boardContainerEl.scrollIntoView({ behavior: 'smooth' });
+    }
   }
 
   onMount(async () => {
@@ -256,16 +261,17 @@
       // 1. Kiểm tra URL có ?hanh-trinh=N không
       const tourStep = parseHanhTrinhUrl(window.location.search);
       if (tourStep !== null) {
-        showIntro = false;
         await setupTourStep(tourStep);
         isInitialized = true;
+        setTimeout(() => {
+          boardContainerEl?.scrollIntoView({ behavior: 'auto' });
+        }, 60);
         return;
       }
 
       // 2. Kiểm tra URL có ?h= không
       const decoded = decodeUrlState(window.location.search, (id) => metaMap.has(id));
       if (decoded.shapes && decoded.shapes.length > 0) {
-        showIntro = false;
         const initialShapes = decoded.shapes.slice(0, 6);
         await Promise.all(initialShapes.map((s) => getShape(s.id)));
         shapesDataVersion++;
@@ -280,29 +286,18 @@
           setTimeout(() => handleFitView(), 60);
         }
 
+        hasUserModifiedBoard = true;
         isInitialized = true;
+        setTimeout(() => {
+          boardContainerEl?.scrollIntoView({ behavior: 'auto' });
+        }, 60);
         return;
       }
     }
 
-    // 3. Không có ?h= và không có ?hanh-trinh= -> kiểm tra localStorage tcn-intro-seen
-    let seen = false;
-    try {
-      seen = Boolean(localStorage.getItem('tcn-intro-seen'));
-    } catch {
-      seen = false;
-    }
-
-    if (!seen) {
-      showIntro = true;
-      // D1: Bảng phía sau render sẵn chặng 1 (sgp + tp-ho-chi-minh)
-      await setupStepShapes('sgp', 'tp-ho-chi-minh');
-      isInitialized = true;
-    } else {
-      showIntro = false;
-      await setupStepShapes('lam-dong', 'bel');
-      isInitialized = true;
-    }
+    // 3. Không có ?h= và không có ?hanh-trinh= -> Chuẩn bị sẵn bảng so sánh với Lâm Đồng và Bỉ
+    await setupStepShapes('lam-dong', 'bel');
+    isInitialized = true;
   });
 
   // Tự động đồng bộ trạng thái bàn lên URL (?h=...) khi ở chế độ tự do
@@ -310,8 +305,8 @@
     const currentShapes = shapes;
     const currentVp = viewport;
 
-    // Không ghi đè URL ?h= khi đang trong tour hoặc đang hiện intro
-    if (isTour || showIntro || !isInitialized || typeof window === 'undefined') return;
+    // Không ghi đè URL ?h= khi đang trong tour hoặc người dùng chưa tương tác với bàn
+    if (isTour || !isInitialized || !hasUserModifiedBoard || typeof window === 'undefined') return;
 
     if (urlDebounceTimer) clearTimeout(urlDebounceTimer);
     urlDebounceTimer = setTimeout(() => {
@@ -599,9 +594,24 @@
   }
 </script>
 
-<div class="to-co-nao-app">
-  <!-- Thanh tìm kiếm & phím tắt trên cùng (khi không trong tour) -->
-  {#if !isTour}
+<div class="to-co-nao-wrapper">
+  <!-- Bước E: Trải nghiệm Bạn nghĩ Việt Nam dài đến mức nào? (dọc Bắc -> Nam) -->
+  <DocVietNam onCompareWithOther={handleCompareWithOtherFromDocVn} />
+
+  <!-- Bảng so sánh hiện có nằm bên dưới: Chế độ so sánh với nước khác -->
+  <section
+    id="che-do-so-sanh"
+    class="to-co-nao-app so-sanh-section"
+    bind:this={boardContainerEl}
+    aria-label="Chế độ so sánh diện tích với nước khác"
+  >
+    <div class="so-sanh-header">
+      <span class="so-sanh-tag">Chế độ nâng cao</span>
+      <h2 class="so-sanh-title">So sánh Việt Nam với nước khác</h2>
+    </div>
+
+    <!-- Thanh tìm kiếm & phím tắt trên cùng (khi không trong tour) -->
+    {#if !isTour}
     <header class="app-topbar">
       <SearchBox
         shapesCount={shapes.length}
@@ -688,14 +698,6 @@
       onCenterWithPrev={handleCenterWithPrev}
       onFitView={handleFitView}
     />
-
-    <!-- D1: Màn mở đầu phủ nhẹ phía trên (không che kín) -->
-    {#if showIntro}
-      <IntroModal
-        onStartTour={() => handleStartTour(1)}
-        onExplore={handleExploreFromIntro}
-      />
-    {/if}
   </div>
 
   <!-- Thanh dưới: Hoặc là TourCard (chế độ Hành trình), hoặc là Footer (tự do) -->
@@ -732,9 +734,47 @@
       onSelectSurprisingPair={handleSelectSurprisingPair}
     />
   {/if}
+  </section>
 </div>
 
 <style>
+  .to-co-nao-wrapper {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .so-sanh-section {
+    padding-top: 1.5rem;
+    border-top: 2px dashed var(--color-border, #e6e1d9);
+  }
+
+  .so-sanh-header {
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .so-sanh-tag {
+    display: inline-block;
+    padding: 0.2rem 0.65rem;
+    background: #f1f5f9;
+    color: #475569;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.35rem;
+  }
+
+  .so-sanh-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--color-text, #1f1d1a);
+  }
+
   .to-co-nao-app {
     position: relative;
     display: flex;

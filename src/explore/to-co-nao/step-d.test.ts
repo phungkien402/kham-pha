@@ -1,4 +1,4 @@
-﻿// src/explore/to-co-nao/step-d.test.ts
+// src/explore/to-co-nao/step-d.test.ts
 // Test toàn diện cho bước D: Màn mở đầu (D1), Hành trình (D2), Fun fact (D3), Bạn có biết? (D4)
 
 import { describe, it, expect, vi } from 'vitest';
@@ -267,20 +267,6 @@ describe('D2: Tween viewport (viewportAnimation.ts)', () => {
 });
 
 describe('UI & A11y của các component D1–D4', () => {
-  it('IntroModal.svelte có đủ dialog, aria, tiêu đề và 2 nút lựa chọn', () => {
-    const code = read('IntroModal.svelte');
-    expect(code).toContain('role="dialog"');
-    expect(code).toContain('aria-modal="true"');
-    expect(code).toContain('aria-labelledby');
-    expect(code).toContain('Việt Nam thật ra to cỡ nào?');
-    expect(code).toContain('Bắt đầu hành trình →');
-    expect(code).toContain('Tự khám phá');
-    expect(code).toContain('tcn-intro-seen');
-    expect(code).toContain('Escape');
-    expect(code).toContain('backdrop-filter');
-    expect(code).toContain('blur(3px)');
-  });
-
   it('TourCard.svelte có tiến độ, nhịp 3 tầng, thoát, vuốt mobile, chặng 10 Tự so sánh', () => {
     const code = read('TourCard.svelte');
     expect(code).toContain('progress-track');
@@ -316,7 +302,6 @@ describe('UI & A11y của các component D1–D4', () => {
 
   it('ToCoNao.svelte kết nối toàn bộ flow D1–D4 mượt mà', () => {
     const code = read('ToCoNao.svelte');
-    expect(code).toContain('IntroModal');
     expect(code).toContain('TourCard');
     expect(code).toContain('parseHanhTrinhUrl');
     expect(code).toContain('setupTourStep');
@@ -324,7 +309,6 @@ describe('UI & A11y của các component D1–D4', () => {
     expect(code).toContain('surprisingPairs');
     expect(code).toContain('funFact');
     expect(code).toContain('funfact-toast-banner');
-    expect(code).toContain('tcn-intro-seen');
     expect(code).toContain('?hanh-trinh=');
   });
 });
