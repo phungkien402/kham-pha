@@ -370,12 +370,15 @@ export function nearestStop(
     | number
     | { lat: number; lng: number }
     | { km?: number; lat?: number; lng?: number; x?: number; y?: number },
-  optionalLng?: number
+  optionalLng?: number,
+  stops: StopPoint[] = STOPS
 ): StopPoint {
+  const stopList = stops && stops.length > 0 ? stops : STOPS;
+
   if (typeof target === 'number' && typeof optionalLng === 'number') {
     let minD = Infinity;
-    let closest = STOPS[0];
-    for (const stop of STOPS) {
+    let closest = stopList[0];
+    for (const stop of stopList) {
       const d = haversine(target, optionalLng, stop.lat, stop.lng);
       if (d < minD) {
         minD = d;
@@ -387,8 +390,8 @@ export function nearestStop(
 
   if (typeof target === 'number') {
     let minDiff = Infinity;
-    let closest = STOPS[0];
-    for (const stop of STOPS) {
+    let closest = stopList[0];
+    for (const stop of stopList) {
       const diff = Math.abs(stop.kmFromStart - target);
       if (diff < minDiff) {
         minDiff = diff;
@@ -400,15 +403,15 @@ export function nearestStop(
 
   if (typeof target === 'object') {
     if (typeof target.lat === 'number' && typeof target.lng === 'number') {
-      return nearestStop(target.lat, target.lng);
+      return nearestStop(target.lat, target.lng, stopList);
     }
     if (typeof target.km === 'number') {
-      return nearestStop(target.km);
+      return nearestStop(target.km, undefined, stopList);
     }
     if (typeof target.x === 'number' && typeof target.y === 'number') {
       let minD = Infinity;
-      let closest = STOPS[0];
-      for (const stop of STOPS) {
+      let closest = stopList[0];
+      for (const stop of stopList) {
         const d = (stop.x - target.x) ** 2 + (stop.y - target.y) ** 2;
         if (d < minD) {
           minD = d;
@@ -419,7 +422,162 @@ export function nearestStop(
     }
   }
 
-  return STOPS[0];
+  return stopList[0];
+}
+
+/**
+ * Nam châm điểm dừng (snap): tìm km của điểm dừng gần nhất với khoảng cách km hiện tại.
+ */
+export function snapToNearestStopKm(
+  currentKm: number,
+  stops: StopPoint[] = STOPS
+): number {
+  return nearestStop(currentKm, undefined, stops).kmFromStart;
+}
+
+export const snapStopKm = snapToNearestStopKm;
+
+/**
+ * Lấy điểm dừng hiển thị: khi đang kéo hoặc xem, điểm dừng luôn là điểm gần nhất theo km
+ * (bỏ hysteresis gây lệch vị trí giữa thẻ, chấm cam và "Đang ở").
+ */
+export function getDisplayedStop(
+  currentKm: number,
+  stops: StopPoint[] = STOPS
+): StopPoint {
+  return nearestStop(currentKm, undefined, stops);
+}
+
+export interface LabelBBox {
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+}
+
+/**
+ * Kiểm tra điểm dừng có nằm gần bờ đông / hướng biển Đông hay không.
+ * Nếu gần bờ đông -> nhãn đặt phía biển (bên phải).
+ */
+export function isNearEastCoast(stop: {
+  lat: number;
+  lng: number;
+  type?: string;
+  x?: number;
+}): boolean {
+  if (stop.type === 'Biển') return true;
+  // Duyên hải Bắc Trung Bộ và Nam Trung Bộ (từ Thanh Hoá vĩ độ ~20.2 xuống Bình Thuận vĩ độ ~10.5)
+  if (stop.lat <= 20.2 && stop.lat >= 10.5 && stop.lng >= 105.8) return true;
+  // Vịnh Bắc Bộ (Quảng Ninh)
+  if (stop.lat > 20.2 && stop.lng >= 106.8) return true;
+  return false;
+}
+
+/**
+ * Xác định phía đặt nhãn: true = bên phải (x > 0, text-anchor="start"), false = bên trái (x < 0, text-anchor="end").
+ * Theo yêu cầu: nhãn đặt phía biển (phải) nếu điểm gần bờ đông.
+ */
+export function isLabelPlacedRight(stop: StopPoint): boolean {
+  if (isNearEastCoast(stop)) return true;
+  // Các điểm ở biên giới Tây Bắc (x < -100) cũng đặt sang phải để không tràn lề bản đồ
+  if (stop.x < -100) return true;
+  return false;
+}
+
+/**
+ * Ước lượng bounding box (BBox) của nhãn tên điểm dừng trong toạ độ SVG.
+ */
+export function estimateLabelBBox(
+  stop: StopPoint,
+  charWidth: number = 9,
+  lineHeight: number = 22
+): { bbox: LabelBBox; isRight: boolean } {
+  const isRight = isLabelPlacedRight(stop);
+  const textWidth = Math.max(30, stop.name.length * charWidth);
+  const halfH = lineHeight / 2;
+
+  if (isRight) {
+    const xMin = stop.x + 14;
+    const xMax = stop.x + 14 + textWidth;
+    const yMin = stop.y - halfH;
+    const yMax = stop.y + halfH;
+    return { bbox: { xMin, xMax, yMin, yMax }, isRight: true };
+  } else {
+    const xMin = stop.x - 14 - textWidth;
+    const xMax = stop.x - 14;
+    const yMin = stop.y - halfH;
+    const yMax = stop.y + halfH;
+    return { bbox: { xMin, xMax, yMin, yMax }, isRight: false };
+  }
+}
+
+/**
+ * Kiểm tra 2 bounding box có va chạm / đè lên nhau không (kèm vùng đệm padding).
+ */
+export function checkBBoxCollision(
+  boxA: LabelBBox,
+  boxB: LabelBBox,
+  padding: number = 4
+): boolean {
+  return !(
+    boxA.xMax + padding < boxB.xMin ||
+    boxA.xMin - padding > boxB.xMax ||
+    boxA.yMax + padding < boxB.yMin ||
+    boxA.yMin - padding > boxB.yMax
+  );
+}
+
+/**
+ * Chọn tập hợp ID các điểm dừng được hiển thị nhãn mà không bị đè lên nhau:
+ * - Luôn hiện nhãn đầy đủ cho điểm hiện tại và 2 điểm kề (trước & sau).
+ * - Các điểm khác chỉ hiện nhãn khi không va chạm (kiểm tra theo bbox ước lượng).
+ * - Ưu tiên các điểm gần điểm hiện tại hơn.
+ */
+export function computeVisibleStopLabels(
+  currentStopId: number,
+  stops: StopPoint[] = STOPS,
+  padding: number = 4
+): Set<number> {
+  if (!stops || stops.length === 0) return new Set();
+
+  const curIdx = stops.findIndex((s) => s.id === currentStopId);
+  const safeIdx = curIdx >= 0 ? curIdx : 0;
+
+  const visibleIds = new Set<number>();
+  const occupiedBoxes: LabelBBox[] = [];
+
+  // 1. Luôn thêm điểm hiện tại và 2 điểm kề
+  const mandatoryIndices = [safeIdx];
+  if (safeIdx > 0) mandatoryIndices.push(safeIdx - 1);
+  if (safeIdx < stops.length - 1) mandatoryIndices.push(safeIdx + 1);
+
+  for (const idx of mandatoryIndices) {
+    const s = stops[idx];
+    visibleIds.add(s.id);
+    occupiedBoxes.push(estimateLabelBBox(s).bbox);
+  }
+
+  // 2. Lấy các điểm còn lại, sắp xếp ưu tiên theo khoảng cách km tới điểm hiện tại
+  const curStop = stops[safeIdx];
+  const others = stops
+    .filter((s) => !visibleIds.has(s.id))
+    .sort(
+      (a, b) =>
+        Math.abs(a.kmFromStart - curStop.kmFromStart) -
+        Math.abs(b.kmFromStart - curStop.kmFromStart)
+    );
+
+  // 3. Duyệt từng điểm, nếu không va chạm bbox với các nhãn đã có thì hiển thị
+  for (const s of others) {
+    const { bbox } = estimateLabelBBox(s);
+    const collides = occupiedBoxes.some((b) => checkBBoxCollision(bbox, b, padding));
+    if (!collides) {
+      visibleIds.add(s.id);
+      occupiedBoxes.push(bbox);
+    }
+  }
+
+  return visibleIds;
 }
 
 /**

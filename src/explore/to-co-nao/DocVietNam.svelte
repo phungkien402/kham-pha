@@ -12,6 +12,11 @@
     NATIONAL_VIEWBOX,
     PROVINCE_NAME_TO_SLUG,
     positionAt,
+    nearestStop,
+    snapToNearestStopKm,
+    getDisplayedStop,
+    computeVisibleStopLabels,
+    isLabelPlacedRight,
     selectStopWithHysteresis,
     regionAt,
     milestonesCrossed,
@@ -49,13 +54,19 @@
   // Kiểm tra cuối hành trình (>= 99%)
   const isFinished = $derived(progress >= 0.99);
 
-  // Điểm dừng hiển thị: có độ trễ (hysteresis) 15% vượt quá trung điểm chặng để không nhảy qua lại khi kéo chậm
+  // Điểm dừng hiển thị: khi kéo, thẻ, chấm cam và "Đang ở" đều theo CÙNG một điểm = điểm dừng gần nhất theo km (bỏ hysteresis gây lệch)
   let currentStopId = $state(STOPS[0].id);
 
   const currentNearest: StopPoint = $derived.by(() => {
-    const prevIdx = currentStopId - 1;
-    return selectStopWithHysteresis(currentPos.km, prevIdx, STOPS, 0.15);
+    return selectStopWithHysteresis(currentPos.km, currentStopId - 1, STOPS, 0);
   });
+
+  // Khoảng cách từ vị trí traveler tới điểm dừng trên thẻ
+  const distToCurrentNearest = $derived(Math.abs(currentPos.km - currentNearest.kmFromStart));
+  const isAtStop = $derived(distToCurrentNearest <= 3);
+
+  // Danh sách ID điểm dừng được hiển thị nhãn không đè lên nhau
+  const visibleLabelIds = $derived(computeVisibleStopLabels(currentNearest.id, STOPS));
 
   // Haptic feedback và cập nhật stop id khi đổi điểm dừng
   $effect(() => {
@@ -262,6 +273,8 @@
 
     return () => {
       cancelAnimationFrame(animId);
+      cancelSnapTween();
+      if (wheelDebounceTimer) clearTimeout(wheelDebounceTimer);
       if (toastTimer) clearTimeout(toastTimer);
     };
   });
@@ -300,14 +313,73 @@
     displayKm = 0;
   }
 
+  let snapTweenAnimId: number | null = null;
+  let wheelDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function cancelSnapTween() {
+    if (snapTweenAnimId !== null) {
+      cancelAnimationFrame(snapTweenAnimId);
+      snapTweenAnimId = null;
+    }
+  }
+
+  function snapToNearest(durationMs: number = 300) {
+    if (isAutoPlaying) return;
+    cancelSnapTween();
+
+    const curKm = currentPos.km;
+    const targetKm = snapToNearestStopKm(curKm, STOPS);
+    const targetProgress = Math.min(1, Math.max(0, targetKm / TOTAL_ROUTE_KM));
+
+    if (prefersReduced || durationMs <= 0) {
+      progress = targetProgress;
+      return;
+    }
+
+    const startProg = progress;
+    if (Math.abs(targetProgress - startProg) < 0.0001) {
+      progress = targetProgress;
+      return;
+    }
+
+    const startTime = performance.now();
+    const stepTween = (now: number) => {
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / durationMs);
+      const ease = 1 - Math.pow(1 - t, 3);
+      progress = startProg + (targetProgress - startProg) * ease;
+      if (t < 1) {
+        snapTweenAnimId = requestAnimationFrame(stepTween);
+      } else {
+        progress = targetProgress;
+        snapTweenAnimId = null;
+      }
+    };
+    snapTweenAnimId = requestAnimationFrame(stepTween);
+  }
+
   function handleRangeInput(e: Event) {
     isAutoPlaying = false;
+    cancelSnapTween();
     const target = e.target as HTMLInputElement;
     progress = parseFloat(target.value);
   }
 
+  function handleRangeRelease() {
+    if (isAutoPlaying) return;
+    snapToNearest(300);
+  }
+
+  function handleRangeKeyUp(e: KeyboardEvent) {
+    if (isAutoPlaying) return;
+    if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'PageDown', 'PageUp'].includes(e.key)) {
+      snapToNearest(300);
+    }
+  }
+
   function handleMapWheel(e: WheelEvent) {
     isAutoPlaying = false;
+    cancelSnapTween();
     e.preventDefault();
     const step = 0.015;
     if (e.deltaY > 0) {
@@ -315,82 +387,90 @@
     } else {
       progress = Math.max(0, progress - step);
     }
+    if (wheelDebounceTimer) clearTimeout(wheelDebounceTimer);
+    wheelDebounceTimer = setTimeout(() => {
+      snapToNearest(300);
+    }, 250);
   }
 
   function jumpToStop(stop: StopPoint) {
     isAutoPlaying = false;
+    cancelSnapTween();
     const targetProgress = Math.min(1, Math.max(0, stop.kmFromStart / TOTAL_ROUTE_KM));
     if (prefersReduced) {
       progress = targetProgress;
     } else {
       const startProg = progress;
       const startTime = performance.now();
-      const dur = 400;
+      const dur = 300;
       const stepTween = (now: number) => {
         const elapsed = now - startTime;
         const t = Math.min(1, elapsed / dur);
         const ease = 1 - Math.pow(1 - t, 3);
         progress = startProg + (targetProgress - startProg) * ease;
         if (t < 1) {
-          requestAnimationFrame(stepTween);
+          snapTweenAnimId = requestAnimationFrame(stepTween);
+        } else {
+          progress = targetProgress;
+          snapTweenAnimId = null;
         }
       };
-      requestAnimationFrame(stepTween);
+      snapTweenAnimId = requestAnimationFrame(stepTween);
     }
+  }
+
+  function jumpToNextStopDirect() {
+    isAutoPlaying = false;
+    cancelSnapTween();
+    const curStop = nearestStop(currentPos.km, undefined, STOPS);
+    const curIdx = STOPS.findIndex((s) => s.id === curStop.id);
+    const nextIdx = Math.min(STOPS.length - 1, curIdx + 1);
+    const nextStop = STOPS[nextIdx];
+    progress = Math.min(1, Math.max(0, nextStop.kmFromStart / TOTAL_ROUTE_KM));
+  }
+
+  function jumpToPrevStopDirect() {
+    isAutoPlaying = false;
+    cancelSnapTween();
+    const curStop = nearestStop(currentPos.km, undefined, STOPS);
+    const curIdx = STOPS.findIndex((s) => s.id === curStop.id);
+    const prevIdx = Math.max(0, curIdx - 1);
+    const prevStop = STOPS[prevIdx];
+    progress = Math.min(1, Math.max(0, prevStop.kmFromStart / TOTAL_ROUTE_KM));
   }
 
   function jumpToNextStop() {
-    isAutoPlaying = false;
-    const curKm = currentPos.km;
-    const next = STOPS.find((s) => s.kmFromStart > curKm + 5);
-    if (next) {
-      jumpToStop(next);
-    } else {
-      progress = 1;
-    }
+    jumpToNextStopDirect();
   }
 
   function jumpToPrevStop() {
-    isAutoPlaying = false;
-    const curKm = currentPos.km;
-    const prev = [...STOPS].reverse().find((s) => s.kmFromStart < curKm - 5);
-    if (prev) {
-      jumpToStop(prev);
-    } else {
-      progress = 0;
-    }
+    jumpToPrevStopDirect();
   }
 
-  // Điều khiển bàn phím
+  // Điều khiển bàn phím: PageUp/PageDown/↑↓ nhảy thẳng điểm dừng trước/sau
   function handleKeyDown(e: KeyboardEvent) {
     const active = document.activeElement;
     const isDocFocused = active?.closest('.doc-viet-nam');
     if (!isDocFocused && active !== document.body) return;
 
-    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+    if (e.key === 'ArrowDown' || e.key === 'PageDown') {
       e.preventDefault();
-      isAutoPlaying = false;
-      progress = Math.min(1, progress + 0.008);
-    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      jumpToNextStopDirect();
+    } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
       e.preventDefault();
-      isAutoPlaying = false;
-      progress = Math.max(0, progress - 0.008);
-    } else if (e.key === 'PageDown') {
-      e.preventDefault();
-      jumpToNextStop();
-    } else if (e.key === 'PageUp') {
-      e.preventDefault();
-      jumpToPrevStop();
+      jumpToPrevStopDirect();
     } else if (e.key === 'Home') {
       e.preventDefault();
       isAutoPlaying = false;
+      cancelSnapTween();
       progress = 0;
     } else if (e.key === 'End') {
       e.preventDefault();
       isAutoPlaying = false;
+      cancelSnapTween();
       progress = 1;
     } else if (e.key === ' ') {
-      if (active === document.body || active?.classList.contains('desktop-slider')) {
+      if (active === document.body || active?.classList.contains('desktop-slider') || active?.classList.contains('mobile-slider')) {
         e.preventDefault();
         toggleAutoPlay();
       }
@@ -404,6 +484,7 @@
   function handleTouchStart(e: TouchEvent) {
     if (e.touches.length === 1) {
       isAutoPlaying = false;
+      cancelSnapTween();
       touchStartY = e.touches[0].clientY;
       touchStartProg = progress;
     }
@@ -411,10 +492,15 @@
 
   function handleTouchMove(e: TouchEvent) {
     if (e.touches.length === 1) {
+      cancelSnapTween();
       const deltaY = e.touches[0].clientY - touchStartY;
       const progressDelta = deltaY / 420;
       progress = Math.max(0, Math.min(1, touchStartProg + progressDelta));
     }
+  }
+
+  function handleTouchEnd() {
+    snapToNearest(300);
   }
 
   // Kiểm tra tỉnh có gần vị trí hiện tại để hiện nhãn nhỏ khi zoom
@@ -663,6 +749,8 @@
         onwheel={handleMapWheel}
         ontouchstart={handleTouchStart}
         ontouchmove={handleTouchMove}
+        ontouchend={handleTouchEnd}
+        ontouchcancel={handleTouchEnd}
         role="region"
         aria-label="Bản đồ tương tác tuyến hành trình Việt Nam"
       >
@@ -778,25 +866,37 @@
               tabindex="0"
               aria-label="Điểm dừng #{stop.id}: {stop.name}"
             >
-              <!-- Vòng pulse khi đang ở điểm này -->
               {#if isCurrent}
-                <circle r="22" class="stop-pulse-ring" />
+                {#if isAtStop}
+                  <!-- Khi trùng tâm (sau khi nam châm hút): ẩn chấm cam, traveler có vòng pulse -->
+                {:else}
+                  <!-- Khi traveler cách điểm dừng trên thẻ > 3 km: vòng rỗng nét đứt có chữ nhỏ "sắp tới"/"vừa qua" -->
+                  <circle r="9" class="stop-dashed-ring" />
+                  <text
+                    x="0"
+                    y="22"
+                    text-anchor="middle"
+                    class="stop-status-subtext"
+                  >
+                    {currentPos.km < stop.kmFromStart ? 'sắp tới' : 'vừa qua'}
+                  </text>
+                {/if}
+              {:else}
+                <!-- Chấm điểm dừng thông thường (tem hành trình: sáng đèn khi đã qua) -->
+                <circle
+                  r={isPassed ? 6 : 4.5}
+                  class="stop-circle"
+                  class:passed={isPassed}
+                />
               {/if}
 
-              <!-- Chấm điểm dừng (tem hành trình) -->
-              <circle
-                r={isCurrent ? 8.5 : isPassed ? 6 : 4.5}
-                class="stop-circle"
-                class:passed={isPassed}
-                class:current={isCurrent}
-              />
-
               <!-- Tên điểm dừng chính hoặc điểm đang xem -->
-              {#if isCurrent || idx === 0 || idx === 31 || (isZoomed && Math.abs(stop.id - currentNearest.id) <= 2)}
+              {#if visibleLabelIds.has(stop.id)}
+                {@const isRight = isLabelPlacedRight(stop)}
                 <text
-                  x={stop.x > 100 ? -12 : 14}
+                  x={isRight ? 14 : -14}
                   y="4"
-                  text-anchor={stop.x > 100 ? 'end' : 'start'}
+                  text-anchor={isRight ? 'start' : 'end'}
                   class="stop-marker-text"
                   class:active-text={isCurrent}
                 >
@@ -811,6 +911,10 @@
             class="traveler-group"
             transform="translate({currentPos.x}, {currentPos.y}) rotate({currentPos.angleDeg})"
           >
+            {#if isAtStop}
+              <!-- Khi trùng tâm điểm dừng: traveler có vòng pulse duy nhất -->
+              <circle r="24" class="traveler-stop-pulse" />
+            {/if}
             <circle r="26" fill="url(#travelerHalo)" class="traveler-halo" />
             <g class="traveler-vehicle" class:moving={isAutoPlaying}>
               <circle r="8" class="traveler-body" />
@@ -861,6 +965,10 @@
             step="0.001"
             value={progress}
             oninput={handleRangeInput}
+            onpointerup={handleRangeRelease}
+            onpointercancel={handleRangeRelease}
+            onchange={handleRangeRelease}
+            onkeyup={handleRangeKeyUp}
             class="desktop-slider"
             aria-label="Hành trình dọc Việt Nam"
             aria-valuetext={ariaValueText}
@@ -902,6 +1010,11 @@
         step="0.001"
         value={progress}
         oninput={handleRangeInput}
+        onpointerup={handleRangeRelease}
+        onpointercancel={handleRangeRelease}
+        onchange={handleRangeRelease}
+        onkeyup={handleRangeKeyUp}
+        ontouchend={handleRangeRelease}
         class="mobile-slider"
         aria-label="Hành trình dọc Việt Nam"
         aria-valuetext={ariaValueText}
@@ -1782,7 +1895,28 @@
     r: 9;
   }
 
-  .stop-pulse-ring {
+  .stop-dashed-ring {
+    fill: rgba(245, 158, 11, 0.08);
+    stroke: #f59e0b;
+    stroke-width: 2.5;
+    stroke-dasharray: 4 3;
+  }
+
+  .stop-status-subtext {
+    font-size: 11px;
+    font-weight: 700;
+    fill: #b45309;
+    paint-order: stroke;
+    stroke: #ffffff;
+    stroke-width: 3.5px;
+    stroke-linejoin: round;
+    letter-spacing: 0.3px;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .stop-pulse-ring,
+  .traveler-stop-pulse {
     fill: none;
     stroke: #f59e0b;
     stroke-width: 2.5;
