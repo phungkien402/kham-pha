@@ -7,6 +7,7 @@ import {
   calculateGridLayout,
   calculateClusterPositions,
   calculateCameraFit,
+  formatClusterLabel,
   getHighestMilestone,
   getNewMilestonesGrouped,
 } from './stage3d';
@@ -122,6 +123,18 @@ describe('Sân khấu 3D — Hàm thuần (stage3d)', () => {
       }
     });
 
+    it('khoảng cách giữa tâm các cụm nhỏ giãn rộng để nhãn không đè nhau', () => {
+      const input = [
+        { id: 'tra-da', width: 1.6, depth: 1.6 },
+        { id: 'pho', width: 2.0, depth: 2.0 },
+      ];
+      const res = calculateClusterPositions(input);
+      const c1 = res.clusters[0];
+      const c2 = res.clusters[1];
+      const centerDist = Math.abs(c2.center.x - c1.center.x);
+      expect(centerDist).toBeGreaterThanOrEqual(8.5);
+    });
+
     it('totalBounds bao quát trọn vẹn mọi cụm', () => {
       const input = [
         { id: 'a', width: 4, depth: 5 },
@@ -153,9 +166,42 @@ describe('Sân khấu 3D — Hàm thuần (stage3d)', () => {
       const fitMobile = calculateCameraFit(bounds, 375, 667);
       expect(fitMobile.frustumSize).toBeGreaterThan(fitDesktop.frustumSize);
     });
+
+    it('khi chỉ có 1 hoặc 2 cụm thì zoom gần hơn (frustum nhỏ hoặc zoom lớn)', () => {
+      const singleBounds = { minX: -1.5, maxX: 1.5, minZ: -1.5, maxZ: 1.5 };
+      const fit1 = calculateCameraFit(singleBounds, 1200, 800, 1.18, 1);
+      const fit2 = calculateCameraFit(singleBounds, 1200, 800, 1.18, 2);
+      const fitMany = calculateCameraFit(singleBounds, 1200, 800, 1.18, 5);
+
+      expect(fit1.zoom).toBeGreaterThan(fit2.zoom);
+      expect(fit2.zoom).toBeGreaterThanOrEqual(fitMany.zoom);
+    });
   });
 
-  describe('5. Gộp thẻ mốc % (getHighestMilestone & getNewMilestonesGrouped)', () => {
+  describe('5. Định dạng nhãn cụm 3D không bị lặp chữ (formatClusterLabel)', () => {
+    it('dùng mẫu "<số lượng> × <tên> (<tổng tiền>)"', () => {
+      const metro = {
+        ten: 'Tuyến metro số 1 Bến Thành – Suối Tiên',
+        donVi: 'tuyến',
+        gia: 43700000000000,
+      };
+      const label = formatClusterLabel(1, metro);
+      expect(label).toBe('1 × Tuyến metro số 1 Bến Thành – Suối Tiên (43,7 nghìn tỷ đ)');
+      expect(label).not.toContain('1 tuyến Tuyến');
+    });
+
+    it('định dạng số lượng lớn có phân cách hàng nghìn', () => {
+      const traDa = {
+        ten: 'Cốc trà đá vỉa hè',
+        donVi: 'cốc',
+        gia: 4000,
+      };
+      const label = formatClusterLabel(1000, traDa);
+      expect(label).toBe('1.000 × Cốc trà đá vỉa hè (4 triệu đ)');
+    });
+  });
+
+  describe('6. Gộp thẻ mốc % (getHighestMilestone & getNewMilestonesGrouped)', () => {
     it('chọn đúng mốc có tiLe cao nhất', () => {
       const subset = [MILESTONES[0], MILESTONES[2], MILESTONES[1]]; // 0.01%, 1%, 0.1%
       const highest = getHighestMilestone(subset);

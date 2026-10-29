@@ -333,6 +333,10 @@
     background: var(--color-bg, #faf8f5);
     display: flex;
     flex-direction: column;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    box-sizing: border-box;
   }
 
   /* THANH ĐỈNH ĐIỀU KHIỂN & SỐ DƯ KIỂU NEAL.FUN */
@@ -345,11 +349,15 @@
     border-bottom: 1px solid var(--color-border, #e6e1d9);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
     padding: 0.85rem 1.25rem;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .top-bar-inner {
     max-width: 1440px;
     margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -462,17 +470,21 @@
     display: grid;
     grid-template-columns: 1fr 380px;
     gap: 1.25rem;
+    align-items: start;
     min-height: calc(100vh - 120px);
   }
 
   .stage-column {
     display: flex;
     flex-direction: column;
-    min-height: 560px;
+    height: calc(100vh - 110px);
+    position: sticky;
+    top: 96px;
+    min-height: 520px;
   }
 
   .sidebar-column {
-    height: calc(100vh - 140px);
+    height: calc(100vh - 110px);
     position: sticky;
     top: 96px;
   }
@@ -612,12 +624,14 @@
 
   @media (max-width: 640px) {
     .stage-top-bar {
-      padding: 0.65rem 0.75rem;
+      padding: 0.65rem 0.5rem;
     }
 
     .top-bar-inner {
       flex-direction: column;
       gap: 0.5rem;
+      width: 100%;
+      max-width: 100%;
     }
 
     .balance-amount {
@@ -626,13 +640,19 @@
 
     .top-actions-cluster {
       width: 100%;
+      max-width: 100%;
+      display: flex;
+      flex-wrap: wrap;
       justify-content: center;
       gap: 0.35rem;
+      padding: 0.1rem 0;
+      box-sizing: border-box;
     }
 
     .top-btn {
-      padding: 0.35rem 0.6rem;
+      padding: 0.35rem 0.55rem;
       font-size: 0.725rem;
+      white-space: nowrap;
     }
 
     .products-grid {

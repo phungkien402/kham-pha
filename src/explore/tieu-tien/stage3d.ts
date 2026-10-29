@@ -2,7 +2,7 @@
 // Các hàm thuần tính toán bố cục không gian 3D và thuật toán cho sân khấu /tieu-tien
 
 import type { Milestone } from './types';
-import { getNewMilestones } from './logic';
+import { getNewMilestones, formatVietnameseCurrency } from './logic';
 
 export interface DisplayCountResult {
   displayCount: number;
@@ -126,12 +126,12 @@ export function calculateGridLayout(count: number, spacing = 2.0): GridLayoutRes
 
 /**
  * 3. Sắp xếp vị trí các cụm sao cho không chồng lấn (non-overlapping)
- * Sắp xếp từ trái sang phải theo trục X (hoặc isometric layout)
- * Mỗi cụm cách cụm trước ít nhất một khoảng gap
+ * Sắp xếp từ trái sang phải theo trục X
+ * Khoảng cách giữa 2 cụm (gap) tự động giãn theo kích thước cụm + bề rộng nhãn để nhãn không đè nhau
  */
 export function calculateClusterPositions(
   clusters: Array<{ id: string; width: number; depth: number }>,
-  gap = 3.5
+  baseGap = 4.0
 ): ClustersPlacementResult {
   if (!clusters || clusters.length === 0) {
     return {
@@ -152,7 +152,12 @@ export function calculateClusterPositions(
       currentX = halfW;
     } else {
       const prev = items[i - 1];
-      currentX = prev.bounds.maxX + gap + halfW;
+      // Gap động: đảm bảo khoảng cách giữa tâm 2 nhãn liền kề đủ rộng (~8.5 đơn vị 3D)
+      const minCenterDist = 8.5;
+      const neededGap = Math.max(0, minCenterDist - (prev.width / 2 + halfW));
+      const effectiveGap = Math.max(baseGap, neededGap);
+
+      currentX = prev.bounds.maxX + effectiveGap + halfW;
     }
 
     const bounds: ClusterBounds = {
@@ -202,12 +207,15 @@ export function calculateClusterPositions(
 
 /**
  * 4. Tính toán góc nhìn và zoom camera Orthographic bao trọn toàn bộ cụm
+ * Lấp ~80% khung (padding nhỏ ~1.18).
+ * Khi chỉ có 1-2 cụm thì zoom gần hơn.
  */
 export function calculateCameraFit(
   totalBounds: ClusterBounds,
   viewportWidth: number,
   viewportHeight: number,
-  padding = 1.3
+  padding = 1.18,
+  clusterCount = 1
 ): CameraFitResult {
   const target = {
     x: (totalBounds.minX + totalBounds.maxX) / 2,
@@ -215,29 +223,54 @@ export function calculateCameraFit(
     z: (totalBounds.minZ + totalBounds.maxZ) / 2,
   };
 
-  const spanX = Math.max(4, totalBounds.maxX - totalBounds.minX);
-  const spanZ = Math.max(4, totalBounds.maxZ - totalBounds.minZ);
-  const spanY = Math.max(2, (totalBounds.maxY ?? 3) - (totalBounds.minY ?? 0));
+  const spanX = Math.max(1.5, totalBounds.maxX - totalBounds.minX);
+  const spanZ = Math.max(1.5, totalBounds.maxZ - totalBounds.minZ);
+  const spanY = Math.max(1.5, (totalBounds.maxY ?? 3) - (totalBounds.minY ?? 0));
 
   const vpW = Math.max(1, viewportWidth);
   const vpH = Math.max(1, viewportHeight);
   const aspect = vpW / vpH;
 
   // Chiếu isometric chuẩn: đường chéo X-Z
-  const projWidth = (spanX + spanZ) * 0.85;
-  const projHeight = (spanX + spanZ) * 0.5 + spanY;
+  const projWidth = (spanX + spanZ) * 0.72;
+  const projHeight = (spanX + spanZ) * 0.42 + spanY;
 
-  // Kích thước frustum cần bao phủ
-  const requiredFrustumH = Math.max(projHeight, projWidth / aspect) * padding;
-  const frustumSize = Math.max(10, requiredFrustumH);
+  // Kích thước frustum cần bao phủ để lấp ~80-85% khung
+  const fitPadding = Math.min(padding, 1.25);
+  const requiredFrustumH = Math.max(projHeight, projWidth / aspect) * fitPadding;
 
-  const zoom = 1.0;
+  // Khi chỉ có 1–2 cụm thì zoom gần hơn
+  let minFrustum = 3.5;
+  let zoom = 1.0;
+  if (clusterCount === 1) {
+    minFrustum = 3.2;
+    zoom = 1.15;
+  } else if (clusterCount === 2) {
+    minFrustum = 4.8;
+    zoom = 1.05;
+  }
+
+  const frustumSize = Math.max(minFrustum, requiredFrustumH);
 
   return {
     target,
     frustumSize,
     zoom,
   };
+}
+
+/**
+ * Định dạng nhãn cụm 3D: mẫu "<số lượng> × <tên> (<tổng tiền>)"
+ * Tránh lặp từ như "1 tuyến Tuyến metro số 1..."
+ */
+export function formatClusterLabel(
+  count: number,
+  item: { ten: string; donVi?: string; gia: number }
+): string {
+  const countStr = count.toLocaleString('vi-VN');
+  const totalCost = count * item.gia;
+  const costStr = formatVietnameseCurrency(totalCost, true);
+  return `${countStr} × ${item.ten} (${costStr})`;
 }
 
 /**

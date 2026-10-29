@@ -9,6 +9,7 @@
     calculateGridLayout,
     calculateClusterPositions,
     calculateCameraFit,
+    formatClusterLabel,
     isWebGLAvailable,
     type ClusterLayoutItem,
     type ClusterBounds,
@@ -321,11 +322,15 @@
       if (count <= 0) continue;
 
       const disp = getDisplayCount(count, 400);
-      const totalCost = count * item.gia;
 
-      // Chiếu toạ độ chân cụm 3D sang màn hình
+      // Điểm mép trước hướng về phía camera (+X, +Z)
+      // delta = (halfW + halfD) / 2 + 0.6 đảm bảo chiếu ra đúng tâm ngang và ở phía trước mô hình
+      const halfW = cluster.width / 2;
+      const halfD = cluster.depth / 2;
+      const delta = (halfW + halfD) / 2 + 0.6;
+
       if (!THREE) continue;
-      const p3d = new THREE.Vector3(cluster.center.x, 0, cluster.bounds.maxZ + 0.8);
+      const p3d = new THREE.Vector3(cluster.center.x + delta, 0, cluster.center.z + delta);
       p3d.project(camera);
 
       // Điểm nằm trước màn hình (trong frustum)
@@ -335,7 +340,7 @@
 
       newLabels.push({
         id: cluster.id,
-        text: `${count.toLocaleString('vi-VN')} ${item.donVi} ${item.ten} (${formatVietnameseCurrency(totalCost, true)})`,
+        text: formatClusterLabel(count, item),
         badge: disp.label,
         x: screenX,
         y: screenY,
@@ -400,7 +405,8 @@
       screenLabels = [];
       currentBounds = { minX: -6, maxX: 6, minZ: -4, maxZ: 4 };
       desiredTarget = { x: 0, y: 0, z: 0 };
-      desiredFrustumSize = 20;
+      desiredFrustumSize = 14;
+      desiredZoom = 1.0;
       triggerRender();
       return;
     }
@@ -512,10 +518,12 @@
         currentBounds,
         containerEl.clientWidth || 800,
         containerEl.clientHeight || 500,
-        1.25
+        1.18,
+        activeCartItems.length
       );
       desiredTarget = fit.target;
       desiredFrustumSize = fit.frustumSize;
+      desiredZoom = fit.zoom;
     }
 
     triggerRender();
@@ -537,11 +545,12 @@
       currentBounds,
       containerEl.clientWidth || 800,
       containerEl.clientHeight || 500,
-      1.25
+      1.18,
+      activeCartItems.length
     );
     desiredTarget = fit.target;
     desiredFrustumSize = fit.frustumSize;
-    desiredZoom = 1.0;
+    desiredZoom = fit.zoom;
     triggerRender();
   }
 
@@ -629,7 +638,7 @@
         {#if label.visible}
           <div
             class="cluster-label"
-            style="transform: translate(-50%, -100%) translate({label.x}px, {label.y}px);"
+            style="transform: translate(-50%, 6px) translate({label.x}px, {label.y}px);"
             onclick={() => onSelectCard?.(label.id)}
           >
             <span class="label-name">{label.text}</span>
@@ -641,49 +650,42 @@
       {/each}
     </div>
 
-    <!-- Hướng dẫn điều khiển mờ góc dưới -->
-    <div class="controls-overlay">
-      <div class="zoom-controls">
-        <button
-          type="button"
-          class="overlay-btn"
-          onclick={zoomIn}
-          title="Phóng to sân khấu (+)"
-          aria-label="Phóng to sân khấu"
-        >
-          +
-        </button>
-        <button
-          type="button"
-          class="overlay-btn"
-          onclick={zoomOut}
-          title="Thu nhỏ sân khấu (−)"
-          aria-label="Thu nhỏ sân khấu"
-        >
-          −
-        </button>
-        <button
-          type="button"
-          class="overlay-btn recenter-btn"
-          onclick={recenter}
-          title="Căn giữa toàn bộ sân khấu"
-          aria-label="Căn giữa toàn bộ sân khấu"
-        >
-          🎯 Căn giữa
-        </button>
-      </div>
+    <!-- Hướng dẫn điều khiển mờ góc dưới (chỉ hiện khi có vật phẩm) -->
+    {#if activeCartItems.length > 0}
+      <div class="controls-overlay">
+        <div class="zoom-controls">
+          <button
+            type="button"
+            class="overlay-btn"
+            onclick={zoomIn}
+            title="Phóng to sân khấu (+)"
+            aria-label="Phóng to sân khấu"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            class="overlay-btn"
+            onclick={zoomOut}
+            title="Thu nhỏ sân khấu (−)"
+            aria-label="Thu nhỏ sân khấu"
+          >
+            −
+          </button>
+        </div>
 
-      <div class="pan-hint">
-        <span>🖱️ Kéo để xoay / dịch nhẹ · Cuộn để phóng to</span>
+        <div class="pan-hint">
+          <span>🖱️ Kéo để xoay / dịch nhẹ · Cuộn để phóng to</span>
+        </div>
       </div>
-    </div>
+    {/if}
 
     {#if activeCartItems.length === 0}
       <div class="empty-stage-prompt">
         <div class="empty-icon">🏗️</div>
         <div class="empty-title">Sân khấu 3D đang chờ kiến thiết</div>
         <p class="empty-sub">
-          Chọn vật phẩm ở thanh Mua sắm bên phải để xem các mô hình 3D xuất hiện trực tiếp tại đây!
+          Chọn vật phẩm ở thanh Mua sắm <span class="dir-desktop">bên phải</span><span class="dir-mobile">bên dưới</span> để xem các mô hình 3D xuất hiện trực tiếp tại đây!
         </p>
       </div>
     {/if}
@@ -865,6 +867,24 @@
     text-align: center;
     color: #78716c;
     font-size: 0.875rem;
+  }
+
+  .dir-desktop {
+    display: inline;
+  }
+
+  .dir-mobile {
+    display: none;
+  }
+
+  @media (max-width: 1024px) {
+    .dir-desktop {
+      display: none;
+    }
+
+    .dir-mobile {
+      display: inline;
+    }
   }
 
   @media (max-width: 768px) {
